@@ -3,7 +3,7 @@
 export interface AdminEndpointDoc {
   method: string;
   path: string;
-  auth: "admin" | "none";
+  auth: "admin" | "admin session" | "none";
   description: string;
   body?: Record<string, unknown>;
   query?: Record<string, string>;

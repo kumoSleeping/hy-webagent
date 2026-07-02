@@ -70,6 +70,18 @@ export async function findLastUsedModelFromSessions(
   return latest;
 }
 
+async function authJsonHasCredentials(filePath: string): Promise<boolean> {
+  try {
+    const parsed = JSON.parse(await fs.readFile(filePath, "utf-8")) as AuthJson;
+    if (!parsed || typeof parsed !== "object") return false;
+    return Object.values(parsed).some(
+      (cred) => cred?.type === "api_key" && typeof cred.key === "string" && cred.key.trim().length > 0
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function copySeedFileIfMissing(target: string, source: string): Promise<void> {
   try {
     await fs.access(target);
@@ -84,6 +96,19 @@ async function copySeedFileIfMissing(target: string, source: string): Promise<vo
   }
   await fs.copyFile(source, target);
   await fs.chmod(target, 0o600);
+}
+
+/** Seed auth.json when missing or empty ({}), e.g. after a failed first deploy. */
+async function seedAgentAuthFromGlobal(agentAuthPath: string, globalAuthPath: string): Promise<void> {
+  if (await authJsonHasCredentials(agentAuthPath)) return;
+  try {
+    await fs.access(globalAuthPath);
+  } catch {
+    await writeEmptyAuthIfMissing(agentAuthPath);
+    return;
+  }
+  await fs.copyFile(globalAuthPath, agentAuthPath);
+  await fs.chmod(agentAuthPath, 0o600);
 }
 
 async function writeEmptyAuthIfMissing(target: string): Promise<void> {
@@ -244,7 +269,9 @@ export async function ensureUserAgentDir(
   const globalDir = globalAgentDir();
   const seedAuthFromGlobal = options?.seedAuthFromGlobal !== false;
   if (seedAuthFromGlobal) {
-    await copySeedFileIfMissing(path.join(agentDir, "auth.json"), path.join(globalDir, "auth.json"));
+    const agentAuthPath = path.join(agentDir, "auth.json");
+    const globalAuthPath = path.join(globalDir, "auth.json");
+    await seedAgentAuthFromGlobal(agentAuthPath, globalAuthPath);
   } else {
     await writeEmptyAuthIfMissing(path.join(agentDir, "auth.json"));
   }

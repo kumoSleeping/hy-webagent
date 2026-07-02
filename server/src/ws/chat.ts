@@ -184,6 +184,7 @@ export function handleChatWs(
   }
 
   let activePiSessionId = piSessionId;
+  let rehydratePromise: Promise<void> | null = null;
   let btwActive = false;
   let btwInFlight = false;
   /** Active /btw question — attached to streamed btw:* events from onPiEvent. */
@@ -191,7 +192,8 @@ export function handleChatWs(
 
   async function executeBtwAsk(question: string) {
     const trimmed = question.trim();
-    const sid = getActiveSessionId();
+    const session = await ensureSessionReady();
+    const sid = session?.sessionId;
     if (!sid) {
       send({ type: "btw:error", payload: { question: trimmed, message: "No active session" } });
       return;
@@ -265,7 +267,18 @@ export function handleChatWs(
   }
 
   function getActiveSessionId(): string | undefined {
-    return getActiveSession()?.sessionId || activePiSessionId;
+    return getActiveSession()?.sessionId;
+  }
+
+  async function ensureSessionReady(): Promise<NonNullable<ReturnType<typeof getActiveSession>> | undefined> {
+    if (rehydratePromise) {
+      try {
+        await rehydratePromise;
+      } catch {
+        return undefined;
+      }
+    }
+    return getActiveSession();
   }
 
   const existing = getActiveSession();
@@ -416,7 +429,7 @@ export function handleChatWs(
     sendHistorySnapshot();
   } else if (piSessionId) {
     // Server restarted or session evicted — rehydrate from client's piSessionId.
-    void (async () => {
+    rehydratePromise = (async () => {
       try {
         const workspacePath = isolator.getUserWorkspace(userId);
         const ps = await sessionManager.createSession(userId, workspacePath, onPiEvent, piSessionId);
@@ -425,11 +438,18 @@ export function handleChatWs(
         attachStatusListener(ps.sessionId);
         sendUiSnapshot();
         sendHistorySnapshot();
+        log.info("session rehydrated", { userId, piSessionId });
       } catch (err) {
         log.error(`session rehydrate failed: ${(err as Error).message}`, { userId, piSessionId });
+        throw err;
       }
     })();
+    void rehydratePromise.finally(() => {
+      rehydratePromise = null;
+    });
   }
+
+  log.info("ws connected", { userId, piSessionId: activePiSessionId ?? null });
 
   ws.on("message", async (raw) => {
     let msg: WSMessage;
@@ -488,9 +508,16 @@ export function handleChatWs(
             return;
           }
           log.info(`prompt: ${result.clean.slice(0, 100)}`, { userId });
-          const promptSessionId = getActiveSessionId();
-          if (!promptSessionId) {
-            send({ type: "chat:error", payload: { message: "No active session. Create a new chat first." } });
+          const promptSession = await ensureSessionReady();
+          if (!promptSession) {
+            send({
+              type: "chat:error",
+              payload: {
+                message: rehydratePromise
+                  ? "Session is still loading. Wait a moment and try again."
+                  : "No active session. Create a new chat first.",
+              },
+            });
             return;
           }
 
@@ -505,7 +532,7 @@ export function handleChatWs(
             return;
           }
 
-          await sessionManager.sendPrompt(promptSessionId, result.clean, images);
+          await sessionManager.sendPrompt(promptSession.sessionId, result.clean, images);
           break;
         }
         case "btw:ask": {

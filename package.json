@@ -16,7 +16,8 @@
     "start": "cd server && npm start",
     "prod": "npm run build && npm run start",
     "admin": "cd server && npm run admin --",
-    "sync:pi-local": "bash scripts/sync-pi-local.sh"
+    "sync:pi-local": "bash scripts/sync-pi-local.sh",
+    "update:server": "bash scripts/update-server.sh"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

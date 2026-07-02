@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DefaultResourceLoader } from "@earendil-works/pi-coding-agent";
-import type { DefaultResourceLoaderOptions } from "@earendil-works/pi-coding-agent";
 import { buildSecuritySystemPrompt } from "../security.js";
 import { createAgentSandboxContext, type AgentSandboxContext } from "./agent-sandbox.js";
 import { createPlatformSandboxFactory } from "./extensions/platform-sandbox.js";
@@ -50,12 +49,11 @@ export function assertPlatformRulesLoaded(systemPrompt: string): void {
   }
 }
 
-export function getPlatformResourceLoaderOptions(): Pick<
-  DefaultResourceLoaderOptions,
-  "appendSystemPromptOverride"
-> {
+export function getPlatformResourceLoaderOptions(): {
+  appendSystemPromptOverride: (base: string[]) => string[];
+} {
   return {
-    appendSystemPromptOverride: (base) => {
+    appendSystemPromptOverride: (base: string[]) => {
       // appendSystemPromptOverride must stay sync; platform text is cached after first load.
       if (!cachedPlatformSystemMd) {
         throw new Error("Platform SYSTEM.md not loaded — call createPlatformResourceLoader first");

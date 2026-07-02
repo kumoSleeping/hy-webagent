@@ -11,6 +11,16 @@ function utcToday(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function routeParam(value: string | string[]): string {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function resolveUser(authSystem: AuthSystem, idOrUsername: string) {
+  const byId = authSystem.getUser(idOrUsername);
+  if (byId) return byId;
+  return authSystem.findUserByUsername(idOrUsername);
+}
+
 async function listAdminSkillNames(): Promise<string[]> {
   try {
     const entries = await fs.readdir(ADMIN_SKILLS_DIR, { withFileTypes: true });
@@ -67,7 +77,7 @@ export function createAdminRouter(
   });
 
   router.get("/users/:userId", (req, res) => {
-    const user = authSystem.getUser(req.params.userId);
+    const user = resolveUser(authSystem, routeParam(req.params.userId));
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -85,7 +95,12 @@ export function createAdminRouter(
 
   router.patch("/users/:userId", (req, res) => {
     try {
-      const user = authSystem.updateUser(req.params.userId, req.body ?? {});
+      const existing = resolveUser(authSystem, routeParam(req.params.userId));
+      if (!existing) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      const user = authSystem.updateUser(existing.userId, req.body ?? {});
       res.json({
         user,
         adminSkillsSynced: user.role === "admin",
@@ -102,7 +117,12 @@ export function createAdminRouter(
 
   router.delete("/users/:userId", (req, res) => {
     try {
-      authSystem.deleteUser(req.params.userId);
+      const existing = resolveUser(authSystem, routeParam(req.params.userId));
+      if (!existing) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      authSystem.deleteUser(existing.userId);
       res.json({ ok: true });
     } catch (err) {
       const message = (err as Error).message;
@@ -112,7 +132,12 @@ export function createAdminRouter(
 
   router.post("/users/:userId/rotate-key", async (req, res) => {
     try {
-      const result = await authSystem.rotateApiKey(req.params.userId);
+      const existing = resolveUser(authSystem, routeParam(req.params.userId));
+      if (!existing) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      const result = await authSystem.rotateApiKey(existing.userId);
       res.json(result);
     } catch (err) {
       const message = (err as Error).message;
@@ -122,8 +147,13 @@ export function createAdminRouter(
 
   router.post("/users/:userId/add-budget", (req, res) => {
     try {
+      const existing = resolveUser(authSystem, routeParam(req.params.userId));
+      if (!existing) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
       const amountUsd = Number(req.body?.amountUsd);
-      const user = authSystem.addBudget(req.params.userId, amountUsd);
+      const user = authSystem.addBudget(existing.userId, amountUsd);
       res.json({ user, addedUsd: amountUsd });
     } catch (err) {
       const message = (err as Error).message;
@@ -137,7 +167,7 @@ export function createAdminRouter(
   });
 
   router.get("/usage/:userId", (req, res) => {
-    const user = authSystem.getUser(req.params.userId);
+    const user = resolveUser(authSystem, routeParam(req.params.userId));
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -154,7 +184,7 @@ export function createAdminRouter(
   });
 
   router.get("/usage/:userId/daily", (req, res) => {
-    const user = authSystem.getUser(req.params.userId);
+    const user = resolveUser(authSystem, routeParam(req.params.userId));
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -183,7 +213,7 @@ export function createAdminRouter(
 /** @deprecated Use POST /api/admin/users with Authorization header instead. */
 export function createLegacyAdminUserRoute(authSystem: AuthSystem): Router {
   const router = Router();
-  router.post("/admin/users", async (req, res) => {
+  router.post("/legacy/admin/users", async (req, res) => {
     try {
       const { adminKey, apiKey, displayName, username } = req.body ?? {};
       const { config } = await import("../config.js");

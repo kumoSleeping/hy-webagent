@@ -119,6 +119,36 @@ describe("ensureUserAgentDir", () => {
     }
   });
 
+  it("re-seeds empty auth.json from host on workspace init", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-agent-empty-"));
+    const previousHome = process.env.HOME;
+    try {
+      const fakeHome = path.join(root, "home");
+      const globalAuth = path.join(fakeHome, ".pi", "agent", "auth.json");
+      await fs.mkdir(path.dirname(globalAuth), { recursive: true });
+      await fs.writeFile(
+        globalAuth,
+        JSON.stringify({ deepseek: { type: "api_key", key: "sk-test" } }, null, 2)
+      );
+      process.env.HOME = fakeHome;
+
+      const workspace = path.join(root, "workspace");
+      const agentDir = agentDirFromWorkspace(workspace);
+      await fs.mkdir(agentDir, { recursive: true });
+      await fs.writeFile(path.join(agentDir, "auth.json"), "{}\n");
+
+      await ensureUserAgentDir(workspace, { seedAuthFromGlobal: true });
+      const auth = JSON.parse(
+        await fs.readFile(path.join(agentDir, "auth.json"), "utf-8")
+      ) as Record<string, { key?: string }>;
+      expect(auth.deepseek?.key).toBe("sk-test");
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("seeds jina from host auth.json without copying other providers", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-agent-jina-"));
     const previousHome = process.env.HOME;

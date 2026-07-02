@@ -139,7 +139,12 @@ export async function runBtwAsk(
     emit("btw:start", { question: trimmed });
 
     const unsubscribe = btwSession.subscribe((event) => {
-      if (event.type === "turn_end" && event.message?.usage) {
+      if (
+        event.type === "turn_end" &&
+        event.message &&
+        "usage" in event.message &&
+        event.message.usage
+      ) {
         hooks?.onTurnEnd?.(event.message);
       }
       emitBtwAgentEvent(event, emit);

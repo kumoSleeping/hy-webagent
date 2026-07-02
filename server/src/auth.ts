@@ -229,11 +229,19 @@ export class AuthSystem {
     return user ? normalizeRole(user.role) === "admin" : false;
   }
 
+  /** Keep in-memory cache aligned when users are added outside this process (offline CLI, etc.). */
+  private cacheUser(user: UserAccount): UserAccount {
+    this.users.set(user.userId, user);
+    return user;
+  }
+
   async findUserByApiKey(apiKey: string): Promise<UserAccount | null> {
     const lookup = computeApiKeyLookup(apiKey);
     const candidate = this.repo.findByApiKeyLookup(lookup);
     if (candidate) {
-      if (await bcrypt.compare(apiKey, candidate.apiKeyHash)) return candidate;
+      if (await bcrypt.compare(apiKey, candidate.apiKeyHash)) {
+        return this.cacheUser(candidate);
+      }
       return null;
     }
 
@@ -375,7 +383,11 @@ export class AuthSystem {
   }
 
   getUser(userId: string): UserAccount | undefined {
-    return this.users.get(userId);
+    const cached = this.users.get(userId);
+    if (cached) return cached;
+    const fromDb = this.repo.findById(userId);
+    if (!fromDb) return undefined;
+    return this.cacheUser(fromDb);
   }
 
   getWorkspaceDirName(userId: string): string {

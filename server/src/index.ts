@@ -393,27 +393,42 @@ const wss = new WebSocketServer({ noServer: true });
 
 // WebSocket 升级拦截：Origin + sessionId
 server.on("upgrade", (request, socket, head) => {
+  const url = new URL(request.url || "", `http://${request.headers.host}`);
+
   if (!isWebSocketOriginAllowed(request)) {
+    log.warn("ws upgrade rejected: origin not allowed", {
+      origin: request.headers.origin ?? "(none)",
+      path: url.pathname,
+    });
     socket.destroy();
     return;
   }
 
-  const url = new URL(request.url || "", `http://${request.headers.host}`);
   const sessionId = url.searchParams.get("sessionId");
   const piSessionId = url.searchParams.get("piSessionId");
-  if (!sessionId) { socket.destroy(); return; }
+  if (!sessionId) {
+    log.warn("ws upgrade rejected: missing sessionId", { path: url.pathname });
+    socket.destroy();
+    return;
+  }
   const session = authSystem.validateSession(sessionId);
-  if (!session) { socket.destroy(); return; }
+  if (!session) {
+    log.warn("ws upgrade rejected: invalid session", { path: url.pathname });
+    socket.destroy();
+    return;
+  }
 
   (request as any).userId = session.userId;
   (request as any).piSessionId = piSessionId;
 
   if (url.pathname === "/ws/chat") {
+    log.info("ws upgrade accepted", { userId: session.userId, piSessionId: piSessionId ?? null });
     wss.handleUpgrade(request, socket, head, (ws) => {
       (ws as any).userId = session.userId;
       wss.emit("connection", ws, request);
     });
   } else {
+    log.warn("ws upgrade rejected: unknown path", { path: url.pathname });
     socket.destroy();
   }
 });

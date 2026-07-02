@@ -24,6 +24,10 @@ function resolveUser(authSystem: AuthSystem, idOrUsername: string) {
   return authSystem.findUserByUsername(idOrUsername);
 }
 
+function routeParam(value: string | string[]): string {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 /**
  * Session-authenticated admin API for the logged-in admin's AI agent.
  * Use Authorization: Bearer <sessionId> from the admin's web login.
@@ -83,7 +87,7 @@ export function createPlatformAdminRouter(
   });
 
   router.get("/users/:userId", ...guard, (req, res) => {
-    const user = resolveUser(authSystem, req.params.userId);
+    const user = resolveUser(authSystem, routeParam(req.params.userId));
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -142,7 +146,7 @@ export function createPlatformAdminRouter(
 
   router.put("/users/:userId/model-filter", ...guard, (req, res) => {
     try {
-      const user = resolveUser(authSystem, req.params.userId);
+      const user = resolveUser(authSystem, routeParam(req.params.userId));
       if (!user) {
         res.status(404).json({ error: "User not found" });
         return;
@@ -171,7 +175,7 @@ export function createPlatformAdminRouter(
   });
 
   router.get("/usage/:idOrUsername/daily", ...guard, (req, res) => {
-    const user = resolveUser(authSystem, req.params.idOrUsername);
+    const user = resolveUser(authSystem, routeParam(req.params.idOrUsername));
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -185,7 +189,7 @@ export function createPlatformAdminRouter(
   });
 
   router.get("/usage/:idOrUsername", ...guard, (req, res) => {
-    const user = resolveUser(authSystem, req.params.idOrUsername);
+    const user = resolveUser(authSystem, routeParam(req.params.idOrUsername));
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;

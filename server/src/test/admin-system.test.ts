@@ -72,6 +72,24 @@ describe("AuthSystem admin roles", () => {
     expect(user.apiKeyLookup).toBe(computeApiKeyLookup(plainKey));
   });
 
+  it("login succeeds when user exists in DB but not in the in-memory cache", async () => {
+    process.env.API_KEY_LOOKUP_SECRET = "test-auth-secret";
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-auth-"));
+    tempDirs.push(dir);
+    const dbPath = path.join(dir, "platform.db");
+    const serverAuth = new AuthSystem({ databasePath: dbPath });
+    const offlineAuth = new AuthSystem({ databasePath: dbPath });
+    const key = generateApiKey();
+    const { user } = await offlineAuth.createUser(key, "Offline", { username: "offline" });
+
+    // Simulate a long-running server that started before offline CLI wrote the user.
+    (serverAuth as any).users.clear();
+
+    const session = await serverAuth.login(key);
+    expect(session.userId).toBe(user.userId);
+    expect(serverAuth.getUser(session.userId)?.username).toBe("offline");
+  });
+
   it("findUserByApiKey uses lookup index with single bcrypt", async () => {
     const auth = makeAuth();
     const key = generateApiKey();
