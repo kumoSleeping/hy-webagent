@@ -16,9 +16,11 @@ if [ ! -d .git ]; then
   git remote add origin "$REPO_URL"
 fi
 
+git config --global --add safe.directory "$APP_ROOT" 2>/dev/null || true
+
 echo "==> Fetching $BRANCH from origin"
 git fetch origin "$BRANCH"
-git checkout -B "$BRANCH" "origin/$BRANCH"
+git checkout -B "$BRANCH" "origin/$BRANCH" 2>/dev/null || git reset --hard "origin/$BRANCH"
 
 echo "==> Installing dependencies"
 npm run install:all

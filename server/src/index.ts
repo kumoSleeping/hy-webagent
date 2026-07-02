@@ -27,7 +27,7 @@ import { resolveModelPolicy } from "./model-policy.js";
 import helmet from "helmet";
 import { attachRequestId, errorHandler } from "./middleware/error-handler.js";
 import { apiRateLimiter } from "./middleware/rate-limit.js";
-import { isWebSocketOriginAllowed } from "./ws-origin.js";
+import { isWebSocketOriginAllowed, isOriginAllowed } from "./ws-origin.js";
 import { attachClientStatic } from "./client-static.js";
 
 const log = createLogger("server");
@@ -38,7 +38,15 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(attachRequestId);
-app.use(cors({ origin: config.corsOrigin }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || isOriginAllowed(origin)) {
+      callback(null, origin ?? true);
+      return;
+    }
+    callback(null, false);
+  },
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use("/api", apiRateLimiter);
 
