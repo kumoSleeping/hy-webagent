@@ -126,6 +126,33 @@ describe("AgentSandbox bash validation", () => {
     expect(validateBashCommand(ctx, "ps aux", { processOpsConfirmed: true })).toBeUndefined();
   });
 
+  it("blocks ss and netstat until session confirm echo", () => {
+    const root = path.join(os.tmpdir(), "pi-sandbox-test");
+    const ctx = makeCtx(root);
+    for (const cmd of ["ss -tulpn", "netstat -an", "ip addr"]) {
+      expect(validateBashCommand(ctx, cmd)).toEqual({
+        block: true,
+        reason: expect.stringMatching(/首次使用前需要确认/),
+      });
+      expect(isProcessManagementCommand(cmd)).toBe(true);
+      expect(validateBashCommand(ctx, cmd, { processOpsConfirmed: true })).toBeUndefined();
+    }
+  });
+
+  it("always blocks nmap and sudo even after process confirm", () => {
+    const root = path.join(os.tmpdir(), "pi-sandbox-test");
+    const ctx = makeCtx(root);
+    const opts = { processOpsConfirmed: true };
+    expect(validateBashCommand(ctx, "sudo ps aux", opts)).toEqual({
+      block: true,
+      reason: expect.stringMatching(/sudo/i),
+    });
+    expect(validateBashCommand(ctx, "nmap localhost", opts)).toEqual({
+      block: true,
+      reason: expect.stringMatching(/扫描/i),
+    });
+  });
+
   it("always blocks systemctl even after process confirm", () => {
     const root = path.join(os.tmpdir(), "pi-sandbox-test");
     const ctx = makeCtx(root);

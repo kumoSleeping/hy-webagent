@@ -71,13 +71,13 @@ export const PROCESS_OPS_CONFIRM_PHRASE =
 
 export function processOpsConfirmPrompt(): string {
   return [
-    "进程管理命令（ps、pgrep、pkill、kill、killall、top、htop 等）在本会话中首次使用前需要确认。",
-    "请向用户说明：目标进程必须是由用户在本工作区产生的，不能是系统服务，也不能影响服务器上的其他资源。",
+    "主机观测/进程管理命令（ps、pgrep、pkill、kill、ss、netstat、ip、lsof、top、htop 等）在本会话中首次使用前需要确认。",
+    "请向用户说明：目标进程/连接必须是由用户在本工作区产生的，不能是系统服务，也不能影响服务器上的其他资源。",
     "用户确认后，请运行：",
     "",
     `echo '${PROCESS_OPS_CONFIRM_PHRASE}'`,
     "",
-    "确认后本会话内可继续使用上述进程管理命令。",
+    "确认后本会话内可继续使用上述命令。",
   ].join("\n");
 }
 
@@ -92,20 +92,31 @@ export function isProcessOpsConfirmEcho(command: string): boolean {
   return unquoted === PROCESS_OPS_CONFIRM_PHRASE;
 }
 
+/** Commands that expose or affect host processes/network — require one-time confirm per session. */
 const PROCESS_MGMT_CMD =
-  /(?:^|[\s|;|&])(?:sudo\s+)?(?:\/usr\/bin\/|\/bin\/)?(?:ps|pgrep|pkill|kill|killall|top|htop|jobs|fg|bg|lsof|fuser)\b/i;
+  /(?:^|[\s|;|&])(?:sudo\s+)?(?:\/usr\/(?:local\/)?s?bin\/|\/sbin\/|\/bin\/)?(?:ps|pgrep|pkill|kill|killall|top|htop|btop|jobs|fg|bg|lsof|fuser|ss|netstat|nstat|watch|ip|ifconfig|route|arp|free|vmstat|iostat|mpstat|pidof|pstree|nice|renice|nohup|disown)\b/i;
 
 export function isProcessManagementCommand(command: string): boolean {
   return PROCESS_MGMT_CMD.test(command.trim());
 }
 
 const SYSTEM_SERVICE_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
+  { pattern: /\bsudo\b/i, reason: "sudo 被禁止" },
+  { pattern: /\bsu\s+-/i, reason: "切换用户被禁止（su）" },
   { pattern: /\bsystemctl\b/i, reason: "系统服务管理命令被禁止（systemctl）" },
   { pattern: /\bservice\s+\S+/i, reason: "系统服务管理命令被禁止（service）" },
   { pattern: /\b(shutdown|reboot|poweroff|halt)\b/i, reason: "系统电源/重启命令被禁止" },
   { pattern: /\bdocker\b/i, reason: "Docker 命令被禁止（可能影响宿主机其他容器）" },
+  { pattern: /\b(?:kubectl|helm|k3s)\b/i, reason: "Kubernetes 命令被禁止" },
   { pattern: /\bpm2\s+(?:restart|reload|stop|delete|kill)\b/i, reason: "PM2 进程管理被禁止（可能影响系统服务）" },
-  { pattern: /\biptables\b/i, reason: "网络/防火墙配置命令被禁止" },
+  { pattern: /\b(?:iptables|ip6tables|nft|ufw|firewall-cmd)\b/i, reason: "网络/防火墙配置命令被禁止" },
+  { pattern: /\b(?:nmap|masscan)\b/i, reason: "端口扫描被禁止" },
+  { pattern: /\b(?:crontab|at\s+\d|\bat\b\s+-)/i, reason: "定时任务配置被禁止" },
+  { pattern: /\b(?:mount|umount|swapon|swapoff)\b/i, reason: "挂载/交换分区命令被禁止" },
+  { pattern: /\b(?:strace|gdb|lldb|perf\s+record)\b/i, reason: "调试/跟踪其他进程被禁止" },
+  { pattern: /\b(?:nsenter|unshare|chroot)\b/i, reason: "命名空间/根目录隔离逃逸类命令被禁止" },
+  { pattern: /\b(?:useradd|usermod|userdel|passwd|visudo|groupadd)\b/i, reason: "账户/权限管理命令被禁止" },
+  { pattern: /\b(?:telnet|ncat)\s+/i, reason: "远程连接工具被禁止（请用 curl 下载到 workspace）" },
 ];
 
 export interface ValidateBashOptions {

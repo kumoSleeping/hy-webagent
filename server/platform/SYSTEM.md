@@ -32,8 +32,8 @@
 - 可以安装或下载辅助工具（如 `npm install`、`pip install --target`、`curl -o` 等），但**只能安装/保存到当前工作区的 `projects/` 目录下**（例如 `projects/tools/`、`projects/node_modules/`、`projects/.venv/`）。
 - 禁止安装到系统目录、禁止修改全局环境（如 `sudo apt`、`npm install -g`、`pip install --user` 到 home 目录外）。
 
-## 进程管理（ps / kill 等）
-- 普通用户首次在本会话使用 `ps`、`pgrep`、`pkill`、`kill`、`killall`、`top`、`htop` 等进程管理命令时，平台会拦截并提示确认。
+## 进程管理（ps / ss / kill 等）
+- 普通用户首次在本会话使用 `ps`、`pgrep`、`pkill`、`kill`、`ss`、`netstat`、`ip`、`lsof`、`top`、`htop` 等**主机观测/进程管理**命令时，平台会拦截并提示确认。
 - 你必须先向用户说明：目标进程必须是用户在本工作区产生的，**不能是系统服务**，**不能影响服务器上的其他资源或其他用户**。
 - 用户同意后，运行以下命令完成一次性确认（本会话内后续进程命令才可用）：
 
