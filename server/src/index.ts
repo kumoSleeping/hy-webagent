@@ -48,7 +48,13 @@ app.use(cors({
   },
 }));
 app.use(express.json({ limit: "1mb" }));
-app.use("/api", apiRateLimiter);
+app.use("/api", (req, res, next) => {
+  if (req.path === "/auth/login" || req.path === "/auth/me" || req.path === "/auth/logout") {
+    next();
+    return;
+  }
+  apiRateLimiter(req, res, next);
+});
 
 // --- Core Services ---
 const authSystem = new AuthSystem();

@@ -1,12 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import type { AuthSystem } from "../auth.js";
 import { budgetSnapshot } from "../auth.js";
-import {
-  checkLoginAllowed,
-  recordLoginFailure,
-  recordLoginSuccess,
-} from "../login-guard.js";
-import { clientIp } from "../middleware/rate-limit.js";
 
 export function createAuthRouter(authSystem: AuthSystem): Router {
   const router = Router();
@@ -35,13 +29,6 @@ export function createAuthRouter(authSystem: AuthSystem): Router {
   });
 
   router.post("/auth/login", async (req: Request, res: Response) => {
-    const ip = clientIp(req);
-    const gate = checkLoginAllowed(ip);
-    if (!gate.ok) {
-      res.status(429).json({ error: gate.message });
-      return;
-    }
-
     try {
       const { apiKey } = req.body;
       if (!apiKey || typeof apiKey !== "string") {
@@ -49,7 +36,6 @@ export function createAuthRouter(authSystem: AuthSystem): Router {
         return;
       }
       const session = await authSystem.login(apiKey);
-      recordLoginSuccess(ip);
       const user = authSystem.getUser(session.userId);
       if (!user) {
         res.status(500).json({ error: "User record missing after login" });
@@ -60,7 +46,6 @@ export function createAuthRouter(authSystem: AuthSystem): Router {
         ...profilePayload(user.userId),
       });
     } catch (err) {
-      recordLoginFailure(ip);
       res.status(401).json({ error: (err as Error).message });
     }
   });
