@@ -66,6 +66,22 @@ export function getPlatformResourceLoaderOptions(): {
   };
 }
 
+export function buildResourceLoaderOptionsForSession(
+  workspacePath: string,
+  agentCwd: string,
+  enableSandbox: boolean
+): ReturnType<typeof getPlatformResourceLoaderOptions> & {
+  extensionFactories?: ReturnType<typeof createPlatformSandboxFactory>[];
+} {
+  const base = getPlatformResourceLoaderOptions();
+  if (!enableSandbox) return base;
+  const sandbox = createAgentSandboxContext(workspacePath, agentCwd);
+  return {
+    ...base,
+    extensionFactories: [createPlatformSandboxFactory(sandbox)],
+  };
+}
+
 export async function createPlatformResourceLoader(
   agentCwd: string,
   agentDir: string,

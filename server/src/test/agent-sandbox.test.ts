@@ -6,6 +6,9 @@ import {
   resolveAgentPath,
   validateAgentToolPath,
   validateBashCommand,
+  isProcessManagementCommand,
+  isProcessOpsConfirmEcho,
+  PROCESS_OPS_CONFIRM_PHRASE,
 } from "../pi/agent-sandbox.js";
 
 function makeCtx(tmpRoot: string, userId = "alice-abc"): AgentSandboxContext & {
@@ -109,6 +112,34 @@ describe("AgentSandbox bash validation", () => {
     const root = path.join(os.tmpdir(), "pi-sandbox-test");
     const ctx = makeCtx(root);
     expect(validateBashCommand(ctx, "npm test")).toBeUndefined();
+  });
+
+  it("blocks process commands until session confirm echo", () => {
+    const root = path.join(os.tmpdir(), "pi-sandbox-test");
+    const ctx = makeCtx(root);
+    expect(validateBashCommand(ctx, "ps aux")).toEqual({
+      block: true,
+      reason: expect.stringMatching(/首次使用前需要确认/),
+    });
+    expect(isProcessManagementCommand("ps aux")).toBe(true);
+    expect(isProcessOpsConfirmEcho(`echo '${PROCESS_OPS_CONFIRM_PHRASE}'`)).toBe(true);
+    expect(validateBashCommand(ctx, "ps aux", { processOpsConfirmed: true })).toBeUndefined();
+  });
+
+  it("always blocks systemctl even after process confirm", () => {
+    const root = path.join(os.tmpdir(), "pi-sandbox-test");
+    const ctx = makeCtx(root);
+    expect(validateBashCommand(ctx, "systemctl restart nginx", { processOpsConfirmed: true })).toEqual({
+      block: true,
+      reason: expect.stringMatching(/systemctl/i),
+    });
+  });
+
+  it("blocks auth.json reads", () => {
+    const root = path.join(os.tmpdir(), "pi-sandbox-test");
+    const ctx = makeCtx(root);
+    const check = validateAgentToolPath(ctx, "../.pi/agent/auth.json");
+    expect(check.ok).toBe(false);
   });
 });
 

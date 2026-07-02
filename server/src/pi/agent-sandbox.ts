@@ -46,13 +46,71 @@ export function resolveAgentPath(agentCwd: string, rawPath: string): string {
 
 export function checkSensitivePath(targetPath: string): void {
   const basename = path.basename(targetPath).toLowerCase();
-  const sensitive = [".env", "credentials", "secret", ".pem", ".key", "id_rsa"];
+  const sensitive = [
+    ".env",
+    "credentials",
+    "secret",
+    ".pem",
+    ".key",
+    "id_rsa",
+    "auth.json",
+    "platform-admin.json",
+    "platform.db",
+  ];
   if (sensitive.some((s) => basename.includes(s))) {
     throw new Error(`Access to sensitive file denied: ${basename}`);
   }
   if (targetPath.includes("/etc/") || targetPath.includes("/proc/")) {
     throw new Error("System path access denied");
   }
+}
+
+/** Exact phrase the user/agent must echo once per session to unlock process-management bash. */
+export const PROCESS_OPS_CONFIRM_PHRASE =
+  "HYW确认：本次操作仅针对本工作区内由用户产生的进程，不会影响系统服务或服务器上的其他资源。";
+
+export function processOpsConfirmPrompt(): string {
+  return [
+    "进程管理命令（ps、pgrep、pkill、kill、killall、top、htop 等）在本会话中首次使用前需要确认。",
+    "请向用户说明：目标进程必须是由用户在本工作区产生的，不能是系统服务，也不能影响服务器上的其他资源。",
+    "用户确认后，请运行：",
+    "",
+    `echo '${PROCESS_OPS_CONFIRM_PHRASE}'`,
+    "",
+    "确认后本会话内可继续使用上述进程管理命令。",
+  ].join("\n");
+}
+
+export function isProcessOpsConfirmEcho(command: string): boolean {
+  const trimmed = command.trim();
+  if (!/^echo\s+/i.test(trimmed)) return false;
+
+  const quoted = /^echo\s+(["'])((?:\\.|(?!\1).)*)\1\s*$/s.exec(trimmed);
+  if (quoted?.[2] === PROCESS_OPS_CONFIRM_PHRASE) return true;
+
+  const unquoted = trimmed.replace(/^echo\s+/i, "").trim();
+  return unquoted === PROCESS_OPS_CONFIRM_PHRASE;
+}
+
+const PROCESS_MGMT_CMD =
+  /(?:^|[\s|;|&])(?:sudo\s+)?(?:\/usr\/bin\/|\/bin\/)?(?:ps|pgrep|pkill|kill|killall|top|htop|jobs|fg|bg|lsof|fuser)\b/i;
+
+export function isProcessManagementCommand(command: string): boolean {
+  return PROCESS_MGMT_CMD.test(command.trim());
+}
+
+const SYSTEM_SERVICE_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
+  { pattern: /\bsystemctl\b/i, reason: "系统服务管理命令被禁止（systemctl）" },
+  { pattern: /\bservice\s+\S+/i, reason: "系统服务管理命令被禁止（service）" },
+  { pattern: /\b(shutdown|reboot|poweroff|halt)\b/i, reason: "系统电源/重启命令被禁止" },
+  { pattern: /\bdocker\b/i, reason: "Docker 命令被禁止（可能影响宿主机其他容器）" },
+  { pattern: /\bpm2\s+(?:restart|reload|stop|delete|kill)\b/i, reason: "PM2 进程管理被禁止（可能影响系统服务）" },
+  { pattern: /\biptables\b/i, reason: "网络/防火墙配置命令被禁止" },
+];
+
+export interface ValidateBashOptions {
+  /** Set after the session runs the one-time process-ops confirm echo. */
+  processOpsConfirmed?: boolean;
 }
 
 export function validateAgentToolPath(
@@ -91,17 +149,28 @@ const BASH_PLATFORM_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 
 export function validateBashCommand(
   ctx: AgentSandboxContext,
-  command: string
+  command: string,
+  options?: ValidateBashOptions
 ): { block: true; reason: string } | undefined {
   const danger = checkDangerousCommand(command);
   if (danger.dangerous) {
     return { block: true, reason: danger.reason ?? "Dangerous command blocked" };
   }
 
+  for (const { pattern, reason } of SYSTEM_SERVICE_PATTERNS) {
+    if (pattern.test(command)) {
+      return { block: true, reason };
+    }
+  }
+
   for (const { pattern, reason } of BASH_PLATFORM_PATTERNS) {
     if (pattern.test(command)) {
       return { block: true, reason };
     }
+  }
+
+  if (isProcessManagementCommand(command) && !options?.processOpsConfirmed) {
+    return { block: true, reason: processOpsConfirmPrompt() };
   }
 
   const siblingWorkspace = path.relative(ctx.userWorkspacePath, ctx.workspacesRoot);

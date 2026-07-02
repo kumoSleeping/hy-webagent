@@ -91,7 +91,7 @@ export default function (pi: ExtensionAPI) {
       label: "Goal Manager",
       description:
         "Manage goal.md (set/update/complete). Format: # Title, ## sections with [x]/[ ] checkboxes, ## ⚠️ for constraints. Title must be a concrete task objective, not a knowledge-base heading (no 'Project Memories', 'README', 'Context', etc.).",
-      promptSnippet: "Manage goal.md: set, update, or complete the current project goal",
+      promptSnippet: "Manage goal.md: set, update, or complete the current workspace goal",
       promptGuidelines: [
         "Use goal_manager to create/update/complete goal.md.",
         "The # title must be a specific task objective. Never use memory/knowledge headings like 'Project Memories', 'README', or 'Context'.",

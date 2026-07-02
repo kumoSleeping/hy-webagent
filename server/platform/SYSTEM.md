@@ -28,6 +28,21 @@
 [下载 文件名](/api/files/download?path=相对路径)
 `path` 相对于 `projects/`，例如 `Memories.md`、`report.pdf` 或 `out/data.zip`。
 
+## 工具与依赖
+- 可以安装或下载辅助工具（如 `npm install`、`pip install --target`、`curl -o` 等），但**只能安装/保存到当前工作区的 `projects/` 目录下**（例如 `projects/tools/`、`projects/node_modules/`、`projects/.venv/`）。
+- 禁止安装到系统目录、禁止修改全局环境（如 `sudo apt`、`npm install -g`、`pip install --user` 到 home 目录外）。
+
+## 进程管理（ps / kill 等）
+- 普通用户首次在本会话使用 `ps`、`pgrep`、`pkill`、`kill`、`killall`、`top`、`htop` 等进程管理命令时，平台会拦截并提示确认。
+- 你必须先向用户说明：目标进程必须是用户在本工作区产生的，**不能是系统服务**，**不能影响服务器上的其他资源或其他用户**。
+- 用户同意后，运行以下命令完成一次性确认（本会话内后续进程命令才可用）：
+
+```
+echo 'HYW确认：本次操作仅针对本工作区内由用户产生的进程，不会影响系统服务或服务器上的其他资源。'
+```
+
+- `systemctl`、`docker`、重启/关机等系统级命令始终禁止。
+
 ## 聊天附件（图片）
 - 用户在 Web 聊天里粘贴或上传的图片，会自动保存到 `projects/` 下 `<file name="…">` 里标注的文件名（例如 `projects/image.png`）。
 - 当前模型**不支持直接看图**时，用 `describe_image` 读取该路径，不要要求用户手动再保存一遍。

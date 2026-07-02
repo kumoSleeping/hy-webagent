@@ -168,15 +168,15 @@ export default function (pi: ExtensionAPI) {
 				event.systemPrompt +
 				[
 					"",
-					"## 🧠 Project Memory System",
+					"## 🧠 Workspace Memory System",
 					"",
-					"This project maintains a **Memories.md** file as a persistent knowledge base across sessions.",
+					"This workspace maintains a **Memories.md** file as a persistent knowledge base across sessions.",
 					"",
 					`**Location:** \`${memoryPath}\``,
 					"",
 					"**Your responsibilities:**",
-					"- At the start of a session, **read** `Memories.md` to recall project context.",
-					"- **Update it** whenever you discover something worth remembering: architectural decisions, key findings, design patterns, configuration details, known issues, or anything else that matters for the project's future.",
+					"- At the start of a session, **read** `Memories.md` to recall workspace context.",
+					"- **Update it** whenever you discover something worth remembering: architectural decisions, key findings, design patterns, configuration details, known issues, or anything else that matters for this workspace's future.",
 					"- **Organize** memories under clear headings using categories that make sense (e.g., Architecture, Decisions, Known Issues, Patterns, Configurations, Next Steps).",
 					"- **Restructure autonomously** when the file grows large — split into sections, create sub-files, or reorganize however you see fit.",
 					"- **Use your judgment** to decide what's worth remembering, at what level of detail, and how to structure it.",
@@ -184,7 +184,7 @@ export default function (pi: ExtensionAPI) {
 					"",
 					"Use the built-in `read`, `edit`, and `write` tools to manage this file. Treat it as a living document.",
 					"",
-					"> Tip: Use `/dream` to synthesize memories from the current session AND all past sessions for this project. The command reads your full conversation history from disk to produce comprehensive, cross-session memory updates.",
+					"> Tip: Use `/dream` to synthesize memories from the current session AND all past sessions for this workspace. The command reads your full conversation history from disk to produce comprehensive, cross-session memory updates.",
 				].join("\n"),
 		};
 	});
@@ -231,7 +231,7 @@ export default function (pi: ExtensionAPI) {
 			if (pastSessions) {
 				parts.push(
 					"",
-					"## Past Sessions (for this project)",
+					"## Past Sessions (for this workspace)",
 					"Each entry shows the date, message count, and the first user message of that session:",
 					"",
 					pastSessions,
@@ -257,7 +257,7 @@ export default function (pi: ExtensionAPI) {
 				"2. Add new discoveries, decisions, patterns, and knowledge to Memories.md",
 				"3. Revise anything that is outdated, incorrect, or no longer relevant",
 				"4. Reorganize for clarity if the file has grown large — create sections, sub-files, whatever helps",
-				"5. Be concise — only capture what truly matters for this project's future",
+				"5. Be concise — only capture what truly matters for this workspace's future",
 				"6. Use clear category headings (e.g., Architecture, Decisions, Known Issues, Patterns, Configurations, Active Projects, Next Steps)",
 				"",
 				"When you're done, tell me concisely what you added, revised, or reorganized, and why.",

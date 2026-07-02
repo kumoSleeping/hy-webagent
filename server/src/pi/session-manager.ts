@@ -27,7 +27,7 @@ import {
   assertPlatformRulesLoaded,
   ADMIN_SKILLS_DIR,
   createPlatformResourceLoader,
-  getPlatformResourceLoaderOptions,
+  buildResourceLoaderOptionsForSession,
   loadPlatformSystemMd,
 } from "./platform-system.js";
 import { persistChatAttachments } from "./chat-attachments.js";
@@ -523,12 +523,17 @@ export class PISessionManager {
     return userSession;
   }
 
-  private createRuntimeFactory(): CreateAgentSessionRuntimeFactory {
+  private createRuntimeFactory(ps: UserPISession): CreateAgentSessionRuntimeFactory {
+    const enableSandbox = !this.includeAdminSkillsFor(ps.userId);
     return async (options) => {
       const services = await createAgentSessionServices({
         cwd: options.cwd,
         agentDir: options.agentDir,
-        resourceLoaderOptions: getPlatformResourceLoaderOptions(),
+        resourceLoaderOptions: buildResourceLoaderOptionsForSession(
+          ps.workspacePath,
+          ps.agentCwd,
+          enableSandbox
+        ),
       });
       const result = await createAgentSessionFromServices({
         services,
@@ -553,7 +558,7 @@ export class PISessionManager {
 
     await loadPlatformSystemMd();
     const oldSessionId = ps.sessionId;
-    const runtime = await createAgentSessionRuntime(this.createRuntimeFactory(), {
+    const runtime = await createAgentSessionRuntime(this.createRuntimeFactory(ps), {
       cwd: ps.agentCwd,
       agentDir: ps.agentDir,
       sessionManager: ps.session.sessionManager,

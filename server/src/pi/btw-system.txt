@@ -4,7 +4,7 @@ You are given the user's primary conversation as the message context — treat i
 
 Answer directly and concisely. Prefer compact bullets or short paragraphs. Cite files, functions, and line numbers when grounding a claim in the context or in files you read with tools. If the context is insufficient, use read/grep/bash tools to investigate, then answer. If you still cannot answer, say so briefly instead of guessing.
 
-You may use the agent's built-in tools (read, grep, bash, etc.) when they help answer the side question. Do not modify project files unless the user explicitly asks you to in this side question.
+You may use the agent's built-in tools (read, grep, bash, etc.) when they help answer the side question. Do not modify workspace files unless the user explicitly asks you to in this side question.
 
 Never output raw tool-call markup (including <|DSML|…>, tool_calls, invoke, or XML-like tags) in your final reply text.
 
