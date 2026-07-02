@@ -12,11 +12,13 @@ import { computeApiKeyLookup } from "./api-key-lookup.js";
 
 const BCRYPT_ROUNDS = 12;
 
-function idleSessionTimeoutMs(): number {
+function idleSessionTimeoutMs(): number | null {
+  if (config.sessionTimeoutHours <= 0) return null;
   return config.sessionTimeoutHours * 60 * 60 * 1000;
 }
 
-function maxSessionLifetimeMs(): number {
+function maxSessionLifetimeMs(): number | null {
+  if (config.sessionMaxHours <= 0) return null;
   return config.sessionMaxHours * 60 * 60 * 1000;
 }
 const API_KEY_PREFIX = "sk-hyw-";
@@ -353,7 +355,7 @@ export class AuthSystem {
       role: normalizeRole(user.role),
       createdAt: now,
       lastActivity: now,
-      expiresAt: now + maxSessionLifetimeMs(),
+      expiresAt: now + (maxSessionLifetimeMs() ?? Number.MAX_SAFE_INTEGER - now),
     };
     this.sessions.set(session.sessionId, session);
     return session;
@@ -364,12 +366,14 @@ export class AuthSystem {
     if (!session) return null;
 
     const now = Date.now();
-    if (now > session.expiresAt) {
+    const maxLifetimeMs = maxSessionLifetimeMs();
+    if (maxLifetimeMs !== null && now > session.expiresAt) {
       this.sessions.delete(sessionId);
       return null;
     }
 
-    if (now - session.lastActivity > idleSessionTimeoutMs()) {
+    const idleMs = idleSessionTimeoutMs();
+    if (idleMs !== null && now - session.lastActivity > idleMs) {
       this.sessions.delete(sessionId);
       return null;
     }
@@ -585,8 +589,13 @@ export class AuthSystem {
   private cleanupSessions(): void {
     const now = Date.now();
     const idleMs = idleSessionTimeoutMs();
+    const maxLifetimeMs = maxSessionLifetimeMs();
     for (const [id, session] of this.sessions) {
-      if (now > session.expiresAt || now - session.lastActivity > idleMs) {
+      if (maxLifetimeMs !== null && now > session.expiresAt) {
+        this.sessions.delete(id);
+        continue;
+      }
+      if (idleMs !== null && now - session.lastActivity > idleMs) {
         this.sessions.delete(id);
       }
     }

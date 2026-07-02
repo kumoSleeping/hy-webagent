@@ -6,7 +6,7 @@ import {
   recordLoginFailure,
   recordLoginSuccess,
 } from "../login-guard.js";
-import { clientIp, loginRateLimiter } from "../middleware/rate-limit.js";
+import { clientIp } from "../middleware/rate-limit.js";
 
 export function createAuthRouter(authSystem: AuthSystem): Router {
   const router = Router();
@@ -34,7 +34,7 @@ export function createAuthRouter(authSystem: AuthSystem): Router {
     res.json(profile);
   });
 
-  router.post("/auth/login", loginRateLimiter, async (req: Request, res: Response) => {
+  router.post("/auth/login", async (req: Request, res: Response) => {
     const ip = clientIp(req);
     const gate = checkLoginAllowed(ip);
     if (!gate.ok) {

@@ -8,21 +8,43 @@ import { useStatusBarStore } from "./statusBarStore";
 // ── cookie helpers ───────────────────────────────────
 
 const COOKIE_NAME = "pi-api-key";
-const COOKIE_DAYS = 1;
+const SESSION_COOKIE_NAME = "pi-session-id";
+const COOKIE_DAYS = 30;
 
-function setCookie(value: string) {
+function setCookie(name: string, value: string) {
   const d = new Date();
   d.setTime(d.getTime() + COOKIE_DAYS * 24 * 60 * 60 * 1000);
-  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
 }
 
-function getCookie(): string | null {
-  const m = document.cookie.match(new RegExp(`(?:^|; )${COOKIE_NAME}=([^;]*)`));
+function getCookie(name: string): string | null {
+  const m = document.cookie.match(new RegExp(`(?:^|; )${name.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-function clearCookie() {
-  document.cookie = `${COOKIE_NAME}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+function clearCookie(name: string) {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+}
+
+function setApiKeyCookie(value: string) {
+  setCookie(COOKIE_NAME, value);
+}
+
+function getApiKeyCookie(): string | null {
+  return getCookie(COOKIE_NAME);
+}
+
+function setSessionCookie(value: string) {
+  setCookie(SESSION_COOKIE_NAME, value);
+}
+
+function getSessionCookie(): string | null {
+  return getCookie(SESSION_COOKIE_NAME);
+}
+
+function clearAuthCookies() {
+  clearCookie(COOKIE_NAME);
+  clearCookie(SESSION_COOKIE_NAME);
 }
 
 // ── store ────────────────────────────────────────────
@@ -57,7 +79,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-const _hasCookie = typeof document !== "undefined" && !!getCookie();
+const _hasCookie = typeof document !== "undefined" && !!(getApiKeyCookie() || getSessionCookie());
 
 let autoLoginPromise: Promise<boolean> | null = null;
 
@@ -94,7 +116,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (autoLoginPromise) return autoLoginPromise;
 
     autoLoginPromise = (async () => {
-      const key = getCookie();
+      const existingSessionId = getSessionCookie();
+      if (existingSessionId) {
+        setSessionId(existingSessionId);
+        try {
+          const res = await fetch("/api/auth/me", {
+            headers: { Authorization: `Bearer ${existingSessionId}` },
+          });
+          if (res.ok) {
+            const profile: AccountProfile = await res.json();
+            set({
+              sessionId: existingSessionId,
+              isLoggedIn: true,
+              isLoading: false,
+              error: null,
+            });
+            get().applyProfile(profile);
+            return true;
+          }
+        } catch {
+          // Fall through to API-key login.
+        }
+        clearCookie(SESSION_COOKIE_NAME);
+        setSessionId(null);
+      }
+
+      const key = getApiKeyCookie();
       if (!key) {
         set({ isLoading: false });
         return false;
@@ -125,7 +172,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const data: LoginResponse = await res.json().catch(() => {
         throw new Error("Empty response from login");
       });
-      setCookie(apiKey); // persist 1 day
+      setApiKeyCookie(apiKey);
+      setSessionCookie(data.sessionId);
+      setSessionId(data.sessionId);
       set({
         sessionId: data.sessionId,
         isLoggedIn: true,
@@ -154,7 +203,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
 
-    clearCookie();
+    clearAuthCookies();
     setSessionId(null);
     useChatStore.getState().resetForSessionChange();
     useStatusBarStore.getState().clear();

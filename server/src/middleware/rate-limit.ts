@@ -18,12 +18,3 @@ export const apiRateLimiter = rateLimit({
   keyGenerator: (req) => clientIp(req),
   message: { error: "Too many requests. Please try again later." },
 });
-
-export const loginRateLimiter = rateLimit({
-  windowMs: config.loginRateLimitWindowMs,
-  max: config.loginRateLimitMax,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => clientIp(req),
-  message: { error: "Too many login attempts. Please try again later." },
-});
