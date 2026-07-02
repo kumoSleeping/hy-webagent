@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# pi runtime artifacts (session files, temp output)
+.pi/
+pi-session-*.json
+*.session.json
+
+# User-specified subagent output files (commonly written to working dir)
+subagent-output*.md
+output*.md

@@ -1,0 +1,24 @@
+{
+  "name": "pi-web-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HY-Webagent — Multi-user AI Coding Agent Hub",
+  "scripts": {
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install",
+    "install:all": "npm run install:server && npm run install:client",
+    "dev": "npx concurrently -k -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build",
+    "build": "npm run build:client && npm run build:server",
+    "start": "cd server && npm start",
+    "prod": "npm run build && npm run start",
+    "admin": "cd server && npm run admin --",
+    "sync:pi-local": "bash scripts/sync-pi-local.sh"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

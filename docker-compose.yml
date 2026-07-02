@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  pi-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-3001}:3001"
+    volumes:
+      - ./workspaces:/app/workspaces
+      - ./data:/app/data
+      # PI SDK credentials seed — copied into each user's workspace/.pi/agent/
+      # on first init; runtime reads per-user agentDir, not this global path.
+      - ~/.pi/agent:/root/.pi/agent:ro
+    environment:
+      - PORT=3001
+      # Optional break-glass master key; must not be a placeholder if set.
+      - ADMIN_KEY=${ADMIN_KEY:-}
+      - WORKSPACE_ROOT=/app/workspaces
+      - PI_EXTENSIONS_ROOT=/app/pi-extensions
+      # LLM credentials seed — copied into each user's workspace/.pi/agent/auth.json
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3001}
+      - VISION_MODEL=${VISION_MODEL:-}
+      - MAX_CONCURRENT_USERS=${MAX_CONCURRENT_USERS:-4}
+      - SESSION_TIMEOUT_HOURS=${SESSION_TIMEOUT_HOURS:-24}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

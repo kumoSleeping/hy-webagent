@@ -1,0 +1,2291 @@
+@import "tailwindcss";
+
+/*
+ * HY-Webagent — Design System
+ * Art direction referenced from entari-plugin-hyw:
+ *   - Sharp corners (zero border-radius)
+ *   - System font stack (-apple-system)
+ *   - Apple HIG inspired palette (#2c2c2e / #3a3a3c / #86868b on #f2f2f2)
+ *   - Flat cards (white surface + subtle shadow), no glass / no blur
+ *   - Signature theme-color corner badges
+ *   - Editorial typography (font-black + uppercase + tracking-tight + tabular-nums)
+ */
+
+:root {
+  /* —— Theme color (signature accent, ref: #ef4444) —— */
+  --pi-theme: #ef4444;
+  --pi-theme-ink: #ffffff;            /* auto text on theme bg */
+
+  /* —— Apple HIG text scale —— */
+  --pi-text: #2c2c2e;                  /* primary headings */
+  --pi-text-body: #3a3a3c;             /* body copy */
+  --pi-muted: #86868b;                 /* secondary / mono */
+  --pi-line: #e5e7eb;                  /* hairline borders */
+  --pi-line-soft: #f2f2f2;             /* divider */
+
+  /* —— Surfaces —— */
+  --pi-bg: #f2f2f2;                    /* app background (ref) */
+  --pi-panel: #ffffff;                 /* card surface */
+  --pi-panel-subtle: #f9fafb;          /* subtle inset */
+
+  /* —— Functional accent (badges / focus / chrome — not body emphasis) —— */
+  --pi-accent: var(--pi-theme);
+  --pi-accent-soft: rgba(239, 68, 68, 0.08);
+  --pi-primary: var(--pi-theme);
+  --pi-link: #2563eb;
+
+  /* —— Shadows: flat, low-spread (ref: shadow-sm shadow-black/5) —— */
+  --pi-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --pi-shadow-float: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --pi-shadow-badge: 0 2px 4px 0 rgba(0, 0, 0, 0.15);
+
+  /* —— Typography —— */
+  --pi-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC", Arial, sans-serif;
+  --pi-font-mono: "SF Mono", "JetBrains Mono", "Menlo", ui-monospace, "Cascadia Code", "PingFang SC", monospace;
+  /* Welcome phrase — literary serif (JP + SC), not system sans */
+  --pi-font-welcome: "Shippori Mincho B1", "Noto Serif SC", "Songti SC", "STSong", serif;
+  --pi-body-size: 1rem;
+  --pi-body-line: 1.68;
+  --pi-small-size: 0.82rem;
+  --pi-code-size: 0.875rem;
+
+  /* —— Layout metrics —— */
+  --pi-feed-edge: clamp(1rem, 2.8vw, 3rem);
+  --pi-feed-max: min(112rem, calc(100vw - var(--pi-feed-edge) * 2));
+  --pi-assistant-max: min(74rem, calc(100vw - var(--pi-feed-edge) * 2));
+  --pi-user-max: min(42rem, 58%);
+  /* Composer: narrower than the reading measure so it feels like a
+     focused floating dock, not a full-width bar. */
+  --pi-composer-max: 46rem;
+  /* Composer internal scroll cap (matches MAX_ROWS in ComposerBar). */
+  --pi-composer-line: 1.625rem;
+  /* 16px minimum — iOS Safari zooms focused inputs below this size */
+  --pi-composer-font: 16px;
+  /* Toolbar popup lists (commands / history / files / tree / model / btw) */
+  --pi-panel-font: 1rem;
+  --pi-panel-font-meta: 0.8125rem;
+  --pi-panel-font-desc: 0.875rem;
+  --pi-panel-icon: 16px;
+  --pi-panel-icon-sm: 14px;
+  --pi-composer-toolbar-w: 22rem;
+  --pi-composer-toolbar-btn-h: 2rem;
+  --pi-composer-toolbar-icon: 16px;
+  --pi-editor-font: 16px;
+  /* Eight toolbar buttons share one bar — width / count must stay in sync. */
+  --pi-composer-toolbar-count: 8;
+  --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / var(--pi-composer-toolbar-count));
+  /* Height of the gradient that fades messages out as they approach the
+     composer (the scrim's soft upper edge). */
+  --pi-composer-fade: 5rem;
+  /* Empty band reserved at the very top of the chat — mirrors the composer
+     fade below so messages never touch the top edge. */
+  --pi-top-strip: 3.5rem;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--pi-bg);
+  color: var(--pi-text);
+  font-family: var(--pi-font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+* { box-sizing: border-box; }
+::selection { background: rgba(239, 68, 68, 0.16); }
+
+/* ============================================================
+ * Scrollbar — thin, sharp, no rounding on thumb
+ * ========================================================== */
+.pi-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(60, 60, 67, 0.3) transparent;
+}
+.pi-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.pi-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(60, 60, 67, 0.28);
+  border-radius: 0;
+}
+.pi-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================================================
+ * Panels — flat white cards with hairline border + soft shadow
+ * (replaces former glass / blur treatment)
+ * ========================================================== */
+.pi-glass {
+  border: 1px solid var(--pi-line);
+  border-radius: 0;
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow);
+}
+
+.pi-glass-light {
+  border: 1px solid var(--pi-line);
+  border-radius: 0;
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow);
+}
+
+/* ============================================================
+ * Message bubbles — flat, editorial, sharp
+ * ========================================================== */
+.pi-message-dialog {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--pi-line);
+  border-right: 1px solid var(--pi-line);
+  border-bottom: 1px solid var(--pi-line);
+  border-left: none;
+  border-radius: 0;
+  background-color: var(--pi-panel);
+  padding: 1.2rem 1.35rem 1.35rem;
+  color: var(--pi-text-body);
+  box-shadow: var(--pi-shadow);
+}
+.pi-message-dialog-user {
+  background-color: var(--pi-panel);
+  width: max-content; max-width: var(--pi-user-max);
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.pi-message-dialog-user .pi-message-images {
+  align-self: flex-end;
+  justify-content: flex-end;
+  max-width: 100%;
+}
+.pi-message-dialog-user .pi-message-image {
+  margin-left: auto;
+}
+.pi-message-dialog-assistant {
+  min-width: 0; width: fit-content; max-width: var(--pi-assistant-max);
+  margin-right: auto;
+}
+
+/* Spacing between mixed content inside assistant bubbles */
+.pi-message-dialog-assistant .pi-thinking-block {
+  margin-bottom: 1rem;
+}
+.pi-message-dialog-assistant .pi-tool-call,
+.pi-message-dialog-assistant .pi-tool-group {
+  margin-block: 1.35rem;
+}
+.pi-message-dialog-assistant .pi-tool-call:first-child,
+.pi-message-dialog-assistant .pi-tool-group:first-child {
+  margin-top: 0.35rem;
+}
+.pi-message-dialog-assistant .pi-tool-call:last-child,
+.pi-message-dialog-assistant .pi-tool-group:last-child {
+  margin-bottom: 1.5rem;
+}
+.pi-message-dialog-assistant .pi-markdown + .pi-tool-call,
+.pi-message-dialog-assistant .pi-markdown + .pi-tool-group {
+  margin-top: 1.5rem;
+}
+.pi-message-dialog-assistant .pi-tool-call + .pi-markdown,
+.pi-message-dialog-assistant .pi-tool-group + .pi-markdown {
+  margin-top: 0.5rem;
+}
+.pi-message-dialog-assistant .pi-markdown > :first-child {
+  margin-top: 0;
+}
+/* Tool cards nested inside an expanded group manage their own rhythm via
+   .pi-tool-group-body's spacing — reset the message-level margins so they
+   don't stack on top of that (this selector is more specific, so it wins
+   regardless of source order). */
+.pi-message-dialog-assistant .pi-tool-group .pi-tool-call {
+  margin-block: 0;
+}
+
+/* ============================================================
+ * Thinking "still working" indicator — three breathing dots
+ * ========================================================== */
+.pi-thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.pi-thinking-dots span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background-color: var(--pi-muted);
+  animation: pi-thinking-bounce 1.2s ease-in-out infinite;
+}
+.pi-thinking-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.pi-thinking-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes pi-thinking-bounce {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+/* ============================================================
+ * Center stage — preview + extension UI only (above composer)
+ * ========================================================== */
+.pi-composer-dock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* Toolbar is `position:absolute; bottom:100%` on the shell — reserve its
+     row in layout so overlay height + feed paddingBottom stay in sync. */
+  padding-top: var(--pi-composer-toolbar-btn-h);
+}
+/* The card frame is drawn with an outside box-shadow ring instead of a real
+   border — a border would grow the dock by 1px and shrink its content by
+   2px the instant it opens, visibly jolting the composer and status bar. */
+.pi-composer-dock--open {
+  background: var(--pi-panel);
+  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
+}
+.pi-composer-dock--open:focus-within {
+  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
+}
+.pi-composer-dock--open .pi-center-stage {
+  margin-bottom: 0;
+  border: none;
+  box-shadow: none;
+}
+.pi-composer-dock--open .pi-center-stage--preview {
+  background: var(--pi-panel);
+}
+.pi-composer-dock--open .pi-composer-shell {
+  /* border-color (not `border: none`) keeps the shell's box height
+     identical to the standalone composer — dropping the border's width
+     here would shrink the shell and, since the toolbar/popup above it
+     is anchored via `bottom: 100%` of this box, yank the whole toolbar
+     down by the border width the instant a preview/dialog opens. */
+  border-color: transparent;
+  box-shadow: none;
+  background: transparent;
+}
+.pi-composer-dock--open .pi-composer-shell:focus-within {
+  box-shadow: none;
+}
+.pi-composer-dock--open .pi-composer-toolbar {
+  right: calc(-1 * var(--pi-composer-border));
+  border: none;
+  box-shadow: none;
+}
+
+/* File preview — fused card above the composer, out of document flow so
+   messages are not pushed. Preview top + composer bottom share one border.
+   Same box-shadow-ring trick as --open: a real border here would resize the
+   dock when the preview opens and visibly jolt the composer's bottom edge.
+   The ring's top line is painted over by the preview card itself. */
+.pi-composer-dock--preview {
+  background: var(--pi-panel);
+  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
+}
+.pi-composer-dock--preview .pi-preview-stack {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: 100%;
+  z-index: 25;
+  display: block;
+  flex: none;
+  min-height: 0;
+  width: auto;
+  pointer-events: none;
+}
+.pi-composer-dock--preview .pi-preview-stack > * {
+  pointer-events: auto;
+}
+.pi-composer-dock--preview .pi-center-stage--preview {
+  margin-bottom: 0;
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  box-shadow: none;
+}
+.pi-composer-dock--preview .pi-composer-shell {
+  border-color: transparent;
+  box-shadow: none;
+  background: transparent;
+}
+.pi-composer-dock--preview .pi-composer-shell:focus-within {
+  box-shadow: none;
+}
+.pi-composer-dock--preview .pi-composer-toolbar {
+  right: calc(-1 * var(--pi-composer-border));
+  border: none;
+  box-shadow: none;
+}
+.pi-composer-dock--preview .pi-editor-tabs {
+  border-bottom: none;
+  background: var(--pi-panel);
+}
+.pi-composer-dock--preview .pi-editor-tab--active {
+  border-bottom: none;
+}
+.pi-preview-stack {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+.pi-center-stage {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(34rem, calc(100dvh - 11rem));
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow);
+  margin-bottom: 0.5rem;
+  animation: pi-pop-in 220ms ease-out;
+  z-index: 1;
+}
+/* File preview — fixed height so Monaco gets a real layout box (flex:1
+   alone collapses when the parent has only max-height, not height). */
+.pi-center-stage--preview {
+  height: min(34rem, calc(100dvh - 9rem));
+  max-height: min(34rem, calc(100dvh - 9rem));
+  overflow: hidden;
+}
+.pi-app-shell--welcome .pi-center-stage {
+  max-height: min(22rem, 34dvh);
+}
+.pi-app-shell--welcome .pi-center-stage--preview {
+  height: min(22rem, 34dvh);
+  max-height: min(22rem, 34dvh);
+}
+.pi-center-stage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--pi-line-soft);
+  background: var(--pi-panel-subtle);
+}
+.pi-center-stage-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pi-muted);
+}
+.pi-center-stage-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border: none;
+  background: transparent;
+  color: var(--pi-muted);
+  cursor: pointer;
+}
+.pi-center-stage-close:hover { color: var(--pi-theme); }
+.pi-center-stage-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pi-center-stage-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.5rem 0.75rem;
+}
+
+/* ============================================================
+ * File editor — tabs fused into the editor surface (no seam)
+ * ========================================================== */
+.pi-editor-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--pi-panel);
+}
+.pi-editor-tabs {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  gap: 0;
+  padding: 0 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--pi-panel-subtle);
+  border-bottom: 1px solid var(--pi-line-soft);
+}
+.pi-editor-tabs::-webkit-scrollbar {
+  display: none;
+}
+.pi-editor-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 13rem;
+  padding: 0.55rem 0.85rem;
+  font-size: var(--pi-panel-font);
+  line-height: 1.2;
+  color: var(--pi-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-bottom: -1px;
+  transition: color 120ms, background 120ms;
+}
+.pi-editor-tab:hover {
+  color: var(--pi-text);
+  background: color-mix(in srgb, var(--pi-panel) 55%, var(--pi-panel-subtle));
+}
+.pi-editor-tab--active {
+  color: var(--pi-theme);
+  font-weight: 700;
+  background: var(--pi-panel);
+  border-bottom: 1px solid var(--pi-panel);
+}
+.pi-editor-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pi-editor-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms, color 120ms;
+}
+.pi-editor-tab:hover .pi-editor-tab-close,
+.pi-editor-tab--active .pi-editor-tab-close { opacity: 1; }
+.pi-editor-tab-close:hover { color: var(--pi-theme); }
+.pi-editor-tab-close svg {
+  width: var(--pi-panel-icon-sm);
+  height: var(--pi-panel-icon-sm);
+}
+.pi-editor-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+/* Right-aligned slot in the tab bar (view toggle lives here) */
+.pi-editor-tabs-trailing {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  padding-left: 0.5rem;
+}
+.pi-editor-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  padding: 0.3rem;
+  border: none;
+  background: transparent;
+  color: var(--pi-muted);
+  cursor: pointer;
+  transition: color 120ms;
+}
+.pi-editor-view-toggle svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.pi-editor-view-toggle:hover {
+  color: var(--pi-theme);
+}
+.pi-editor-md-preview {
+  height: 100%;
+  overflow: auto;
+  padding: 1rem 1.25rem 1.25rem;
+  font-size: var(--pi-editor-font);
+  cursor: default;
+}
+.pi-editor-md-preview.pi-markdown {
+  max-width: none;
+}
+.pi-editor-empty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--pi-panel-font);
+  color: var(--pi-muted);
+}
+
+/* Extension widgets inside center stage */
+.pi-ext-widget-stack { display: flex; flex-direction: column; gap: 0.75rem; }
+.pi-ext-widget-block {
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+  padding: 0.5rem 0.625rem;
+}
+.pi-ext-widget-key {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pi-theme);
+  margin-bottom: 0.35rem;
+}
+.pi-ext-widget-line {
+  font-family: var(--pi-font-mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--pi-text-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.pi-workspace-empty {
+  padding: 1rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--pi-muted);
+  font-family: var(--pi-font-mono);
+}
+
+/* Welcome — one random phrase, page center, composer width */
+.pi-welcome-phrase-area {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 3.5rem;
+  pointer-events: none;
+}
+.pi-welcome-phrase-inner {
+  width: 100%;
+  max-width: var(--pi-composer-max);
+  padding-inline: min(1.5rem, var(--pi-feed-edge));
+  margin-inline: auto;
+  transform: translateY(-1.25rem);
+}
+.pi-welcome-phrase {
+  margin: 0;
+  text-align: center;
+  font-family: var(--pi-font-welcome);
+  font-size: 1.02rem;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  line-height: 1.75;
+  color: color-mix(in srgb, var(--pi-muted) 88%, white);
+}
+@media (max-width: 639px) {
+  .pi-welcome-phrase {
+    font-size: 0.925rem;
+    line-height: 1.65;
+    letter-spacing: 0.03em;
+  }
+}
+
+/* /btw — compact panel in composer toolbar */
+.pi-btw-panel--compact {
+  padding: 0.35rem 0.5rem 0.5rem;
+}
+.pi-btw-panel--compact-history {
+  display: flex;
+  flex-direction: column;
+  max-height: min(40vh, 320px);
+  min-height: 0;
+}
+.pi-btw-panel--compact-history .pi-btw-turns {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+.pi-btw-answer--streaming-md {
+  opacity: 0.95;
+}
+.pi-btw-answer--streaming {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  font-size: var(--pi-panel-font);
+  color: var(--pi-text);
+}
+
+/* /btw panel in composer popup */
+.pi-btw-turns { display: flex; flex-direction: column; gap: 0.625rem; }
+
+/* Account detail panel — composer toolbar popup (single panel font size) */
+.pi-account-panel {
+  flex: 1;
+  min-height: 0;
+  padding: 0.35rem;
+  font-size: var(--pi-panel-font);
+  line-height: 1.45;
+  color: var(--pi-text-body);
+}
+.pi-account-panel-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.55rem;
+}
+.pi-account-panel-label {
+  flex-shrink: 0;
+  color: var(--pi-muted);
+}
+.pi-account-panel-value {
+  min-width: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--pi-text-body);
+}
+.pi-account-panel-muted {
+  color: var(--pi-muted);
+}
+.pi-account-panel-row--warn .pi-account-panel-value {
+  color: #d97706;
+}
+.pi-account-panel-meter {
+  height: 2px;
+  margin: 0 0.55rem 0.15rem;
+  background: var(--pi-line-soft);
+}
+.pi-account-panel-meter-fill {
+  height: 100%;
+  background: color-mix(in srgb, var(--pi-theme) 70%, var(--pi-text-body));
+}
+.pi-account-panel-meter-fill--warn {
+  background: #d97706;
+}
+.pi-account-panel-logout {
+  display: block;
+  margin-top: 0.1rem;
+  padding: 0.42rem 0.55rem;
+  border-top: 1px solid var(--pi-line-soft);
+  color: var(--pi-muted);
+  text-decoration: none;
+}
+.pi-account-panel-logout:hover {
+  color: var(--pi-text-body);
+}
+
+.pi-btw-turn {
+  padding: 0.125rem 0;
+}
+.pi-btw-question,
+.pi-btw-pending,
+.pi-btw-error,
+.pi-btw-answer-wrap {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.pi-btw-question + .pi-btw-answer-wrap,
+.pi-btw-question + .pi-btw-pending,
+.pi-btw-question + .pi-btw-error { margin-top: 0.5rem; }
+.pi-btw-label {
+  flex-shrink: 0;
+  width: 1.25rem;
+  font-size: var(--pi-panel-font-meta);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pi-theme);
+  line-height: 1.5;
+  text-align: center;
+}
+.pi-btw-question span:last-child {
+  font-size: var(--pi-panel-font);
+  line-height: 1.5;
+  color: var(--pi-text);
+}
+.pi-btw-answer-wrap { flex: 1; min-width: 0; }
+.pi-btw-answer-wrap .pi-btw-label { margin-top: 0.1rem; }
+.pi-btw-answer { flex: 1; min-width: 0; font-size: var(--pi-panel-font); }
+.pi-btw-pending .pi-btw-dots {
+  font-family: var(--pi-font-mono);
+  font-size: var(--pi-panel-font-desc);
+  color: var(--pi-muted);
+  animation: pi-btw-pulse 1.2s ease-in-out infinite;
+}
+.pi-btw-error span:last-child {
+  font-size: var(--pi-panel-font-desc);
+  color: #dc2626;
+  line-height: 1.45;
+}
+@keyframes pi-btw-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+.pi-btw-input-row {
+  display: flex; align-items: flex-end; gap: 0.35rem;
+}
+.pi-btw-input {
+  flex: 1; min-width: 0; min-height: 2.125rem; max-height: 6.5rem;
+  resize: none; overflow-y: auto;
+  padding: 0.4rem 0.3rem;
+  font-size: 16px; line-height: 1.5;
+  color: var(--pi-text);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  font-family: var(--pi-font);
+  caret-color: var(--pi-theme);
+}
+.pi-btw-input:focus,
+.pi-btw-input:focus-visible {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+.pi-btw-input::placeholder { color: var(--pi-muted); }
+.pi-btw-input:disabled { opacity: 0.55; cursor: not-allowed; }
+.pi-btw-send {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 1.875rem; height: 2.125rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--pi-muted);
+  box-shadow: none;
+  cursor: pointer; outline: none;
+  transition: color 120ms, opacity 120ms;
+}
+.pi-btw-send:disabled { opacity: 0.3; cursor: not-allowed; }
+.pi-btw-send:not(:disabled):hover,
+.pi-btw-send:not(:disabled):focus-visible {
+  color: var(--pi-theme);
+  background: transparent;
+}
+.pi-btw-input-wrap { padding: 0.35rem 0.5rem 0.5rem; }
+.pi-btw-new-btn {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 2.125rem; height: 2.125rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--pi-muted);
+  cursor: pointer;
+  outline: none;
+  transition: color 120ms, background 120ms;
+}
+.pi-btw-new-btn:hover:not(:disabled),
+.pi-btw-new-btn:focus-visible {
+  color: var(--pi-text);
+  background: var(--pi-panel-subtle);
+}
+.pi-btw-new-btn svg,
+.pi-btw-send svg {
+  width: var(--pi-panel-icon);
+  height: var(--pi-panel-icon);
+}
+.pi-btw-new-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Extension dialog (inside center stage) */
+.pi-ext-dialog {
+  padding: 1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.pi-ext-dialog--wide { min-height: 12rem; }
+.pi-ext-dialog-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--pi-text);
+}
+.pi-ext-dialog-message {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--pi-text-body);
+  line-height: 1.5;
+}
+.pi-ext-dialog-options { display: flex; flex-direction: column; gap: 0.35rem; }
+.pi-ext-dialog-option {
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.pi-ext-dialog-option:hover {
+  border-color: var(--pi-theme);
+  background: var(--pi-accent-soft);
+}
+.pi-ext-dialog-input,
+.pi-ext-dialog-editor {
+  width: 100%;
+  border: 1px solid var(--pi-line);
+  background: white;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.82rem;
+  font-family: var(--pi-font);
+  outline: none;
+}
+.pi-ext-dialog-input:focus,
+.pi-ext-dialog-editor:focus {
+  border-color: var(--pi-line);
+  outline: none;
+  box-shadow: none;
+}
+.pi-ext-dialog-editor {
+  font-family: var(--pi-font-mono);
+  resize: vertical;
+  min-height: 8rem;
+}
+.pi-ext-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.pi-ext-dialog-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--pi-line);
+  background: white;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.pi-ext-dialog-btn--primary {
+  background: var(--pi-text);
+  color: white;
+  border-color: var(--pi-text);
+}
+.pi-ext-dialog-cancel {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--pi-muted);
+  font-size: 0.68rem;
+  cursor: pointer;
+}
+
+/* ============================================================
+ * Composer — flat input, sharp corners
+ * ========================================================== */
+.pi-composer-shell {
+  --pi-composer-pad-x: 0.875rem;
+  --pi-composer-border: 1px;
+  position: relative;
+  border-radius: 0;
+  border: var(--pi-composer-border) solid var(--pi-line);
+  background: var(--pi-panel);
+  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
+  padding: 0 var(--pi-composer-pad-x) 0.7rem;
+  transition: border-color 200ms;
+}
+.pi-composer-shell:focus-within {
+  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
+}
+
+.pi-composer-input {
+  display: block;
+  font-family: var(--pi-font);
+  font-size: var(--pi-composer-font);
+  line-height: var(--pi-composer-line);
+  field-sizing: content; /* native auto-grow where supported */
+  max-height: calc(var(--pi-composer-line) * 8 + 0.75rem); /* 8 rows + py padding */
+  overflow: hidden auto; /* block horizontal scrollbar (overflow-y alone implies overflow-x: auto) */
+  overflow-wrap: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(60, 60, 67, 0.3) transparent;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  /* Signature caret: red accent, default bar shape — block caret would
+     paint over the glyph/placeholder at the insertion point (e.g. the
+     leading "T" in "Type / for commands…"). */
+  caret-color: var(--pi-theme);
+}
+.pi-composer-input:focus,
+.pi-composer-input:focus-visible {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+.pi-composer-input::-webkit-scrollbar { width: 6px; }
+.pi-composer-input::-webkit-scrollbar-thumb {
+  background: rgba(60, 60, 67, 0.28); border-radius: 0;
+}
+.pi-composer-input::-webkit-scrollbar-track { background: transparent; }
+
+.pi-composer-body {
+  margin-top: 0.7rem;
+}
+
+.pi-composer-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.pi-composer-attach-btn {
+  appearance: none;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  padding: 0.35rem 0.15rem 0.5rem 0;
+  margin-bottom: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--pi-muted);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.pi-composer-attach-btn:hover:not(:disabled),
+.pi-composer-attach-btn:focus-visible:not(:disabled) {
+  color: var(--pi-text);
+  background: transparent;
+}
+.pi-composer-attach-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pi-composer-attach-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pi-composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+  /* Room for the corner remove buttons that sit slightly outside each chip. */
+  padding-top: 0.35rem;
+  padding-right: 0.35rem;
+}
+
+.pi-composer-attachment {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+  overflow: hidden;
+  transition: border-color 180ms ease, opacity 180ms ease;
+}
+
+.pi-composer-attachment[data-status="processing"] {
+  border-color: var(--pi-line);
+}
+
+.pi-composer-attachment[data-status="processing"] .pi-composer-attachment-thumb,
+.pi-composer-attachment[data-status="processing"] .pi-composer-attachment-file {
+  opacity: 0.42;
+  filter: grayscale(0.15);
+}
+
+.pi-composer-attachment[data-status="ready"] {
+  border-color: var(--pi-line);
+}
+
+.pi-composer-attachment[data-status="error"] {
+  border-color: var(--pi-theme);
+}
+
+.pi-composer-attachment-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.58);
+  pointer-events: none;
+}
+
+.pi-composer-attachment-spinner {
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 2px solid var(--pi-line);
+  border-top-color: var(--pi-theme);
+  border-radius: 999px;
+  animation: pi-loading-spin 700ms linear infinite;
+}
+
+.pi-composer-attachment-thumb {
+  display: block;
+  flex-shrink: 0;
+  width: 3.25rem;
+  height: 3.25rem;
+  object-fit: contain;
+  background: var(--pi-panel);
+}
+
+.pi-composer-attachment-file {
+  display: block;
+  flex-shrink: 0;
+  max-width: 10rem;
+  min-height: 3.25rem;
+  padding: 0.35rem 0.55rem;
+  box-sizing: border-box;
+  font-family: var(--pi-font-mono);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--pi-text-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pi-composer-attachment-remove {
+  appearance: none;
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  border: 1px solid var(--pi-line);
+  border-radius: 0;
+  background: var(--pi-panel);
+  color: var(--pi-muted);
+  box-shadow: var(--pi-shadow-badge);
+  cursor: pointer;
+}
+.pi-composer-attachment-remove svg {
+  width: 0.65rem;
+  height: 0.65rem;
+}
+.pi-composer-attachment-remove:hover,
+.pi-composer-attachment-remove:focus-visible {
+  color: var(--pi-theme);
+  border-color: var(--pi-theme);
+}
+
+.pi-message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.pi-message-image {
+  display: block;
+  max-width: min(100%, 16rem);
+  max-height: 12rem;
+  object-fit: contain;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Corner badge row — working indicator + (optional) queued-message badge.
+   Sits overlapping the composer's own top-left corner, same overlap trick
+   as `.pi-corner-badge` on the login card, so it reads as chrome rather
+   than floating extra controls. Row layout so a second badge just slots
+   in beside the first with zero extra positioning math. */
+.pi-composer-badges {
+  position: absolute;
+  top: -9px; left: -9px;
+  z-index: 10;
+  display: flex; align-items: center; gap: 0.3rem;
+}
+
+/* "Working" indicator — replaces the old solid-red stop square. A small
+   equalizer wave stands in for the word "working" — motion alone says
+   "still going", no label needed. Neutral at rest (it's just status, not
+   yet an action); goes signature red only on hover/focus, the same moment
+   it becomes a "stop" button. */
+.pi-composer-working {
+  display: flex; align-items: center; justify-content: center;
+  height: 1.625rem; padding: 0 0.6rem;
+  border-radius: 0; border: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+  color: var(--pi-muted);
+  box-shadow: var(--pi-shadow-badge);
+  cursor: pointer; outline: none;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.pi-composer-working:hover,
+.pi-composer-working:focus-visible {
+  color: var(--pi-theme-ink);
+  background: var(--pi-theme);
+  border-color: var(--pi-theme);
+}
+.pi-composer-working-bars {
+  display: flex; align-items: center; gap: 2px;
+  height: 0.65rem;
+}
+.pi-composer-working-bars span {
+  width: 2px; height: 100%;
+  background: currentColor;
+  animation: pi-working-wave 900ms ease-in-out infinite;
+}
+.pi-composer-working-bars span:nth-child(1) { animation-delay: 0ms; }
+.pi-composer-working-bars span:nth-child(2) { animation-delay: 150ms; }
+.pi-composer-working-bars span:nth-child(3) { animation-delay: 300ms; }
+.pi-composer-working-bars span:nth-child(4) { animation-delay: 450ms; }
+@keyframes pi-working-wave {
+  0%, 100% { transform: scaleY(0.32); }
+  50% { transform: scaleY(1); }
+}
+
+/* Queued-message cells — one per steering/follow-up message still waiting
+   behind the current turn (not seen by the model yet), so they sit here
+   instead of the transcript as if already delivered. Each message gets
+   its own numbered slot — the queue visibly grows one cell at a time
+   rather than collapsing into a single count. Click one to pull just that
+   message back into the composer for editing; the rest keep their order
+   and get re-queued, so the edited one lands at the back once resent. */
+.pi-composer-queue-cell-wrap {
+  position: relative;
+  display: flex;
+  animation: pi-pop-in 180ms ease-out;
+}
+.pi-composer-queue-cell {
+  display: flex; align-items: center; justify-content: center;
+  width: 1.625rem; height: 1.625rem;
+  border-radius: 0; border: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+  color: var(--pi-muted);
+  box-shadow: var(--pi-shadow-badge);
+  cursor: pointer; outline: none;
+  font-size: var(--pi-panel-font-meta); font-weight: 700; font-variant-numeric: tabular-nums;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.pi-composer-queue-cell:hover,
+.pi-composer-queue-cell:focus-visible {
+  color: var(--pi-theme-ink);
+  background: var(--pi-theme);
+  border-color: var(--pi-theme);
+}
+/* Custom hover preview — deliberately not a native `title` tooltip, so it
+   matches the app's own flat panel language instead of the OS default. */
+.pi-composer-queue-preview {
+  position: absolute;
+  bottom: calc(100% + 6px); left: 0;
+  z-index: 20;
+  min-width: 10rem; max-width: 16rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+  color: var(--pi-text-body);
+  box-shadow: var(--pi-shadow-badge);
+  font-size: var(--pi-panel-font-desc); line-height: 1.4;
+  white-space: pre-wrap; overflow-wrap: break-word;
+  pointer-events: none;
+  animation: pi-pop-in 120ms ease-out;
+}
+
+/* Command list inside composer toolbar popup */
+.pi-composer-cmd-row {
+  padding: 0.42rem 0.55rem;
+}
+.pi-composer-cmd-name {
+  font-size: var(--pi-panel-font);
+  font-weight: 400;
+  color: var(--pi-text);
+}
+.pi-composer-cmd-meta {
+  font-size: var(--pi-panel-font-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pi-muted);
+}
+.pi-composer-cmd-meta--accent { color: var(--pi-theme); }
+.pi-composer-cmd-desc {
+  font-size: var(--pi-panel-font-desc);
+  color: var(--pi-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Panel list rows — unified keyboard selection: red left bar only */
+.pi-panel-row {
+  position: relative;
+  transition: background 100ms;
+}
+.pi-panel-row:hover {
+  background: var(--pi-panel-subtle);
+}
+.pi-panel-row--selected {
+  background: transparent;
+}
+.pi-panel-row--selected:hover {
+  background: var(--pi-panel-subtle);
+}
+.pi-panel-row--selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--pi-theme);
+}
+/* Keyboard-selected row — red title only; description/meta stay muted */
+.pi-panel-row--selected .pi-composer-cmd-name,
+.pi-panel-row--selected .pi-composer-panel-item-name,
+.pi-panel-row--selected .pi-hist-label,
+.pi-panel-row--selected > span.truncate,
+.pi-panel-row--selected button.min-w-0.flex-1,
+button.pi-panel-row.pi-panel-row--selected {
+  color: var(--pi-theme);
+  font-weight: 600;
+}
+.pi-panel-row--selected .pi-composer-cmd-desc,
+.pi-panel-row--selected .pi-composer-cmd-meta,
+.pi-panel-row--selected .pi-composer-cmd-meta--accent,
+.pi-panel-row--selected .pi-composer-panel-item-meta,
+.pi-panel-row--selected .pi-hist-idx {
+  color: var(--pi-muted);
+  font-weight: 400;
+}
+.pi-composer-cmd-empty {
+  padding: 0.45rem 0.55rem;
+  font-size: var(--pi-panel-font);
+  color: var(--pi-muted);
+}
+/* Shared list rows inside composer toolbar popup (models, etc.) */
+.pi-composer-panel-body {
+  flex: 1; min-height: 0; overflow: auto;
+  padding: 0.35rem;
+}
+.pi-composer-panel-item {
+  width: 100%;
+  display: block;
+  padding: 0.42rem 0.55rem;
+  text-align: left;
+  transition: background 100ms;
+  cursor: pointer; outline: none;
+}
+.pi-composer-panel-item-name {
+  font-size: var(--pi-panel-font);
+  font-weight: 400;
+  color: var(--pi-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pi-composer-panel-item-meta {
+  font-size: var(--pi-panel-font-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pi-muted);
+  font-family: var(--pi-font-mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* ============================================================
+ * Status bar — native pi footer mirror (multi-line mono rail)
+ * ========================================================== */
+.pi-status-bar-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin-top: 0.375rem;
+  padding-top: 0.35rem;
+  /* Reserve native pi footer height so New Chat / session switch never jumps the composer. */
+  min-height: 4.75rem;
+}
+.pi-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-family: var(--pi-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--pi-muted);
+  line-height: 1.35;
+  min-height: 1rem;
+}
+.pi-status-bar-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.pi-status-bar-item--right {
+  flex-shrink: 0;
+  margin-left: auto;
+  text-align: right;
+}
+.pi-status-bar--widget .pi-status-bar-item--right {
+  color: var(--pi-theme);
+}
+.pi-status-bar-item--dim { opacity: 0.45; }
+.pi-status-bar--stats .pi-status-bar-item:first-child {
+  flex: 1;
+}
+.pi-status-bar--extensions .pi-status-bar-item {
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+/* Empty slot keeps row height; text invisible until data arrives. */
+.pi-status-bar--slot-empty {
+  visibility: hidden;
+}
+
+/* Extension widgets above composer (goal panel, etc.) */
+.pi-extension-widgets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+}
+.pi-extension-widget {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+  font-family: var(--pi-font-mono);
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--pi-text-body);
+}
+.pi-extension-widget-line {
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* ============================================================
+ * Code block — sharp, editorial bar
+ * ========================================================== */
+.pi-code-block {
+  width: 100%; margin: 0 0 0.78rem;
+  border: 1px solid var(--pi-line); border-radius: 0;
+  background: var(--pi-panel-subtle);
+  padding: 0.56rem 0.8rem 0.72rem;
+}
+.pi-code-block:last-child { margin-bottom: 0; }
+.pi-code-block-bar {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.85rem;
+  padding-bottom: 0.42rem; border-bottom: 1px solid var(--pi-line);
+  color: var(--pi-muted); font-size: 0.72rem; line-height: 1.3;
+  font-family: var(--pi-font-mono);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
+}
+.pi-code-lang { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: lowercase; }
+.pi-code-copy {
+  appearance: none; border: none; background: transparent; padding: 0;
+  color: inherit; cursor: pointer; flex-shrink: 0; line-height: 1.2;
+  font-family: var(--pi-font-mono); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  transition: color 140ms ease;
+  position: relative;
+  z-index: 2;
+}
+.pi-code-copy:hover { color: var(--pi-theme); }
+.pi-code-block pre {
+  margin: 0; overflow: auto; border: none; background: transparent !important;
+  padding: 0.68rem 0 0;
+  font-family: var(--pi-font-mono);
+  font-size: calc(var(--pi-body-size) - 0.09rem); line-height: 1.5;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ============================================================
+ * Markdown — editorial reading rhythm (ref: entari-plugin-hyw)
+ * Theme red is for badges/borders only; body emphasis stays neutral.
+ * ========================================================== */
+.pi-markdown {
+  color: var(--pi-text-body);
+  font-size: var(--pi-body-size);
+  line-height: var(--pi-body-line);
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  font-feature-settings: "kern" 1, "liga" 1;
+  word-break: break-word;
+}
+.pi-markdown > :first-child { margin-top: 0; }
+.pi-markdown > :last-child { margin-bottom: 0; }
+
+/* Block rhythm — generous vertical spacing between sections */
+.pi-markdown p,
+.pi-markdown ul,
+.pi-markdown ol,
+.pi-markdown blockquote,
+.pi-markdown .pi-md-pre,
+.pi-markdown .pi-md-table-wrap {
+  margin: 0 0 0.9rem;
+}
+.pi-markdown p:last-child,
+.pi-markdown ul:last-child,
+.pi-markdown ol:last-child { margin-bottom: 0; }
+
+/* Headings — editorial hierarchy with clear section breaks */
+.pi-markdown h1,
+.pi-markdown h2,
+.pi-markdown h3,
+.pi-markdown h4 {
+  color: var(--pi-text);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+.pi-markdown h1 {
+  font-size: 1.45rem;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  margin: 1.75rem 0 0.85rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--pi-line);
+}
+.pi-markdown h2 {
+  font-size: 1.2rem;
+  margin: 1.5rem 0 0.7rem;
+}
+.pi-markdown h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.55rem;
+}
+.pi-markdown h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 1rem 0 0.45rem;
+  color: var(--pi-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pi-markdown > h1:first-child,
+.pi-markdown > h2:first-child,
+.pi-markdown > h3:first-child,
+.pi-markdown > h4:first-child { margin-top: 0; }
+
+.pi-markdown strong, .pi-markdown b { color: var(--pi-text); font-weight: 700; }
+.pi-markdown em { font-style: italic; color: var(--pi-text-body); }
+
+/* Lists */
+.pi-markdown ul, .pi-markdown ol {
+  padding-left: 1.35rem;
+}
+.pi-markdown li {
+  margin-bottom: 0.4rem;
+  padding-left: 0.15rem;
+}
+.pi-markdown li:last-child { margin-bottom: 0; }
+.pi-markdown li > p { margin-bottom: 0.4rem; }
+.pi-markdown li > p:last-child { margin-bottom: 0; }
+.pi-markdown li > ul,
+.pi-markdown li > ol {
+  margin-top: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.pi-markdown ul { list-style-type: disc; }
+.pi-markdown ol { list-style-type: decimal; }
+.pi-markdown ul ul { list-style-type: circle; }
+
+/* GFM task lists */
+.pi-markdown .contains-task-list { list-style: none; padding-left: 0; }
+.pi-markdown .task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+.pi-markdown .task-list-item input[type="checkbox"] {
+  margin-top: 0.35rem;
+  flex-shrink: 0;
+  accent-color: var(--pi-theme);
+}
+
+/* Inline code */
+.pi-markdown code:not(pre code) {
+  padding: 0.14rem 0.38rem;
+  border-radius: 0;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+  color: var(--pi-text);
+  font-size: 0.84em;
+  font-family: var(--pi-font-mono);
+  font-weight: 500;
+}
+
+/* Links */
+.pi-markdown a {
+  color: var(--pi-link);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(37, 99, 235, 0.25);
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.pi-markdown a:hover {
+  color: #1d4ed8;
+  border-bottom-color: rgba(29, 78, 216, 0.45);
+}
+
+/* Workspace file download — theme red, not external-link blue */
+.pi-markdown a.pi-md-download-link {
+  color: var(--pi-theme);
+  border-bottom-color: color-mix(in srgb, var(--pi-theme) 28%, transparent);
+}
+.pi-markdown a.pi-md-download-link:hover {
+  color: color-mix(in srgb, var(--pi-theme) 82%, black);
+  border-bottom-color: color-mix(in srgb, var(--pi-theme) 48%, transparent);
+}
+
+/* Blockquote */
+.pi-markdown blockquote {
+  border-left: 3px solid var(--pi-theme);
+  color: var(--pi-muted);
+  margin-left: 0;
+  padding: 0.55rem 0 0.55rem 1rem;
+  background: var(--pi-panel-subtle);
+}
+.pi-markdown blockquote p:last-child { margin-bottom: 0; }
+
+/* Horizontal rule — solid theme red */
+.pi-markdown .pi-md-hr {
+  height: 0;
+  margin: 1.85rem 0;
+  border: none;
+  border-top: 1px solid var(--pi-theme);
+}
+
+/* Fenced code blocks */
+.pi-markdown .pi-md-pre {
+  width: 100%;
+  margin: 0 0 1rem;
+  border: 1px solid var(--pi-line);
+  border-radius: 0;
+  background: var(--pi-panel-subtle);
+  overflow: hidden;
+}
+.pi-markdown .pi-md-pre-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+  font-family: var(--pi-font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--pi-muted);
+}
+.pi-markdown .pi-md-pre-lang { text-transform: lowercase; }
+.pi-markdown .pi-md-pre pre {
+  margin: 0;
+  overflow: auto;
+  border: none;
+  background: transparent !important;
+  padding: 0.85rem 1rem 1rem;
+  font-family: var(--pi-font-mono);
+  font-size: var(--pi-code-size);
+  line-height: 1.55;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.pi-markdown .pi-md-pre code {
+  background: transparent !important;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Tables */
+.pi-markdown .pi-md-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+}
+.pi-markdown table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.pi-markdown th, .pi-markdown td {
+  border-bottom: 1px solid var(--pi-line);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.pi-markdown th {
+  background: var(--pi-panel-subtle);
+  font-weight: 800;
+  color: var(--pi-text);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.35px;
+  border-bottom-width: 2px;
+}
+.pi-markdown tr:last-child td { border-bottom: none; }
+
+/* Images */
+.pi-markdown img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.75rem 0;
+  border: 1px solid var(--pi-line);
+}
+
+/* Syntax highlighting — Apple-neutral palette */
+.pi-markdown .hljs { color: var(--pi-text-body); background: transparent; }
+.pi-markdown .hljs-comment, .pi-markdown .hljs-quote { color: #86868b; font-style: italic; }
+.pi-markdown .hljs-keyword, .pi-markdown .hljs-selector-tag, .pi-markdown .hljs-built_in { color: #7c3aed; font-weight: 600; }
+.pi-markdown .hljs-string, .pi-markdown .hljs-attr, .pi-markdown .hljs-symbol { color: #059669; }
+.pi-markdown .hljs-number, .pi-markdown .hljs-literal { color: #d97706; }
+.pi-markdown .hljs-title, .pi-markdown .hljs-section, .pi-markdown .hljs-name { color: #2563eb; font-weight: 600; }
+.pi-markdown .hljs-type, .pi-markdown .hljs-class .hljs-title { color: #0891b2; }
+.pi-markdown .hljs-meta, .pi-markdown .hljs-variable { color: #dc2626; }
+.pi-markdown .hljs-function .hljs-title { color: #2563eb; }
+.pi-markdown .hljs-params { color: var(--pi-text-body); }
+.pi-markdown .hljs-subst { color: var(--pi-text-body); }
+.pi-markdown .hljs-addition { color: #059669; background: rgba(5, 150, 105, 0.08); }
+.pi-markdown .hljs-deletion { color: #dc2626; background: rgba(220, 38, 38, 0.06); }
+
+/* ============================================================
+ * App shell — chat region. Relative anchor for the floating
+ * composer (.pi-interactive-shell uses position:absolute).
+ * ========================================================== */
+.pi-app-shell {
+  position: relative; display: flex; height: 100%; min-height: 0;
+  flex-direction: column; overflow: hidden;
+  background-color: var(--pi-bg); isolation: isolate;
+}
+
+/* Top scrim — empty band at the very top of the chat. Messages dissolve
+   into the background before they reach it (mirror of the composer scrim
+   below). */
+.pi-app-shell::before {
+  content: "";
+  position: absolute; top: 0; left: 0; right: 0;
+  height: var(--pi-top-strip);
+  background: linear-gradient(
+    to bottom,
+    var(--pi-bg) 0%,
+    var(--pi-bg) 42%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 5;
+}
+.pi-app-shell--welcome::before { display: none; }
+
+/* Full-viewport loading — auth gate, session bootstrap, route sync */
+.pi-loading-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+.pi-loading-gate--active {
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+}
+.pi-loading-gate .pi-loading-screen {
+  height: 100%;
+}
+.pi-loading-screen {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--pi-bg);
+}
+.pi-loading-screen-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+.pi-loading-screen-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pi-brand-mark {
+  display: block;
+  flex-shrink: 0;
+}
+.pi-brand-mark--animated .pi-brand-mark-cursor {
+  animation: pi-brand-cursor-blink 1.05s step-end infinite;
+}
+@keyframes pi-brand-cursor-blink {
+  0%, 45% { opacity: 1; }
+  46%, 100% { opacity: 0.2; }
+}
+.pi-loading-screen-label {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--pi-muted);
+}
+@keyframes pi-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pi-app-shell--revealed {
+  animation: pi-chat-reveal 200ms ease-out;
+}
+@keyframes pi-chat-reveal {
+  from { opacity: 0.92; }
+  to { opacity: 1; }
+}
+
+/* ============================================================
+ * Floating composer — suspended over the chat region bottom.
+ * position:absolute (not fixed) so it tracks the chat column,
+ * never overlapping the left sidebar / files panel. Width is
+ * capped to the reading measure and centered within the column.
+ * ========================================================== */
+.pi-interactive-shell {
+  position: absolute; inset-inline: 0; bottom: 0; z-index: 20;
+  width: 100%; max-width: var(--pi-composer-max);
+  margin-inline: auto;
+  padding-inline: min(1.5rem, var(--pi-feed-edge));
+  padding-bottom: 0.875rem; padding-top: 0.5rem;
+  /* Let pointer events pass through the side gutters so the feed
+     keeps scrolling under the composer's empty flanks. */
+  pointer-events: none;
+  isolation: isolate;
+}
+.pi-interactive-shell > * { pointer-events: auto; }
+
+/* Opaque band behind the whole composer stack — messages must never show
+   through toolbar/input/status even when feed padding lags a frame. */
+.pi-interactive-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: var(--pi-bg);
+  pointer-events: none;
+  z-index: -2;
+}
+
+/* Welcome overrides must follow base shell positioning */
+.pi-app-shell--welcome {
+  justify-content: center;
+  align-items: center;
+}
+.pi-app-shell--welcome .pi-interactive-shell {
+  position: relative;
+  inset: auto;
+  bottom: auto;
+  flex-shrink: 0;
+}
+.pi-app-shell--welcome .pi-interactive-shell::before,
+.pi-app-shell--welcome .pi-interactive-shell::after {
+  display: none;
+}
+
+/* Full-bleed scrim behind the composer: solid app background across the
+   composer band so message text is never seen overlapping the composer,
+   then a tall gradient that grows stronger the closer it gets to the
+   composer — messages dissolve into the background as they scroll down.
+   Width breaks out to the whole chat column (clipped by .pi-app-shell). */
+.pi-interactive-shell::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  top: calc(-1 * (var(--pi-composer-fade) + var(--pi-composer-toolbar-btn-h)));
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to top,
+    var(--pi-bg) 0%,
+    var(--pi-bg) calc(100% - var(--pi-composer-fade)),
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ============================================================
+ * Web chrome — platform-owned footer (not PI agent status bar)
+ * ========================================================== */
+.pi-web-chrome-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 1.75rem;
+  padding: 0.35rem 0.875rem;
+  border-top: 1px solid color-mix(in srgb, var(--pi-line) 70%, transparent);
+  background: color-mix(in srgb, var(--pi-bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  font-family: var(--pi-font-mono);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--pi-muted);
+  user-select: none;
+  pointer-events: none;
+}
+.pi-web-chrome-region {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  pointer-events: none;
+}
+.pi-web-chrome-region--left { flex: 1 1 0; justify-content: flex-start; }
+.pi-web-chrome-region--center { flex: 0 1 auto; justify-content: center; text-align: center; }
+.pi-web-chrome-region--right { flex: 1 1 0; justify-content: flex-end; }
+.pi-web-chrome-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.pi-web-chrome-account-user {
+  color: var(--pi-text-body);
+  font-weight: 600;
+}
+.pi-web-chrome-account-badge {
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--pi-theme) 35%, var(--pi-line));
+  color: var(--pi-theme);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pi-web-chrome-account-budget {
+  color: var(--pi-muted);
+}
+.pi-web-chrome-account-budget--warn {
+  color: #d97706;
+}
+.pi-web-chrome-meta {
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pi-web-chrome-action {
+  color: inherit;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.pi-web-chrome-action:hover {
+  color: var(--pi-text-body);
+}
+
+/* ============================================================
+ * Platform signature — login page footer
+ * ========================================================== */
+.pi-platform-signature {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0.875rem;
+  z-index: 30;
+  margin: 0;
+  text-align: center;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--pi-muted);
+  font-family: var(--pi-font-mono);
+  letter-spacing: 0.02em;
+  user-select: none;
+  pointer-events: none;
+}
+.pi-platform-signature-action {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.pi-platform-signature-action:hover {
+  color: var(--pi-text-body);
+}
+
+/* ============================================================
+ * Signature element — theme-color corner badge
+ * (ref: .corner-badge — absolute -top/-left, uppercase, font-black)
+ * Apply: <div class="pi-corner-badge">Label</div>
+ * Place inside a .relative container.
+ * ========================================================== */
+.pi-corner-badge {
+  position: absolute;
+  top: -10px; left: -10px;
+  height: 1.75rem;
+  padding: 0 0.625rem;
+  background-color: var(--pi-theme);
+  color: var(--pi-theme-ink);
+  display: flex; align-items: center; gap: 0.375rem;
+  font-size: 0.68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  box-shadow: var(--pi-shadow-badge);
+  z-index: 10;
+}
+
+/* ============================================================
+ * Composer toolbar — four plain actions (commands / new / history /
+ * files) attached flush to the composer's own top-right corner. No
+ * dark chrome — just the app's normal panel/line/muted palette. The
+ * button row and its popup share ONE border/shadow so they read as a
+ * single connected block, never two stacked floating pieces.
+ * column-reverse keeps the button row glued to that corner at all
+ * times; only the popup above it grows/shrinks.
+ * ========================================================== */
+.pi-composer-files-overlay {
+  position: absolute;
+  right: calc(-1 * var(--pi-composer-border));
+  bottom: calc(100% + var(--pi-composer-toolbar-btn-h));
+  z-index: 45;
+  width: var(--pi-composer-toolbar-w);
+  max-height: min(20rem, calc(100dvh - 12rem));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.125rem 0.25rem 0.25rem;
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  border-radius: var(--pi-radius-sm) 0 0 0;
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow-float);
+  overflow: hidden;
+}
+.pi-composer-toolbar[data-files-overlay="true"] .pi-composer-panel {
+  transition: none;
+}
+.pi-composer-toolbar {
+  /* Sit flush on the composer's outer top-right corner — offset by border
+     width so our right edge lines up with the shell's visible right edge. */
+  position: absolute; right: calc(-1 * var(--pi-composer-border)); bottom: 100%;
+  display: flex; flex-direction: column-reverse;
+  width: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count));
+  overflow: hidden;
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line);
+  /* No border or shadow on the seam side — it sits flush against the
+     composer's own top edge (which keeps its border there) and casts no
+     shadow of its own, so the composer's single shadow is the only one
+     defining the whole attached shape. Zero gap, zero competing layer. */
+  border-bottom: none;
+  box-shadow: none;
+  z-index: 50;
+  transition: right 200ms;
+  /* Messages scroll behind the toolbar row — keep the bar fully opaque. */
+  background-clip: padding-box;
+}
+.pi-composer-toolbar-bar {
+  display: flex; flex-shrink: 0;
+  width: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count));
+}
+.pi-composer-toolbar-btn {
+  flex: 0 0 var(--pi-composer-toolbar-btn-w); min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  height: var(--pi-composer-toolbar-btn-h); padding: 0;
+  cursor: pointer;
+  color: var(--pi-muted);
+  border: none;
+  background: transparent;
+  outline: none;
+  transition: background 120ms, color 120ms;
+}
+.pi-composer-toolbar-btn svg {
+  flex-shrink: 0;
+  display: block;
+  width: var(--pi-composer-toolbar-icon);
+  height: var(--pi-composer-toolbar-icon);
+  stroke: currentColor;
+}
+.pi-composer-toolbar-btn:hover,
+.pi-composer-toolbar-btn:focus-visible { color: var(--pi-text); background: var(--pi-panel-subtle); }
+.pi-composer-toolbar-btn[data-active="true"] {
+  color: var(--pi-theme); background: var(--pi-accent-soft);
+}
+.pi-composer-toolbar-btn:not(.pi-composer-toolbar-btn--accent)[data-keyboard-focus="true"] {
+  color: var(--pi-theme);
+  background: var(--pi-accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pi-theme) 45%, transparent);
+}
+/* "New chat" — solid signature red, sits alone at the far end of the
+   row (the toolbar's own top-right corner) so it reads like a small
+   corner badge built into the bar itself, instead of a 7th plain icon. */
+.pi-composer-toolbar-btn--accent {
+  color: var(--pi-theme-ink);
+  background: var(--pi-theme);
+}
+.pi-composer-toolbar-btn--accent:hover,
+.pi-composer-toolbar-btn--accent:focus-visible {
+  color: var(--pi-theme-ink);
+  background: #dc2626;
+}
+.pi-composer-toolbar-btn--accent[data-keyboard-focus="true"] {
+  color: var(--pi-theme-ink);
+  background: #dc2626;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+/* Popup — collapsed to nothing, pops open upward, collapses back down.
+   Same box as the button row (no border/shadow/gap of its own) — only
+   a hairline seam appears where the two sections meet, once open. */
+.pi-composer-panel {
+  display: flex; flex-direction: column; min-height: 0;
+  max-height: 0; opacity: 0;
+  overflow: hidden;
+  font-size: var(--pi-panel-font);
+  transition: max-height 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease;
+}
+.pi-composer-toolbar[data-open="true"] .pi-composer-panel {
+  max-height: min(20rem, calc(100dvh - 9rem));
+  opacity: 1;
+}
+/* While welcome/centered, the composer sits mid-viewport — only ~half the
+   screen is free above it, so popups need a tighter cap than the
+   bottom-docked case to avoid spilling past the top of the screen. */
+.pi-app-shell--welcome .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
+  max-height: min(14rem, 28dvh);
+}
+
+/* History list — line-number gutter + theme-color selection */
+.pi-hist-section {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin: 0.45rem 0.5rem 0.25rem;
+  font-size: var(--pi-panel-font-meta); font-weight: 400; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--pi-muted);
+}
+.pi-hist-section::after {
+  content: ""; flex: 1; border-bottom: 1px dashed var(--pi-line);
+}
+.pi-hist-row {
+  display: flex; align-items: center; gap: 0.25rem;
+  width: 100%; padding: 0 0.35rem 0 0; text-align: left;
+  transition: background 100ms, color 100ms;
+}
+.pi-hist-row-main {
+  display: flex; align-items: center; gap: 0.4rem; flex: 1; min-width: 0;
+  padding: 0.35rem 0 0.35rem 0.55rem;
+  text-align: left; cursor: pointer;
+  font-size: var(--pi-panel-font); color: var(--pi-text-body);
+  background: transparent; border: none; outline: none;
+}
+.pi-hist-row:hover,
+.pi-hist-row:focus-within { background: var(--pi-panel-subtle); }
+.pi-hist-idx {
+  flex-shrink: 0; width: 1.35rem; text-align: right;
+  font-size: var(--pi-panel-font-meta); font-weight: 400; font-variant-numeric: tabular-nums;
+  color: var(--pi-muted);
+}
+.pi-hist-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pi-hist-empty {
+  padding: 0.45rem 0.55rem; font-size: var(--pi-panel-font); color: var(--pi-muted);
+}
+
+/* Toolbar-panel filter row — 16px input avoids iOS Safari zoom-on-focus */
+.pi-panel-filter {
+  display: flex; flex-shrink: 0; align-items: center; gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+}
+.pi-panel-filter-input {
+  width: 100%; min-width: 0;
+  border: none; border-bottom: 1px solid var(--pi-line);
+  background: transparent;
+  padding: 0.125rem 0;
+  font-size: var(--pi-composer-font);
+  color: var(--pi-text);
+  outline: none;
+}
+.pi-panel-filter-input::placeholder { color: var(--pi-muted); }
+.pi-panel-filter svg {
+  width: var(--pi-panel-icon-sm);
+  height: var(--pi-panel-icon-sm);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+ * File preview window — a small floating window, never full-screen.
+ * Exactly as wide as the chat dialog column (inherits .pi-interactive-
+ * shell's max-width) and capped well short of the viewport height, so
+ * the chat stays the primary surface. Thin shadow via .pi-glass.
+ * ========================================================== */
+.pi-file-preview {
+  height: min(34rem, calc(100dvh - 9rem));
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.pi-app-shell--welcome .pi-file-preview {
+  height: min(22rem, 34dvh);
+}
+
+/* Full-viewport, invisible — click it anywhere to dismiss whatever
+   popup/preview is open and return to the conversation. Sits above the
+   message feed but below `.pi-interactive-shell` (z-index: 20), so the
+   composer, its toolbar and any open popup stay fully interactive. */
+.pi-click-backdrop {
+  position: fixed; inset: 0; z-index: 15;
+}
+
+/* ============================================================
+ * Animations
+ * ========================================================== */
+@keyframes pi-blink {
+  0%, 55% { opacity: 1; }
+  55.01%, 100% { opacity: 0; }
+}
+@keyframes pi-context-menu-in {
+  0%   { opacity: 0; transform: translate3d(0, 4px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes pi-pop-in {
+  0%   { opacity: 0; transform: translate3d(0, 16px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes pi-pop-in-fade {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* ============================================================
+ * Notifications — compact on mobile, smooth slide/fade
+ * ========================================================== */
+.pi-notification-stack {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 18rem;
+  margin-left: auto;
+  pointer-events: none;
+}
+@media (min-width: 640px) {
+  .pi-notification-stack {
+    top: 1.25rem;
+    right: 1.25rem;
+    left: auto;
+    gap: 0.75rem;
+    max-width: 26.25rem;
+  }
+}
+
+.pi-notification {
+  position: relative;
+  overflow: visible;
+  border: 1px solid var(--pi-line);
+  border-radius: 0;
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow);
+  min-width: 0;
+  padding: 0.875rem 1.75rem 0.625rem 0.75rem;
+  padding-top: 1rem;
+  cursor: default;
+  will-change: transform, opacity;
+}
+@media (min-width: 640px) {
+  .pi-notification {
+    min-width: 16rem;
+    padding: 1.25rem 2.25rem 0.875rem 1rem;
+    padding-top: 1.25rem;
+  }
+}
+.pi-notification--enter {
+  animation: pi-notification-in 260ms ease-out forwards;
+}
+.pi-notification--exit {
+  animation: pi-notification-out 220ms ease-in forwards;
+}
+.pi-notification-message {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--pi-text-body);
+}
+@media (min-width: 640px) {
+  .pi-notification-message {
+    font-size: 0.875rem;
+    line-height: 1.625;
+  }
+}
+.pi-notification-close {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  padding: 0.125rem;
+  border: none;
+  background: none;
+  color: var(--pi-muted);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.pi-notification-close:hover {
+  color: var(--pi-theme);
+}
+.pi-notification-badge {
+  font-size: 0.58rem;
+  height: 1.25rem;
+  padding: 0 0.4rem;
+}
+@media (min-width: 640px) {
+  .pi-notification-badge {
+    font-size: 0.62rem;
+    height: 1.5rem;
+    padding: 0 0.5rem;
+  }
+}
+
+@keyframes pi-notification-in {
+  0%   { opacity: 0; transform: translate3d(16px, 0, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes pi-notification-out {
+  0%   { opacity: 1; transform: translate3d(0, 0, 0); }
+  100% { opacity: 0; transform: translate3d(16px, 0, 0); }
+}

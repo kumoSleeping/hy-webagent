@@ -1,0 +1,11 @@
+{
+  "name": "pi-subagents-h",
+  "version": "0.2.0",
+  "description": "Minimal worker subagent for pi — spawn child pi for implementation tasks",
+  "author": "kumo",
+  "license": "MIT",
+  "type": "module",
+  "pi": {
+    "extensions": ["./src/extension/index.ts"]
+  }
+}

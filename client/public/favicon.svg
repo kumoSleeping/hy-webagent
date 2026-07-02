@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <style>
+    .pi-ink { fill: #2c2c2e; }
+    @media (prefers-color-scheme: dark) {
+      .pi-ink { fill: #ffffff; }
+    }
+  </style>
+  <path class="pi-ink" d="M6 9 L15 9 L30 24 L15 39 L6 39 L21 24 Z"/>
+  <rect x="32" y="32" width="10" height="7" fill="#ef4444"/>
+</svg>

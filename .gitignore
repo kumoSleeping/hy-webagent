@@ -1,0 +1,36 @@
+# ── Runtime & secrets (never commit) ─────────────────────
+data/
+workspaces/
+.env
+.env.*
+!.env.example
+
+# ── Dependencies & build output ──────────────────────────
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# ── Logs, verification artifacts, local sessions ─────────
+*.log
+npm-debug.log*
+verification/
+server/session-*.jsonl
+
+# ── Local PI / agent scratch ─────────────────────────────
+.pi/
+
+# ── OS & editor noise ────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.local
+
+# ── Test / coverage ──────────────────────────────────────
+coverage/
+
+# ── Personal scratch (optional local notes) ──────────────
+Memories.md

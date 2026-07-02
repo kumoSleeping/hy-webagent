@@ -1,0 +1,28 @@
+{
+  "templates": {
+    "full": {
+      "label": "全功能",
+      "description": "不限制模型（默认）",
+      "allow": null,
+      "providers": null
+    },
+    "budget-cn": {
+      "label": "Deepseek + 小米",
+      "description": "仅 Deepseek 与小米相关 provider",
+      "allow": [
+        { "provider": "deepseek", "modelId": "*" },
+        { "provider": "xiaomi", "modelId": "*" },
+        { "provider": "xiaomi-token-plan-cn", "modelId": "*" },
+        { "provider": "xiaomi-token-plan-ams", "modelId": "*" },
+        { "provider": "xiaomi-token-plan-sgp", "modelId": "*" }
+      ],
+      "providers": [
+        "deepseek",
+        "xiaomi",
+        "xiaomi-token-plan-cn",
+        "xiaomi-token-plan-ams",
+        "xiaomi-token-plan-sgp"
+      ]
+    }
+  }
+}

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HY-Webagent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:ital,wght@0,400;0,500;1,400&family=Shippori+Mincho+B1:ital,wght@0,400;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/design.css" />
+    <style>
+      html, body, #root {
+        height: 100%;
+        margin: 0;
+        background: #f2f2f2;
+      }
+    </style>
+    <script>
+      if (/(?:^|;\s*)pi-api-key=/.test(document.cookie)) {
+        document.documentElement.classList.add("pi-auth-pending");
+      }
+    </script>
+  </head>
+  <body>
+    <div id="pi-global-loader" class="pi-loading-gate" aria-hidden="true">
+      <div class="pi-loading-screen" role="status" aria-live="polite" aria-busy="false">
+        <div class="pi-loading-screen-inner">
+          <div class="pi-loading-screen-mark" aria-hidden="true">
+            <svg class="pi-brand-mark pi-brand-mark--animated" width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 9 L15 9 L30 24 L15 39 L6 39 L21 24 Z" fill="#2c2c2e"/>
+              <rect class="pi-brand-mark-cursor" x="32" y="32" width="10" height="7" fill="#ef4444"/>
+            </svg>
+          </div>
+          <p class="pi-loading-screen-label">Loading…</p>
+        </div>
+      </div>
+    </div>
+    <script>
+      if (document.documentElement.classList.contains("pi-auth-pending")) {
+        var loader = document.getElementById("pi-global-loader");
+        if (loader) {
+          loader.classList.add("pi-loading-gate--active");
+          loader.setAttribute("aria-hidden", "false");
+          var screen = loader.querySelector(".pi-loading-screen");
+          if (screen) screen.setAttribute("aria-busy", "true");
+        }
+      }
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
