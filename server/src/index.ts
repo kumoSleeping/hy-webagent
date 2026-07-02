@@ -80,8 +80,8 @@ app.get("/api/admin/help", (req, res) => {
   const baseUrl = `${req.protocol}://${host}`;
   res.json(getAdminApiCatalog(baseUrl));
 });
-app.use("/api/admin", adminAuthMiddleware(authSystem), createAdminRouter(authSystem, usageRecorder, sessionManager));
-app.use("/api/platform/admin", createPlatformAdminRouter(authSystem, usageRecorder));
+app.use("/api/admin", adminAuthMiddleware(authSystem), createAdminRouter(authSystem, usageRecorder, sessionManager, isolator));
+app.use("/api/platform/admin", createPlatformAdminRouter(authSystem, usageRecorder, isolator, sessionManager));
 
 // --- Workspace Init (lightweight, no session creation) ---
 app.post("/api/workspace/init", authMiddleware(authSystem), async (req: any, res) => {
@@ -89,6 +89,7 @@ app.post("/api/workspace/init", authMiddleware(authSystem), async (req: any, res
     const userId = req.userSession.userId;
     const sessionId = req.userSession.sessionId as string;
     const ws = await isolator.ensureUserWorkspace(userId);
+    await sessionManager.syncUserAgentCredentials(userId, ws);
     log.info(`workspace init: ${userId}`);
 
     const payload: Record<string, unknown> = { workspacePath: ws };
@@ -108,6 +109,7 @@ app.post("/api/workspace/init", authMiddleware(authSystem), async (req: any, res
         usageUserDailyUrl: `${platformAdminBase}/usage/{userIdOrUsername}/daily`,
         modelsUrl: `${platformAdminBase}/models`,
         userModelFilterUrl: `${platformAdminBase}/users/{userIdOrUsername}/model-filter`,
+        syncCredentialsUrl: `${platformAdminBase}/users/{userIdOrUsername}/sync-credentials`,
         contextUrl: `${platformAdminBase}/context`,
         authHeader: `Authorization: Bearer ${sessionId}`,
         exampleAliceUsageToday: `${platformAdminBase}/usage/alice?from=${today}&to=${today}`,

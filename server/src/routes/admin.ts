@@ -31,11 +31,13 @@ async function listAdminSkillNames(): Promise<string[]> {
 }
 
 import type { PISessionManager } from "../pi/session-manager.js";
+import type { WorkspaceIsolator } from "../pi/isolation.js";
 
 export function createAdminRouter(
   authSystem: AuthSystem,
   usageRecorder: UsageRecorder,
-  _sessionManager: PISessionManager
+  sessionManager: PISessionManager,
+  isolator: WorkspaceIsolator
 ): Router {
   const router = Router();
 
@@ -56,6 +58,11 @@ export function createAdminRouter(
             ? modelTemplateId
             : undefined,
       });
+      const workspacePath = await isolator.ensureUserWorkspace(user.userId);
+      const liveSessionsUpdated = await sessionManager.syncUserAgentCredentials(
+        user.userId,
+        workspacePath
+      );
       res.status(201).json({
         userId: user.userId,
         username: user.username,
@@ -65,6 +72,9 @@ export function createAdminRouter(
         budgetUsedUsd: user.budgetUsedUsd,
         modelTemplateId: user.modelTemplateId ?? null,
         workspaceDir: user.workspaceDir,
+        workspacePath,
+        credentialsSynced: true,
+        liveSessionsUpdated,
         plainKey,
       });
     } catch (err) {
@@ -158,6 +168,30 @@ export function createAdminRouter(
     } catch (err) {
       const message = (err as Error).message;
       res.status(message === "User not found" ? 404 : 400).json({ error: message });
+    }
+  });
+
+  router.post("/users/:userId/sync-credentials", async (req, res) => {
+    try {
+      const user = resolveUser(authSystem, routeParam(req.params.userId));
+      if (!user) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      const workspacePath = await isolator.ensureUserWorkspace(user.userId);
+      const liveSessionsUpdated = await sessionManager.syncUserAgentCredentials(
+        user.userId,
+        workspacePath
+      );
+      res.json({
+        ok: true,
+        userId: user.userId,
+        username: user.username ?? user.displayName,
+        workspacePath,
+        liveSessionsUpdated,
+      });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
     }
   });
 

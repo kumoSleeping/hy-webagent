@@ -36,11 +36,25 @@ curl -s -H "$AUTH" "$BASE/users" | jq .
 
 ### Create user
 
+Creates the user, provisions their workspace, and seeds Jina search credentials from the server host auth.
+
 ```bash
 curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
   -d '{"displayName":"Alice","username":"alice"}' \
   "$BASE/users" | jq .
 ```
+
+Response includes `credentialsSynced: true` and `workspacePath` when provisioning succeeded.
+
+### Sync credentials (Jina search, etc.)
+
+If a user was created before provisioning ran, or search still fails after updating server keys, push credentials to their workspace and refresh any live chat session **without restarting the server**:
+
+```bash
+curl -s -X POST -H "$AUTH" "$BASE/users/alice/sync-credentials" | jq .
+```
+
+Use after editing `/root/.pi/agent/auth.json` on the server, or when a user reports missing web search.
 
 ### User usage by model (most common audit question)
 
@@ -132,7 +146,8 @@ All paths under `$BASE` = `/api/platform/admin`. Auth: `Authorization: Bearer <s
 | GET | `/credential` | Your admin API key from `platform.db` |
 | GET | `/users` | List users |
 | GET | `/users/:idOrUsername` | User profile + today's usage snapshot |
-| POST | `/users` | Create user |
+| POST | `/users` | Create user (auto-provisions workspace + Jina credentials) |
+| POST | `/users/:idOrUsername/sync-credentials` | Re-seed workspace auth + refresh live sessions |
 | GET | `/models` | **All models** (key, name, provider) |
 | PUT | `/users/:idOrUsername/model-filter` | **Set/clear** user's allowed models |
 | GET | `/usage?date=YYYY-MM-DD` | All users for one UTC day |

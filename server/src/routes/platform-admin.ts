@@ -4,6 +4,8 @@ import type { UsageRecorder } from "../usage/recorder.js";
 import { authMiddleware } from "./auth.js";
 import { listModelTemplates } from "../model-policy.js";
 import { listPlatformModels, parseModelFilterBody } from "../model-catalog.js";
+import type { WorkspaceIsolator } from "../pi/isolation.js";
+import type { PISessionManager } from "../pi/session-manager.js";
 
 function utcToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -34,7 +36,9 @@ function routeParam(value: string | string[]): string {
  */
 export function createPlatformAdminRouter(
   authSystem: AuthSystem,
-  usageRecorder: UsageRecorder
+  usageRecorder: UsageRecorder,
+  isolator: WorkspaceIsolator,
+  sessionManager: PISessionManager
 ): Router {
   const router = Router();
   const guard = [authMiddleware(authSystem), requireAdminRole];
@@ -60,6 +64,7 @@ export function createPlatformAdminRouter(
         usageUserDaily: `${platformAdminBase}/usage/{userIdOrUsername}/daily`,
         models: `${platformAdminBase}/models`,
         userModelFilter: `${platformAdminBase}/users/{userIdOrUsername}/model-filter`,
+        syncCredentials: `${platformAdminBase}/users/{userIdOrUsername}/sync-credentials`,
       },
       examples: {
         listUsers: `curl -s -H "Authorization: Bearer ${session.sessionId}" "${platformAdminBase}/users"`,
@@ -116,6 +121,11 @@ export function createPlatformAdminRouter(
             ? modelTemplateId
             : undefined,
       });
+      const workspacePath = await isolator.ensureUserWorkspace(user.userId);
+      const liveSessionsUpdated = await sessionManager.syncUserAgentCredentials(
+        user.userId,
+        workspacePath
+      );
       res.status(201).json({
         userId: user.userId,
         username: user.username,
@@ -125,6 +135,9 @@ export function createPlatformAdminRouter(
         budgetUsedUsd: user.budgetUsedUsd,
         modelTemplateId: user.modelTemplateId ?? null,
         workspaceDir: user.workspaceDir,
+        workspacePath,
+        credentialsSynced: true,
+        liveSessionsUpdated,
         plainKey,
       });
     } catch (err) {
@@ -166,6 +179,34 @@ export function createPlatformAdminRouter(
       });
     } catch (err) {
       res.status(400).json({ error: (err as Error).message });
+    }
+  });
+
+  router.post("/users/:userId/sync-credentials", ...guard, async (req, res) => {
+    try {
+      const user = resolveUser(authSystem, routeParam(req.params.userId));
+      if (!user) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      const workspacePath = await isolator.ensureUserWorkspace(user.userId);
+      const liveSessionsUpdated = await sessionManager.syncUserAgentCredentials(
+        user.userId,
+        workspacePath
+      );
+      res.json({
+        ok: true,
+        userId: user.userId,
+        username: user.username ?? user.displayName,
+        workspacePath,
+        liveSessionsUpdated,
+        note:
+          liveSessionsUpdated > 0
+            ? "Active chat sessions refreshed with platform credentials (Jina search, etc.)."
+            : "Workspace auth.json updated; user will pick up credentials on next chat session.",
+      });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
     }
   });
 

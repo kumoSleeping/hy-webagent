@@ -37,7 +37,7 @@ import {
   modelPolicyError,
   type ResolvedModelPolicy,
 } from "../model-policy.js";
-import { injectRuntimeProviderKeys } from "../platform-credentials.js";
+import { injectRuntimeProviderKeys, injectSharedProviderKeys } from "../platform-credentials.js";
 
 type ThinkingLevel = Parameters<AgentSession["setThinkingLevel"]>[0];
 type SteeringMode = Parameters<AgentSession["setSteeringMode"]>[0];
@@ -149,11 +149,30 @@ export class PISessionManager {
     return updated;
   }
 
+  /**
+   * Re-seed workspace auth.json from host credentials and refresh runtime keys on live sessions.
+   * Call after creating a user or when Jina/search credentials were updated on the server.
+   */
+  async syncUserAgentCredentials(userId: string, workspacePath: string): Promise<number> {
+    const policy = this.resolvePolicyForUser(userId);
+    await ensureUserAgentDir(workspacePath, { seedAuthFromGlobal: policy.unrestricted });
+
+    let updated = 0;
+    for (const ps of this.sessions.values()) {
+      if (ps.userId !== userId) continue;
+      injectSharedProviderKeys(ps.session.modelRegistry.authStorage);
+      await this.applySessionModelPolicy(ps);
+      updated += 1;
+    }
+    return updated;
+  }
+
   private policyForSession(ps: UserPISession): ResolvedModelPolicy {
     return this.resolvePolicyForUser(ps.userId);
   }
 
   private async applySessionModelPolicy(ps: UserPISession): Promise<void> {
+    injectSharedProviderKeys(ps.session.modelRegistry.authStorage);
     const policy = this.policyForSession(ps);
     if (policy.unrestricted) return;
 

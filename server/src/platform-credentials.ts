@@ -20,24 +20,38 @@ const PROVIDER_ENV: Record<string, string> = {
   jina: "JINA_API_KEY",
 };
 
+/** Providers always injected at runtime from host auth/env — never written to user auth.json. */
+export const SHARED_RUNTIME_PROVIDERS = ["jina"] as const;
+
 let cachedGlobalAuth: Record<string, { type?: string; key?: string }> | null | undefined;
 
-function loadGlobalAuthJson(): Record<string, { type?: string; key?: string }> | null {
-  if (cachedGlobalAuth !== undefined) return cachedGlobalAuth;
-  const authPath = path.join(os.homedir(), ".pi", "agent", "auth.json");
+function globalAuthPath(): string {
+  return path.join(os.homedir(), ".pi", "agent", "auth.json");
+}
+
+function readGlobalAuthJsonFromDisk(): Record<string, { type?: string; key?: string }> | null {
   try {
-    cachedGlobalAuth = JSON.parse(fs.readFileSync(authPath, "utf-8")) as Record<
+    return JSON.parse(fs.readFileSync(globalAuthPath(), "utf-8")) as Record<
       string,
       { type?: string; key?: string }
     >;
   } catch {
-    cachedGlobalAuth = null;
+    return null;
   }
+}
+
+function loadGlobalAuthJson(): Record<string, { type?: string; key?: string }> | null {
+  if (cachedGlobalAuth !== undefined) return cachedGlobalAuth;
+  cachedGlobalAuth = readGlobalAuthJsonFromDisk();
   return cachedGlobalAuth;
 }
 
-export function resetPlatformCredentialsCacheForTests(): void {
+export function invalidatePlatformCredentialsCache(): void {
   cachedGlobalAuth = undefined;
+}
+
+export function resetPlatformCredentialsCacheForTests(): void {
+  invalidatePlatformCredentialsCache();
 }
 
 export function loadPlatformProviderKey(provider: string): string | undefined {
@@ -55,6 +69,22 @@ export function loadPlatformProviderKey(provider: string): string | undefined {
   return undefined;
 }
 
+function loadPlatformProviderKeyFromSource(
+  provider: string,
+  auth: Record<string, { type?: string; key?: string }> | null
+): string | undefined {
+  const envVar = PROVIDER_ENV[provider];
+  if (envVar) {
+    const fromEnv = process.env[envVar]?.trim();
+    if (fromEnv) return fromEnv;
+  }
+  const cred = auth?.[provider];
+  if (cred?.type === "api_key" && typeof cred.key === "string" && cred.key.trim()) {
+    return cred.key.trim();
+  }
+  return undefined;
+}
+
 /** Inject runtime keys for template providers — never written to user workspace auth.json. */
 export function injectRuntimeProviderKeys(
   authStorage: AuthStorage,
@@ -62,8 +92,23 @@ export function injectRuntimeProviderKeys(
 ): string[] {
   if (!providers?.length) return [];
   const injected: string[] = [];
+  const auth = loadGlobalAuthJson();
   for (const provider of providers) {
-    const key = loadPlatformProviderKey(provider);
+    const key = loadPlatformProviderKeyFromSource(provider, auth);
+    if (!key) continue;
+    authStorage.setRuntimeApiKey(provider, key);
+    injected.push(provider);
+  }
+  return injected;
+}
+
+/** Inject shared platform keys (e.g. Jina search) into every live session. */
+export function injectSharedProviderKeys(authStorage: AuthStorage): string[] {
+  invalidatePlatformCredentialsCache();
+  const auth = readGlobalAuthJsonFromDisk();
+  const injected: string[] = [];
+  for (const provider of SHARED_RUNTIME_PROVIDERS) {
+    const key = loadPlatformProviderKeyFromSource(provider, auth);
     if (!key) continue;
     authStorage.setRuntimeApiKey(provider, key);
     injected.push(provider);
