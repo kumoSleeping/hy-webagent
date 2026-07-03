@@ -18,6 +18,8 @@ describe("platform-system", () => {
     expect(text).toContain("会话索引");
     expect(text).toContain("不要记这些");
     expect(text).toContain("/api/files/download");
+    expect(text).not.toMatch(/cwd\s*为/i);
+    expect(text).not.toContain("projects/");
   });
 
   it("append sections include platform rules and security layer", async () => {
