@@ -13,6 +13,15 @@ import {
 /** Subfolder under each user workspace where the agent cwd and Files panel root live. */
 export const USER_PROJECTS_DIR = "projects";
 
+/** Strip redundant `projects/` prefixes — models often emit paths like `projects/foo.pdf`. */
+export function normalizeProjectsRelativePath(filePath: string): string {
+  let p = filePath.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  while (p.startsWith(`${USER_PROJECTS_DIR}/`)) {
+    p = p.slice(USER_PROJECTS_DIR.length + 1);
+  }
+  return p;
+}
+
 export function agentCwdFromWorkspace(workspacePath: string): string {
   return path.join(workspacePath, USER_PROJECTS_DIR);
 }

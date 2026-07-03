@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { AuthSystem } from "../auth.js";
 import type { WorkspaceIsolator } from "../pi/isolation.js";
+import { normalizeProjectsRelativePath } from "../pi/isolation.js";
 import type { FileEntry } from "../types.js";
 import { authMiddleware } from "./auth.js";
 import { safeRemoteFetch } from "../ssrf.js";
@@ -38,7 +39,7 @@ export function createFilesRouter(authSystem: AuthSystem, isolator: WorkspaceIso
   router.get("/files/list", auth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userSession.userId;
-      const dirPath = (req.query.path as string) || "";
+      const dirPath = normalizeProjectsRelativePath((req.query.path as string) || "");
       const resolved = isolator.validatePath(userId, dirPath);
       isolator.checkSensitive(resolved);
 
@@ -81,7 +82,7 @@ export function createFilesRouter(authSystem: AuthSystem, isolator: WorkspaceIso
   router.get("/files/read", auth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userSession.userId;
-      const filePath = (req.query.path as string) || "";
+      const filePath = normalizeProjectsRelativePath((req.query.path as string) || "");
       const resolved = isolator.validatePath(userId, filePath);
       isolator.checkSensitive(resolved);
 
@@ -96,7 +97,7 @@ export function createFilesRouter(authSystem: AuthSystem, isolator: WorkspaceIso
   router.get("/files/media", auth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userSession.userId;
-      const filePath = (req.query.path as string) || "";
+      const filePath = normalizeProjectsRelativePath((req.query.path as string) || "");
       const resolved = isolator.validatePath(userId, filePath);
       isolator.checkSensitive(resolved);
 
@@ -124,7 +125,7 @@ export function createFilesRouter(authSystem: AuthSystem, isolator: WorkspaceIso
   router.get("/files/download", auth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userSession.userId;
-      const filePath = (req.query.path as string) || "";
+      const filePath = normalizeProjectsRelativePath((req.query.path as string) || "");
       if (!filePath) {
         res.status(400).json({ error: "path required" });
         return;

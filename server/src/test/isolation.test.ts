@@ -9,6 +9,7 @@ import {
   findLastUsedModelFromSessions,
   mergeBundledPackagesIntoSettings,
   migrateLegacyMemoryFiles,
+  normalizeProjectsRelativePath,
   syncAgentExtensionsFromGlobal,
   syncBundledAgentExtensions,
   USER_PROJECTS_DIR,
@@ -20,6 +21,13 @@ describe("WorkspaceIsolator paths", () => {
     expect(agentCwdFromWorkspace("/tmp/workspaces/user-abc")).toBe(
       "/tmp/workspaces/user-abc/projects"
     );
+  });
+
+  it("normalizes redundant projects/ prefixes", () => {
+    expect(normalizeProjectsRelativePath("report.pdf")).toBe("report.pdf");
+    expect(normalizeProjectsRelativePath("projects/report.pdf")).toBe("report.pdf");
+    expect(normalizeProjectsRelativePath("/projects/a/b.md")).toBe("a/b.md");
+    expect(normalizeProjectsRelativePath("projects/projects/nested.md")).toBe("nested.md");
   });
 
   it("maps agent dir to workspace/.pi/agent", () => {

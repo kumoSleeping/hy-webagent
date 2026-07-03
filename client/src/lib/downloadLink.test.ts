@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveSameOriginApiPath } from "./api";
 
 function isFileDownloadHref(href?: string): boolean {
   if (!href) return false;
@@ -11,6 +12,17 @@ function isFileDownloadHref(href?: string): boolean {
     return false;
   }
 }
+
+describe("resolveSameOriginApiPath", () => {
+  it("rewrites localhost absolute URLs to current origin pathname", () => {
+    expect(resolveSameOriginApiPath("http://localhost:5173/api/files/download?path=a.pdf")).toBe(
+      `${window.location.origin}/api/files/download?path=a.pdf`
+    );
+    expect(resolveSameOriginApiPath("/api/files/download?path=a.pdf")).toBe(
+      `${window.location.origin}/api/files/download?path=a.pdf`
+    );
+  });
+});
 
 describe("download link detection", () => {
   it("matches workspace download API paths", () => {
