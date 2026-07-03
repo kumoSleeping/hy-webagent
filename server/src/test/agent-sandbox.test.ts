@@ -119,7 +119,7 @@ describe("AgentSandbox bash validation", () => {
     const ctx = makeCtx(root);
     expect(validateBashCommand(ctx, "ps aux")).toEqual({
       block: true,
-      reason: expect.stringMatching(/首次使用前需要确认/),
+      reason: expect.stringMatching(/自行确认/),
     });
     expect(isProcessManagementCommand("ps aux")).toBe(true);
     expect(isProcessOpsConfirmEcho(`echo '${PROCESS_OPS_CONFIRM_PHRASE}'`)).toBe(true);
@@ -132,7 +132,7 @@ describe("AgentSandbox bash validation", () => {
     for (const cmd of ["ss -tulpn", "netstat -an", "ip addr"]) {
       expect(validateBashCommand(ctx, cmd)).toEqual({
         block: true,
-        reason: expect.stringMatching(/首次使用前需要确认/),
+        reason: expect.stringMatching(/自行确认/),
       });
       expect(isProcessManagementCommand(cmd)).toBe(true);
       expect(validateBashCommand(ctx, cmd, { processOpsConfirmed: true })).toBeUndefined();

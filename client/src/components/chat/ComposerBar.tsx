@@ -715,14 +715,45 @@ export function ComposerBar({
     });
   }
 
+  function restoreComposerInputAfterPicker() {
+    const ta = taRef.current;
+    if (ta?.readOnly) ta.readOnly = false;
+  }
+
+  function openAttachmentPicker() {
+    const ta = taRef.current;
+    const input = fileInputRef.current;
+    if (!input) return;
+
+    // iOS refocuses the last editable field when the native picker closes —
+    // readOnly + blur prevents the keyboard from flashing up on attach tap.
+    if (ta) ta.readOnly = true;
+    blurComposerInput();
+
+    let restored = false;
+    const restore = () => {
+      if (restored) return;
+      restored = true;
+      window.removeEventListener("focus", restore);
+      restoreComposerInputAfterPicker();
+    };
+    window.addEventListener("focus", restore, { once: true });
+
+    requestAnimationFrame(() => {
+      input.click();
+    });
+  }
+
   function handleAttachClick(e: React.MouseEvent) {
+    e.preventDefault();
     e.stopPropagation();
-    fileInputRef.current?.click();
+    openAttachmentPicker();
   }
 
   function handleAttachmentInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
     e.target.value = "";
+    restoreComposerInputAfterPicker();
     if (!selected.length) return;
     ingestFiles(selected);
   }
@@ -1179,6 +1210,7 @@ export function ComposerBar({
           ref={fileInputRef}
           type="file"
           multiple
+          tabIndex={-1}
           accept="image/*,.txt,.md,.json,.js,.ts,.tsx,.jsx,.css,.html,.xml,.yaml,.yml,.csv,.log,.toml,.ini,.sh,.py,.rs,.go,.java,.c,.cpp,.h,.sql"
           className="sr-only"
           onChange={handleAttachmentInputChange}
@@ -1186,6 +1218,7 @@ export function ComposerBar({
         <button
           type="button"
           className="pi-composer-attach-btn"
+          onPointerDown={handleToolbarPointerDown}
           onClick={handleAttachClick}
           disabled={disabled || isStreaming || attachmentsProcessing()}
           title="Upload image or file"
@@ -1222,6 +1255,7 @@ export function ComposerBar({
         <button
           type="button"
           className="pi-composer-send-btn"
+          onPointerDown={handleToolbarPointerDown}
           onClick={handleSend}
           disabled={!canSendNow(text)}
           title="Send message"

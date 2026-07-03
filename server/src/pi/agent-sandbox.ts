@@ -65,15 +65,15 @@ export function checkSensitivePath(targetPath: string): void {
   }
 }
 
-/** Exact phrase the user/agent must echo once per session to unlock process-management bash. */
+/** Exact phrase the agent must echo once per session to unlock process-management bash. */
 export const PROCESS_OPS_CONFIRM_PHRASE =
   "HYW确认：本次操作仅针对本工作区内由用户产生的进程，不会影响系统服务或服务器上的其他资源。";
 
 export function processOpsConfirmPrompt(): string {
   return [
-    "主机观测/进程管理命令（ps、pgrep、pkill、kill、ss、netstat、ip、lsof、top、htop 等）在本会话中首次使用前需要确认。",
-    "请向用户说明：目标进程/连接必须是由用户在本工作区产生的，不能是系统服务，也不能影响服务器上的其他资源。",
-    "用户确认后，请运行：",
+    "主机观测/进程管理命令（ps、pgrep、pkill、kill、ss、netstat、ip、lsof、top、htop 等）在本会话中首次使用前，你需要自行确认操作范围。",
+    "确认原则：目标进程/连接必须是由用户在本工作区产生的，不能是系统服务，也不能影响服务器上的其他资源。",
+    "无需询问用户，请先单独运行以下命令完成确认：",
     "",
     `echo '${PROCESS_OPS_CONFIRM_PHRASE}'`,
     "",
