@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Command, SquarePen, GitBranch, History, FolderOpen, MessageSquareQuote, Cpu, Plus, X, UserRound } from "lucide-react";
+import { Command, SquarePen, GitBranch, History, FolderOpen, MessageSquareQuote, Cpu, Plus, Send, X, UserRound } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
 import type { SlashCommand } from "../../stores/slashStore";
@@ -754,6 +754,7 @@ export function ComposerBar({
       closePanel();
       setToolbarKeyboardFocus(false);
       setCommandListFocus(false);
+      blurComposerInput();
       return;
     }
 
@@ -776,6 +777,7 @@ export function ComposerBar({
     closePanel();
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
+    blurComposerInput();
   }
 
   function canSubmitOnEnter(value: string): boolean {
@@ -1217,6 +1219,16 @@ export function ComposerBar({
           {...imeProps}
           className="pi-composer-input min-w-0 flex-1 resize-none border-none bg-transparent px-1.5 py-1.5 text-[var(--pi-text)] outline-none placeholder:text-[#a8b0bc] disabled:cursor-not-allowed"
         />
+        <button
+          type="button"
+          className="pi-composer-send-btn"
+          onClick={handleSend}
+          disabled={!canSendNow(text)}
+          title="Send message"
+          aria-label="Send message"
+        >
+          <Send strokeWidth={2} aria-hidden="true" />
+        </button>
         </div>
       </div>
     </div>

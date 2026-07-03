@@ -38,18 +38,21 @@ describe("useImeComposition", () => {
     expect(result.current.isComposing(enterKeyDown(false))).toBe(true);
 
     props.onCompositionEnd?.(compositionEnd(""));
-    expect(result.current.isComposingActive()).toBe(false);
-    expect(result.current.isComposing(enterKeyDown(false))).toBe(false);
+    expect(result.current.isComposingActive()).toBe(true);
+    expect(result.current.isComposing(enterKeyDown(false))).toBe(true);
   });
 
   it("commits composed value on the next microtask after compositionEnd", async () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() => useImeComposition(onCommit));
 
+    result.current.imeProps.onCompositionStart?.({} as CompositionEvent);
     result.current.imeProps.onCompositionEnd?.(compositionEnd("你好"));
     expect(onCommit).not.toHaveBeenCalled();
+    expect(result.current.isComposingActive()).toBe(true);
 
     await Promise.resolve();
     expect(onCommit).toHaveBeenCalledWith("你好", 2);
+    expect(result.current.isComposingActive()).toBe(false);
   });
 });

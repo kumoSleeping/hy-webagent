@@ -973,6 +973,37 @@ body {
   height: 16px;
 }
 
+.pi-composer-send-btn {
+  appearance: none;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  padding: 0.35rem 0 0.5rem 0.15rem;
+  margin-bottom: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--pi-muted);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+.pi-composer-send-btn:hover:not(:disabled),
+.pi-composer-send-btn:focus-visible:not(:disabled) {
+  color: var(--pi-theme);
+  background: transparent;
+}
+.pi-composer-send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pi-composer-send-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .pi-composer-attachments {
   display: flex;
   flex-wrap: wrap;

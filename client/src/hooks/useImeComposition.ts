@@ -20,14 +20,16 @@ export function useImeComposition(onCompositionCommit?: CompositionCommit) {
       composingRef.current = true;
     },
     onCompositionEnd: (e: CompositionEvent<HTMLTextAreaElement>) => {
-      composingRef.current = false;
       const target = e.currentTarget;
       if (!target) return;
       // iOS commits the final glyph after compositionEnd — sync state on the
       // next microtask so React catches up before caret-restore effects run.
+      // Keep composingRef true until the commit finishes so controlled caret
+      // restoration does not run against stale positions (dictation/IME reorder).
       const { value, selectionStart } = target;
       queueMicrotask(() => {
         onCompositionCommit?.(value, selectionStart);
+        composingRef.current = false;
       });
     },
     onBlur: () => {
