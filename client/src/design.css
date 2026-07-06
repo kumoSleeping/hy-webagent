@@ -656,7 +656,7 @@ body {
   width: 2rem;
   height: 1.1rem;
   border: 1px solid var(--pi-line);
-  background: var(--pi-panel-subtle);
+  background: var(--pi-panel);
   transition: background 140ms ease, border-color 140ms ease;
 }
 .pi-account-panel-toggle-ui::after {
@@ -668,16 +668,16 @@ body {
   height: calc(1.1rem - 4px);
   background: var(--pi-panel);
   border: 1px solid var(--pi-line);
-  transition: transform 140ms ease, background 140ms ease;
+  transition: transform 140ms ease;
 }
 .pi-account-panel-toggle input:checked + .pi-account-panel-toggle-ui {
-  background: color-mix(in srgb, var(--pi-theme) 18%, var(--pi-panel));
-  border-color: color-mix(in srgb, var(--pi-theme) 45%, var(--pi-line));
+  background: var(--pi-theme);
+  border-color: var(--pi-theme);
 }
 .pi-account-panel-toggle input:checked + .pi-account-panel-toggle-ui::after {
   transform: translateX(calc(2rem - 1.1rem));
-  background: var(--pi-theme);
-  border-color: var(--pi-theme);
+  background: var(--pi-panel);
+  border-color: var(--pi-panel);
 }
 .pi-account-panel-toggle-label {
   min-width: 1.6rem;
@@ -689,13 +689,13 @@ body {
   display: inline-flex;
   flex-shrink: 0;
   border: 1px solid var(--pi-line);
-  background: var(--pi-panel-subtle);
+  background: var(--pi-panel);
 }
 .pi-account-panel-segment-btn {
   appearance: none;
   border: none;
   border-right: 1px solid var(--pi-line);
-  background: transparent;
+  background: var(--pi-panel);
   padding: 0.2rem 0.45rem;
   font: inherit;
   font-size: var(--pi-panel-font-meta);
@@ -708,12 +708,24 @@ body {
   border-right: none;
 }
 .pi-account-panel-segment-btn[data-active="true"] {
-  color: var(--pi-text);
-  background: var(--pi-panel);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pi-theme) 35%, transparent);
+  color: var(--pi-theme-ink);
+  background: var(--pi-theme);
 }
-.pi-account-panel-segment-btn:hover {
+.pi-account-panel-segment-btn[data-active="true"]:hover {
+  color: var(--pi-theme-ink);
+  background: #dc2626;
+}
+.pi-account-panel-segment-btn:hover:not([data-active="true"]) {
   color: var(--pi-text-body);
+  background: var(--pi-panel-subtle);
+}
+@media (max-width: 639px) {
+  .pi-account-panel-row--pref {
+    flex-wrap: wrap;
+  }
+  .pi-account-panel-segment {
+    flex-wrap: wrap;
+  }
 }
 
 /* Extension dialog (inside center stage) */
@@ -1440,6 +1452,26 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-markdown > :first-child { margin-top: 0; }
 .pi-markdown > :last-child { margin-bottom: 0; }
+
+/* User messages — plain text, never Markdown. */
+.pi-user-text {
+  color: var(--pi-text-body);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.pi-compressed-marker {
+  display: inline-block;
+  padding: 0.12rem 0.4rem;
+  margin: 0 0.15rem;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+  color: var(--pi-muted);
+  font-size: var(--pi-panel-font-meta);
+  line-height: 1.2;
+  vertical-align: middle;
+}
 
 /* Block rhythm — generous vertical spacing between sections */
 .pi-markdown p,
@@ -2262,26 +2294,64 @@ button.pi-panel-row.pi-panel-row--selected {
   }
 }
 
-/* Mobile — popup + bar share the right 80% of the composer; left 20% stays empty. */
+/* Mobile — closed: compact bar on the right only (left 20% stays empty).
+   Open: popup + bar share one 80% border-box with aligned corners. */
 .pi-app-shell--mobile .pi-composer-toolbar {
-  left: 20%;
+  left: auto;
   right: calc(-1 * var(--pi-composer-border));
-  width: auto;
-  max-width: none;
+  width: max-content;
+  max-width: calc(100% - 20%);
 }
 .pi-app-shell--mobile .pi-composer-toolbar-bar {
-  width: 100%;
+  width: max-content;
 }
 .pi-app-shell--mobile .pi-composer-toolbar-bar-fill {
-  display: block;
+  display: none;
 }
-.pi-app-shell--mobile .pi-composer-panel {
+.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] {
+  left: auto;
+  right: calc(-1 * var(--pi-composer-border));
+  width: max-content;
+  max-width: calc(100% - 20%);
+  height: auto;
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+}
+.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar-fill {
+  display: none;
+}
+.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar {
+  width: max-content;
+  border: none;
+  background: transparent;
+}
+.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
+  position: relative;
   left: 0;
   right: 0;
+  top: auto;
+  bottom: auto;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  margin-bottom: 0;
+}
+.pi-app-shell--mobile .pi-composer-panel .pi-panel-row,
+.pi-app-shell--mobile .pi-composer-panel .pi-composer-cmd-list,
+.pi-app-shell--mobile .pi-composer-panel .pi-panel-filter {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .pi-app-shell--mobile .pi-composer-dock--open .pi-composer-toolbar,
 .pi-app-shell--mobile .pi-composer-dock--preview .pi-composer-toolbar {
   border: none;
+}
+.pi-app-shell--mobile .pi-composer-dock--open .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar,
+.pi-app-shell--mobile .pi-composer-dock--preview .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar {
+  border: none;
+  background: transparent;
 }
 
 @media (min-width: 640px) {

@@ -18,6 +18,8 @@ describe("canSubmitBareSlash", () => {
 
   it("submits toolbar slash commands", () => {
     expect(canSubmitBareSlash("/resume", find)).toBe(true);
+    expect(canSubmitBareSlash("/files", find)).toBe(true);
+    expect(canSubmitBareSlash("/user", find)).toBe(true);
   });
 
   it("requires args for args-kind commands", () => {

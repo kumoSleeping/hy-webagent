@@ -313,6 +313,25 @@ describe("syncBundledAgentExtensions", () => {
       await fs.rm(root, { recursive: true, force: true });
     }
   });
+
+  it("removes bundled extensions retired from the repo mirror", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-bundled-"));
+    try {
+      const agentDir = path.join(root, ".pi", "agent");
+      const stale = path.join(agentDir, "extensions", "btw-h", "index.ts");
+      await fs.mkdir(path.dirname(stale), { recursive: true });
+      await fs.writeFile(stale, "export default function stale() {}");
+
+      await syncBundledAgentExtensions(agentDir);
+
+      await expect(fs.access(path.join(agentDir, "extensions", "btw-h"))).rejects.toThrow();
+      await expect(
+        fs.readFile(path.join(agentDir, "extensions", "goal-h.ts"), "utf-8")
+      ).resolves.toContain("goal_manager");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("mergeBundledPackagesIntoSettings", () => {

@@ -33,6 +33,12 @@ import {
   panelToolbarIndex,
   type ToolbarItemDef,
 } from "../../lib/composerLayout";
+import {
+  insertCompressedMarker,
+  removeMarker,
+  findMarkerBounds,
+  createCompressedMarker,
+} from "../../lib/compressedText";
 
 interface ComposerBarProps {
   disabled?: boolean;
@@ -67,6 +73,7 @@ interface ComposerBarProps {
 
 const MIN_ROWS = 1;
 const MAX_ROWS = 8;
+const COMPRESSED_PASTE_THRESHOLD = 300;
 
 interface PendingAttachment {
   id: string;
@@ -792,10 +799,28 @@ export function ComposerBar({
 
   function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
     if (disabled || isStreaming) return;
-    const pasted = filesFromClipboard(e.clipboardData).filter(isSupportedAttachmentFile);
-    if (!pasted.length) return;
-    e.preventDefault();
-    ingestFiles(pasted);
+    const pastedFiles = filesFromClipboard(e.clipboardData).filter(isSupportedAttachmentFile);
+    if (pastedFiles.length) {
+      e.preventDefault();
+      ingestFiles(pastedFiles);
+      return;
+    }
+
+    const pastedText = e.clipboardData?.getData("text") ?? "";
+    if (pastedText.length > COMPRESSED_PASTE_THRESHOLD) {
+      e.preventDefault();
+      const ta = taRef.current;
+      if (!ta) {
+        setText((prev) => prev + createCompressedMarker(pastedText.length));
+        return;
+      }
+      const start = ta.selectionStart ?? 0;
+      const end = ta.selectionEnd ?? 0;
+      const { text: nextText, position } = insertCompressedMarker(text, start, end, pastedText.length);
+      setText(nextText);
+      pendingCaretRef.current = position;
+      applyPendingCaret({ focus: true });
+    }
   }
 
   function canSendNow(value: string): boolean {
@@ -885,6 +910,26 @@ export function ComposerBar({
     // ←/→/↑/↓/Enter-on-toolbar/Escape are all handled by the document-level
     // navigation listener above (it runs first and stops propagation for
     // anything it claims) — this only ever sees a plain Enter-to-send.
+
+    // Backspace/Delete on a compressed marker removes the whole marker atomically.
+    if ((e.key === "Backspace" || e.key === "Delete") && !e.shiftKey && !isComposing(e)) {
+      const ta = taRef.current;
+      if (!ta) return;
+      const selStart = ta.selectionStart ?? 0;
+      const selEnd = ta.selectionEnd ?? 0;
+      const bounds = findMarkerBounds(text, selStart) ?? findMarkerBounds(text, selEnd);
+      if (bounds) {
+        e.preventDefault();
+        const removed = removeMarker(text, selStart);
+        if (removed) {
+          setText(removed.text);
+          pendingCaretRef.current = removed.position;
+          applyPendingCaret({ focus: true });
+        }
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       if (isComposing(e)) {
         // Let the IME consume Enter (candidate pick) — never preventDefault here.

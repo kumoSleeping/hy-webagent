@@ -20,6 +20,11 @@ export function resolveToolbarSlash(text: string): ToolbarSlashAction | null {
   switch (id.toLowerCase()) {
     case "resume":
       return { panel: "history", fetchSessions: true };
+    case "files":
+      return { panel: "files" };
+    case "user":
+    case "account":
+      return { panel: "account" };
     case "tree":
       return { panel: "tree", treeMode: "tree" };
     case "fork":

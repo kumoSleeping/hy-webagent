@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import { Command } from "lucide-react";
+import { slashCommandIcon } from "../../lib/slashCommandIcon";
 import type { SlashCommand } from "../../stores/slashStore";
 
 interface SlashCommandListItemProps {
@@ -29,7 +29,7 @@ export function SlashCommandListItem({
       }`}
     >
       <span className="pi-composer-cmd-icon" aria-hidden="true">
-        <Command strokeWidth={2} />
+        {slashCommandIcon(command)}
       </span>
       <span className="pi-composer-cmd-name">{command.label}</span>
       <span className="pi-composer-cmd-desc">{command.description}</span>

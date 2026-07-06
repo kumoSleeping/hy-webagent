@@ -2,14 +2,22 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { fetchAccountProfile } from "../../hooks/useAccountProfileSync";
+import { useStartupPreferencesStore } from "../../stores/startupPreferencesStore";
 import { apiGet } from "../../lib/api";
 import type { TokenUsage } from "../../types";
+import type { StartupComposerPosition } from "../../lib/startupPreferences";
 import {
   budgetUsageRatio,
   formatBudgetLine,
   formatUsd,
   isBudgetExhausted,
 } from "../../lib/budgetDisplay";
+
+const STARTUP_LAYOUT_OPTIONS: { value: StartupComposerPosition; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "center", label: "Center" },
+  { value: "bottom", label: "Bottom" },
+];
 
 export function AccountPanel() {
   const username = useAuthStore((s) => s.username);
@@ -19,6 +27,10 @@ export function AccountPanel() {
   const budgetUsedUsd = useAuthStore((s) => s.budgetUsedUsd);
   const budgetRemainingUsd = useAuthStore((s) => s.budgetRemainingUsd);
   const budgetUnlimited = useAuthStore((s) => s.budgetUnlimited);
+  const welcomeEnabled = useStartupPreferencesStore((s) => s.welcomeEnabled);
+  const composerPosition = useStartupPreferencesStore((s) => s.composerPosition);
+  const setWelcomeEnabled = useStartupPreferencesStore((s) => s.setWelcomeEnabled);
+  const setComposerPosition = useStartupPreferencesStore((s) => s.setComposerPosition);
 
   const [todayUsd, setTodayUsd] = useState<number | null>(null);
 
@@ -65,6 +77,42 @@ export function AccountPanel() {
           <span className="pi-account-panel-value">{formatUsd(todayUsd)}</span>
         </div>
       )}
+
+      <div className="pi-account-panel-prefs">
+        <div className="pi-account-panel-row pi-account-panel-row--pref">
+          <span className="pi-account-panel-label">Welcome line</span>
+          <label className="pi-account-panel-toggle">
+            <input
+              type="checkbox"
+              checked={welcomeEnabled}
+              onChange={(e) => setWelcomeEnabled(e.target.checked)}
+            />
+            <span className="pi-account-panel-toggle-ui" aria-hidden="true" />
+            <span className="pi-account-panel-toggle-label">{welcomeEnabled ? "On" : "Off"}</span>
+          </label>
+        </div>
+
+        <div className="pi-account-panel-row pi-account-panel-row--pref">
+          <span className="pi-account-panel-label">Startup layout</span>
+          <div className="pi-account-panel-segment" role="group" aria-label="Startup composer position">
+            {STARTUP_LAYOUT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="pi-account-panel-segment-btn"
+                data-active={composerPosition === option.value}
+                aria-pressed={composerPosition === option.value}
+                onClick={() => setComposerPosition(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="pi-account-panel-pref-hint">
+          Auto: phone bottom, desktop center. Saved in this browser.
+        </p>
+      </div>
 
       <Link to="/logout" className="pi-account-panel-logout">
         Log out

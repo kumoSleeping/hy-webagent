@@ -83,9 +83,7 @@ async function main() {
 
   // Get dynamic slash commands
   const slashCmdsRes = await apiCall<{ system: { id: string; kind: string }[]; dynamic: unknown[] }>("GET", "/api/slash/commands", undefined, sessionToken);
-  const exportCmd = slashCmdsRes.data?.system.find((c) => c.id === "export");
   checks.push({ name: "Get /api/slash/commands", ok: slashCmdsRes.ok, detail: slashCmdsRes.error });
-  checks.push({ name: "/export command advertised as panel", ok: exportCmd?.kind === "panel", detail: exportCmd?.kind });
 
   // Get session tree
   const treeRes = await apiCall<{ tree: unknown[]; currentEntryId?: string }>("GET", `/api/sessions/${sessionA}/tree`, undefined, sessionToken);

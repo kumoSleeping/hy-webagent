@@ -19,9 +19,14 @@ export const DESKTOP_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "new-chat", panel: null, enterToActivate: true },
 ];
 
-/** Mobile toolbar — commands, files, history, new chat only. */
+/** Mobile toolbar — same pool as desktop; trimmed one item at a time
+ *  in the order model → account → tree → files → history → new-chat,
+ *  always keeping commands. */
 export const MOBILE_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "commands", panel: "commands", enterToActivate: false },
+  { id: "model", panel: "model", enterToActivate: false },
+  { id: "account", panel: "account", enterToActivate: false },
+  { id: "tree", panel: "tree", enterToActivate: false },
   { id: "files", panel: "files", enterToActivate: false },
   { id: "history", panel: "history", enterToActivate: false },
   { id: "new-chat", panel: null, enterToActivate: true },

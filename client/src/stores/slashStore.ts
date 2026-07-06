@@ -41,19 +41,17 @@ export interface SlashState {
 
 export const defaultCommands: SlashCommand[] = [
   { id: "model", label: "model", description: "Pick a model", kind: "panel" },
-  { id: "scoped-models", label: "scoped-models", description: "Models available in this context", kind: "panel" },
   { id: "settings", label: "settings", description: "Adjust thinking level and preferences", kind: "panel" },
   { id: "new", label: "new", description: "Start a new session", kind: "instant" },
   { id: "resume", label: "resume", description: "Open session history", kind: "instant" },
+  { id: "files", label: "files", description: "Browse workspace files", kind: "instant" },
+  { id: "user", label: "user", description: "Account and preferences", kind: "instant" },
   { id: "fork", label: "fork", description: "Fork from conversation tree", kind: "instant" },
   { id: "tree", label: "tree", description: "Open conversation tree", kind: "instant" },
   { id: "compact", label: "compact", description: "Compact conversation history", kind: "instant" },
   { id: "name", label: "name", description: "Rename the session", kind: "args" },
   { id: "session", label: "session", description: "Session information", kind: "panel" },
   { id: "copy", label: "copy", description: "Copy the last message", kind: "instant" },
-  { id: "export", label: "export", description: "Export session data", kind: "panel" },
-  { id: "import", label: "import", description: "Import session data", kind: "args" },
-  { id: "reload", label: "reload", description: "Reload extensions, skills, and prompts", kind: "instant" },
 ];
 
 function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {

@@ -9,13 +9,32 @@ import { ToolCallCard } from "./ToolCallCard";
 import { ToolGroupCard } from "./ToolGroupCard";
 import { groupBlocksForDisplay } from "../../lib/blockGrouping";
 import { markdownComponents } from "./markdownComponents";
+import { splitTextWithMarkers } from "../../lib/compressedText";
 
 interface MessageBubbleProps {
   message: ChatMessage;
 }
 
-function TextBlock({ text }: { text: string }) {
+function UserTextBlock({ text }: { text: string }) {
+  const parts = useMemo(() => splitTextWithMarkers(text), [text]);
+  return (
+    <div className="pi-user-text">
+      {parts.map((part, index) =>
+        part.kind === "marker" ? (
+          <span key={index} className="pi-compressed-marker">{part.value}</span>
+        ) : (
+          <span key={index}>{part.value}</span>
+        )
+      )}
+    </div>
+  );
+}
+
+function TextBlock({ text, isUser }: { text: string; isUser?: boolean }) {
   if (!text) return null;
+  if (isUser) {
+    return <UserTextBlock text={text} />;
+  }
   return (
     <div className="pi-markdown">
       <ReactMarkdown
@@ -66,7 +85,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (!isUser && !isStreaming && !hasVisibleContent) return null;
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-6`}>
+    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
       <GlassPanel variant={variant} className="min-w-0">
         {message.images && message.images.length > 0 && (
           <MessageImages images={message.images} />
@@ -75,7 +94,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           ? units.map((u) => {
               switch (u.kind) {
                 case "text":
-                  return <TextBlock key={u.key} text={u.text} />;
+                  return <TextBlock key={u.key} text={u.text} isUser={isUser} />;
                 case "thinking":
                   return <ThinkingBlock key={u.key} content={u.text} isActive={u.isActive} />;
                 case "tool":
@@ -86,7 +105,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             })
           : message.content ? (
             /* fallback for messages without blocks */
-            <TextBlock text={message.content} />
+            <TextBlock text={message.content} isUser={isUser} />
           ) : null}
 
         {/* Legacy tool calls (only shown if no blocks) */}

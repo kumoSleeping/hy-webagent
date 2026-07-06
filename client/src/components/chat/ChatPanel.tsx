@@ -24,6 +24,8 @@ import { openToolbarSlashPanel, resolveToolbarSlash } from "../../lib/toolbarSla
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { useNotificationStore } from "../../stores/notificationStore";
+import { useStartupPreferencesStore } from "../../stores/startupPreferencesStore";
+import { resolveCenteredStartup } from "../../lib/startupPreferences";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
 
 interface ModelInfo {
@@ -67,6 +69,8 @@ export function ChatPanel({
   const composerPanel = useComposerPanelStore((s) => s.panel);
   const treeMode = useComposerPanelStore((s) => s.treeMode);
   const isMobileLayout = useMobileLayout();
+  const welcomeEnabled = useStartupPreferencesStore((s) => s.welcomeEnabled);
+  const composerPosition = useStartupPreferencesStore((s) => s.composerPosition);
   const centerStageOpen = useCenterStageOpen(isMobileLayout);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   /** File preview uses the stack above composer. */
@@ -83,10 +87,16 @@ export function ChatPanel({
   useEffect(() => {
     setWelcomeDismissed(false);
   }, [activePiSessionId]);
-  const isWelcome =
-    !welcomeDismissed &&
+  const isEmptySession =
     hydratedPiSessionId === activePiSessionId &&
     messages.length === 0;
+  const isStartupLayout =
+    !welcomeDismissed &&
+    isEmptySession;
+  const useCenteredStartup =
+    isStartupLayout &&
+    resolveCenteredStartup(composerPosition, isMobileLayout);
+  const showWelcomeSignature = isStartupLayout && welcomeEnabled;
   const notify = useNotificationStore((s) => s.notify);
   const fetchSessions = useSessionStore((s) => s.fetchSessions);
   const activePanel = useSlashStore((s) => s.activePanel);
@@ -459,10 +469,10 @@ export function ChatPanel({
 
   return (
     <div
-      className={`pi-app-shell pi-app-shell--revealed${isWelcome && !isHydrating ? " pi-app-shell--welcome" : ""}${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
+      className={`pi-app-shell pi-app-shell--revealed${useCenteredStartup && !isHydrating ? " pi-app-shell--welcome" : ""}${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
     >
-      {!isWelcome && !isHydrating && <MessageFeed />}
-      {isWelcome && !isHydrating && <PlatformSignature />}
+      {!useCenteredStartup && !isHydrating && <MessageFeed />}
+      {showWelcomeSignature && !isHydrating && <PlatformSignature />}
       {(composerPanel || centerStageOpen) && (
         <div
           className="pi-click-backdrop"

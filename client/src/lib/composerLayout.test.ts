@@ -11,14 +11,17 @@ import {
 } from "./composerLayout";
 
 describe("composerLayout", () => {
-  it("uses four toolbar items on mobile", () => {
+  it("uses the full toolbar pool on mobile", () => {
     expect(toolbarItemsForLayout(true).map((item) => item.id)).toEqual([
       "commands",
+      "model",
+      "account",
+      "tree",
       "files",
       "history",
       "new-chat",
     ]);
-    expect(MOBILE_TOOLBAR_ITEMS).toHaveLength(4);
+    expect(MOBILE_TOOLBAR_ITEMS).toHaveLength(7);
   });
 
   it("elevates only the tree panel", () => {
@@ -30,31 +33,56 @@ describe("composerLayout", () => {
 
   it("maps panel ids to toolbar indices", () => {
     const mobile = toolbarItemsForLayout(true);
-    expect(panelToolbarIndex("files", mobile)).toBe(1);
-    expect(panelToolbarIndex("history", mobile)).toBe(2);
+    expect(panelToolbarIndex("files", mobile)).toBe(4);
+    expect(panelToolbarIndex("history", mobile)).toBe(5);
   });
 
-  it("trims only one item per adjust step", () => {
+  it("trims only one item per adjust step in mobile order", () => {
     const base = toolbarItemsForLayout(true);
     const btn = 50;
     const band = 175;
     const step1 = adjustToolbarItemsForBand(base, base, band, btn);
-    expect(step1.map((i) => i.id)).toEqual(["commands", "history", "new-chat"]);
+    // model is dropped first.
+    expect(step1.map((i) => i.id)).toEqual([
+      "commands",
+      "account",
+      "tree",
+      "files",
+      "history",
+      "new-chat",
+    ]);
     const step2 = adjustToolbarItemsForBand(step1, base, band, btn);
-    expect(step2.map((i) => i.id)).toEqual(["commands", "history", "new-chat"]);
+    // account is dropped next.
+    expect(step2.map((i) => i.id)).toEqual([
+      "commands",
+      "tree",
+      "files",
+      "history",
+      "new-chat",
+    ]);
     const tight = 125;
     const step3 = adjustToolbarItemsForBand(step1, base, tight, btn);
-    expect(step3.map((i) => i.id)).toEqual(["commands", "new-chat"]);
+    // One more step from step1 drops account.
+    expect(step3.map((i) => i.id)).toEqual([
+      "commands",
+      "tree",
+      "files",
+      "history",
+      "new-chat",
+    ]);
   });
 
   it("restores one item when the band widens", () => {
     const base = toolbarItemsForLayout(true);
     const btn = 50;
-    const current = base.filter((i) => i.id !== "files");
-    const wider = restoreOneToolbarItem(current, base, 220, btn);
+    const current = base.filter((i) => i.id !== "files" && i.id !== "history");
+    const wider = restoreOneToolbarItem(current, base, 300, btn);
+    // history is restored before files (reverse trim order).
     expect(wider.map((i) => i.id)).toEqual([
       "commands",
-      "files",
+      "model",
+      "account",
+      "tree",
       "history",
       "new-chat",
     ]);
@@ -72,7 +100,23 @@ describe("composerLayout", () => {
     const base = toolbarItemsForLayout(true);
     const btn = 50;
     const onlyCommands = trimOneToolbarItem(
-      trimOneToolbarItem(trimOneToolbarItem(base, 40, btn), 40, btn),
+      trimOneToolbarItem(
+        trimOneToolbarItem(
+          trimOneToolbarItem(
+            trimOneToolbarItem(
+              trimOneToolbarItem(base, 40, btn),
+              40,
+              btn,
+            ),
+            40,
+            btn,
+          ),
+          40,
+          btn,
+        ),
+        40,
+        btn,
+      ),
       40,
       btn,
     );

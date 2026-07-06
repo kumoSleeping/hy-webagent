@@ -201,9 +201,38 @@ async function syncExtensionTree(sourceDir: string, targetDir: string): Promise<
   }
 }
 
+/** Drop bundled extension entries removed from the repo mirror (e.g. retired btw-h). */
+async function pruneExtensionTreeOrphans(sourceDir: string, targetDir: string): Promise<void> {
+  let targetEntries: fs.Dirent[];
+  try {
+    targetEntries = await fs.readdir(targetDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  let sourceNames: Set<string>;
+  try {
+    sourceNames = new Set(await fs.readdir(sourceDir));
+  } catch {
+    return;
+  }
+
+  for (const entry of targetEntries) {
+    const targetPath = path.join(targetDir, entry.name);
+    const sourcePath = path.join(sourceDir, entry.name);
+    if (!sourceNames.has(entry.name)) {
+      await fs.rm(targetPath, { recursive: true, force: true });
+      continue;
+    }
+    if (entry.isDirectory()) {
+      await pruneExtensionTreeOrphans(sourcePath, targetPath);
+    }
+  }
+}
+
 /**
  * Mirror bundled repo extensions (`pi-extensions/extensions/`) into the per-user agent dir.
- * Copies missing entries and refreshes files when the bundled copy is newer.
+ * Copies missing entries, refreshes files when the bundled copy is newer, and removes
+ * entries retired from the bundle so stale copies (e.g. btw-h) do not linger in workspaces.
  */
 export async function syncBundledAgentExtensions(agentDir: string): Promise<void> {
   const sourceDir = bundledExtensionsDir(config.piExtensionsRoot);
@@ -212,7 +241,9 @@ export async function syncBundledAgentExtensions(agentDir: string): Promise<void
   } catch {
     return;
   }
-  await syncExtensionTree(sourceDir, path.join(agentDir, "extensions"));
+  const targetDir = path.join(agentDir, "extensions");
+  await syncExtensionTree(sourceDir, targetDir);
+  await pruneExtensionTreeOrphans(sourceDir, targetDir);
 }
 
 /**

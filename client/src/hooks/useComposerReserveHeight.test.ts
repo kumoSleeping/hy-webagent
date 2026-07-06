@@ -1,6 +1,19 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, beforeEach } from "vitest";
-import { measureComposerReserveHeight } from "./useComposerReserveHeight";
+import { measureComposerReserveHeight, readRootCssLengthPx } from "./useComposerReserveHeight";
+
+describe("readRootCssLengthPx", () => {
+  beforeEach(() => {
+    document.documentElement.style.setProperty("--pi-composer-fade", "80px");
+  });
+
+  it("converts rem/px variables to pixels, not parseFloat truncation", () => {
+    document.documentElement.style.setProperty("--pi-composer-fade", "2rem");
+    const px = readRootCssLengthPx("--pi-composer-fade", 0);
+    expect(px).toBeGreaterThan(10);
+    expect(px).not.toBe(2);
+  });
+});
 
 describe("measureComposerReserveHeight", () => {
   beforeEach(() => {
