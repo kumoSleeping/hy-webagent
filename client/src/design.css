@@ -72,10 +72,9 @@
   /* Eight toolbar buttons share one bar — width / count must stay in sync. */
   --pi-composer-toolbar-count: 7;
   --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / var(--pi-composer-toolbar-count));
-  /* Soft dissolve band above the composer — visual only; scroll padding uses
-     --pi-composer-scroll-gap so the feed does not leave a large empty band. */
-  --pi-composer-fade: 2rem;
-  --pi-composer-scroll-gap: 0.5rem;
+  /* Dissolve band at the composer ↔ message boundary. Same height is reserved
+     in the feed scroll padding so pinned content ends above the fade. */
+  --pi-composer-fade: 2.5rem;
   /* Empty band reserved at the very top of the chat. */
   --pi-top-strip: 2.5rem;
 }
@@ -995,7 +994,9 @@ body {
    in beside the first with zero extra positioning math. */
 .pi-composer-badges {
   position: absolute;
-  top: -9px; left: -9px;
+  top: calc(-1 * var(--pi-composer-toolbar-btn-h) - 9px);
+  right: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count, 7) + 0.35rem);
+  left: auto;
   z-index: 10;
   display: flex; align-items: center; gap: 0.3rem;
 }
@@ -1732,10 +1733,8 @@ button.pi-panel-row.pi-panel-row--selected {
   display: none;
 }
 
-/* Full-bleed scrim behind the composer: opaque composer band plus a short
-   gradient above it so scrolling messages dissolve gently (not a hard cut).
-   Keep --pi-composer-fade modest — the old 5rem band ate too much readable
-   text when pinned to the bottom. */
+/* Composer scrim: opaque stack below, short gradient at the top edge where
+   messages scroll underneath — the transition from feed to dialog chrome. */
 .pi-interactive-shell::before {
   content: "";
   position: absolute;
@@ -2004,6 +2003,8 @@ button.pi-panel-row.pi-panel-row--selected {
   opacity: 1;
   overflow: hidden;
   min-width: 0;
+  border-bottom: none;
+  box-shadow: none;
 }
 .pi-composer-panel-stack {
   display: flex;
@@ -2151,47 +2152,10 @@ button.pi-panel-row.pi-panel-row--selected {
     /* Button size matches desktop; count comes from fitted toolbar items. */
     --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / 7);
   }
-}
-
-/* Mobile band — toolbar + popup use the right 80% of the composer; left 20% stays empty. */
-.pi-app-shell--mobile .pi-composer-toolbar {
-  left: 20%;
-  right: calc(-1 * var(--pi-composer-border));
-  width: auto;
-  border: 1px solid var(--pi-line);
-  border-bottom: none;
-  background: var(--pi-panel);
-  box-shadow: none;
-}
-.pi-app-shell--mobile .pi-composer-toolbar-bar {
-  width: 100%;
-  justify-content: flex-end;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-}
-.pi-app-shell--mobile .pi-composer-panel {
-  left: 0;
-  right: 0;
-  border-bottom: none;
-  box-shadow: var(--pi-shadow-float);
-}
-.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
-  box-shadow: none;
-}
-.pi-app-shell--mobile .pi-composer-dock--open .pi-composer-toolbar,
-.pi-app-shell--mobile .pi-composer-dock--preview .pi-composer-toolbar {
-  border: none;
-  box-shadow: none;
-}
-.pi-app-shell--mobile .pi-composer-dock--open .pi-preview-stack {
-  width: 80%;
-  margin-left: 20%;
-}
-.pi-app-shell--mobile .pi-composer-dock--preview .pi-preview-stack {
-  left: 20%;
-  right: calc(-1 * var(--pi-composer-border));
-  width: auto;
+  /* Smart-trim keeps the bar within the right 80% — same compact chrome as desktop. */
+  .pi-app-shell--mobile .pi-composer-badges {
+    right: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count, 4) + 0.35rem);
+  }
 }
 
 @media (min-width: 640px) {

@@ -1033,7 +1033,12 @@ export function ComposerBar({
   ];
 
   return (
-    <div className="pi-composer-shell relative" ref={shellRef} onClick={focusInput}>
+    <div
+      className="pi-composer-shell relative"
+      ref={shellRef}
+      style={{ "--pi-composer-toolbar-count": toolbarItems.length } as CSSProperties}
+      onClick={focusInput}
+    >
       {(isStreaming || queuedItems.length > 0) && (
         <div className="pi-composer-badges" onClick={(e) => e.stopPropagation()}>
           {isStreaming && (
@@ -1072,7 +1077,6 @@ export function ComposerBar({
       )}
       <div
         className="pi-composer-toolbar"
-        style={{ "--pi-composer-toolbar-count": toolbarItems.length } as CSSProperties}
         data-open={toolbarActive ? "true" : "false"}
         data-files-overlay={filesOverlay ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
