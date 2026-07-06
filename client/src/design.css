@@ -2144,7 +2144,7 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-composer-toolbar[data-open="true"][data-panel="account"] .pi-composer-panel {
   height: auto;
   max-height: min(20rem, calc(100dvh - 9rem));
-  overflow: visible;
+  overflow: hidden auto;
 }
 .pi-composer-panel-stack {
   display: flex;

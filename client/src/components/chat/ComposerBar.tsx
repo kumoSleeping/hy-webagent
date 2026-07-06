@@ -181,35 +181,6 @@ export function ComposerBar({
     const raw = toolbarBtnWidthPx();
     return Math.min(raw, MOBILE_TOOLBAR_BTN_MAX_PX);
   }, []);
-  // DEBUG — remove after toolbar issue is resolved
-  const [debugInfo, setDebugInfo] = useState("");
-  useLayoutEffect(() => {
-    if (!isMobileLayout) return;
-    const measure = () => {
-      const shell = shellRef.current;
-      const bar = shell?.querySelector(".pi-composer-toolbar-bar") as HTMLElement | null;
-      const toolbar = shell?.querySelector(".pi-composer-toolbar") as HTMLElement | null;
-      const vw = typeof window !== "undefined" ? window.innerWidth : 0;
-      const rf = typeof document !== "undefined" ? (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) : 16;
-      const rawBtnW = (22 / 7) * rf;
-      const cssBtnW = toolbar ? parseInt(getComputedStyle(toolbar).getPropertyValue("--pi-composer-toolbar-btn-w"), 10) || 0 : 0;
-      const sCw = shell?.clientWidth ?? 0;
-      const sOw = shell?.offsetWidth ?? 0;
-      const sRw = shell?.getBoundingClientRect?.()?.width ?? 0;
-      const tCw = toolbar?.clientWidth ?? 0;
-      const tOw = toolbar?.offsetWidth ?? 0;
-      const tRw = toolbar?.getBoundingClientRect?.()?.width ?? 0;
-      const bCw = bar?.clientWidth ?? 0;
-      const bRw = bar?.getBoundingClientRect?.()?.width ?? 0;
-      setDebugInfo(
-        `vw=${vw} rf=${rf} rawBtn=${Math.round(rawBtnW)} cssBtn=${cssBtnW} n=${toolbarItems.length} isMob=${String(isMobileLayout)} | shell cw=${sCw} ow=${sOw} rw=${Math.round(sRw)} | tb cw=${tCw} ow=${tOw} rw=${Math.round(tRw)} | bar cw=${bCw} rw=${Math.round(bRw)}`,
-      );
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    if (shellRef.current) ro.observe(shellRef.current);
-    return () => ro.disconnect();
-  }, [toolbarItems.length, isMobileLayout]);
   const newChatToolbarIndex = toolbarItems.findIndex((item) => item.id === "new-chat");
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
     panelToolbarIndex(kind, toolbarItems);
@@ -1187,29 +1158,6 @@ export function ComposerBar({
               {toolbarIcon(item)}
             </button>
           ))}
-            {debugInfo && (
-              <span
-                style={{
-                  position: "fixed",
-                  bottom: 8,
-                  left: 8,
-                  background: "#000c",
-                  color: "#0f0",
-                  padding: "4px 8px",
-                  borderRadius: 6,
-                  fontSize: 11,
-                  fontFamily: "monospace",
-                  zIndex: 99999,
-                  pointerEvents: "none",
-                  lineHeight: 1.4,
-                  maxWidth: "calc(100vw - 16px)",
-                  overflowWrap: "break-word",
-                  wordBreak: "break-all",
-                }}
-              >
-                {debugInfo}
-              </span>
-            )}
           </div>
         </div>
       </div>
