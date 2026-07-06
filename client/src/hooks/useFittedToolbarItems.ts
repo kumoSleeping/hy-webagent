@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react";
+import { useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import {
   adjustToolbarItemsForBand,
   TOOLBAR_BAND_RATIO,
@@ -25,40 +25,53 @@ function convergeItemsForBand(
   return next;
 }
 
+/** Estimate the composer shell's available 80% band from the viewport.
+ *  Mirrors design.css: .pi-interactive-shell padding is
+ *  min(1.5rem, clamp(1rem, 2.8vw, 3rem)), and the shell fills the rest. */
+function computeBandPx(): number {
+  if (typeof window === "undefined") return 0;
+  const viewport = window.innerWidth;
+  if (viewport <= 0) return 0;
+
+  const btnW = toolbarBtnWidthPx();
+  const rootFontPx = (btnW * 7) / 22;
+  // padding-inline = min(1.5rem, clamp(1rem, 2.8vw, 3rem))
+  const clamped = Math.max(rootFontPx, Math.min(3 * rootFontPx, viewport * 0.028));
+  const shellPadding = Math.min(1.5 * rootFontPx, clamped);
+  const shellWidth = viewport - 2 * shellPadding;
+  return Math.max(0, shellWidth * TOOLBAR_BAND_RATIO);
+}
+
 /** Mobile: step toolbar buttons in/out one at a time to fit the right 80% band. */
 export function useFittedToolbarItems(
   isMobileLayout: boolean,
   shellRef: RefObject<HTMLElement | null>,
 ): ToolbarItemDef[] {
   const baseItems = useMemo(() => toolbarItemsForLayout(isMobileLayout), [isMobileLayout]);
+
+  // On mobile, estimate the initial fitted set from the viewport so the first
+  // paint does not render the full 7-item pool and overflow off-screen before
+  // the shell measurement is available.
   const [items, setItems] = useState<ToolbarItemDef[]>(() => {
-    // On mobile, estimate the initial fitted set from the viewport so the first
-    // paint does not render the full 7-item pool and overflow off-screen before
-    // the ResizeObserver measures the composer shell.
     if (!isMobileLayout) return baseItems;
-    const width = typeof window !== "undefined" ? window.innerWidth : 0;
-    const bandPx = width * TOOLBAR_BAND_RATIO;
-    const btnW = toolbarBtnWidthPx();
-    return convergeItemsForBand(baseItems, baseItems, bandPx, btnW);
+    return convergeItemsForBand(baseItems, baseItems, computeBandPx(), toolbarBtnWidthPx());
   });
 
   // Sync the fitted set when the layout changes (mobile <-> desktop) or when
-  // the base item pool changes. The ResizeObserver below handles the actual
-  // shell-width measurement, so we only seed a reasonable initial estimate here
-  // and avoid clobbering a fitted state with the full 7-item pool.
-  useEffect(() => {
+  // the base item pool changes. Avoid clobbering a fitted state with the full
+  // 7-item pool.
+  useLayoutEffect(() => {
     if (!isMobileLayout) {
       setItems(baseItems);
       return;
     }
-    const width = typeof window !== "undefined" ? window.innerWidth : 0;
-    const bandPx = width * TOOLBAR_BAND_RATIO;
-    const btnW = toolbarBtnWidthPx();
-    setItems(convergeItemsForBand(baseItems, baseItems, bandPx, btnW));
+    setItems(convergeItemsForBand(baseItems, baseItems, computeBandPx(), toolbarBtnWidthPx()));
   }, [baseItems, isMobileLayout]);
 
   // Measure the composer shell immediately before paint and keep it in sync on
-  // resize. This ensures the visible button row never overflows the right band.
+  // resize. The shell measurement is the source of truth, but if it reports a
+  // suspiciously small width (e.g. before CSS is fully laid out), fall back to
+  // the viewport estimate so the toolbar never collapses to just commands.
   useLayoutEffect(() => {
     if (!isMobileLayout) {
       setItems(baseItems);
@@ -69,10 +82,15 @@ export function useFittedToolbarItems(
     if (!shell) return;
 
     const update = () => {
-      const bandPx = shell.clientWidth * TOOLBAR_BAND_RATIO;
-      const btnW = toolbarBtnWidthPx();
+      const measured = shell.clientWidth;
+      const estimated = computeBandPx();
+      // Use the shell measurement if it looks reasonable; otherwise trust the
+      // viewport estimate. A measured width that is less than half the estimate
+      // means the shell is probably not fully laid out yet.
+      const measuredBand = measured * TOOLBAR_BAND_RATIO;
+      const bandPx = measured > 0 && measuredBand > estimated * 0.5 ? measuredBand : estimated;
       setItems((prev) =>
-        convergeItemsForBand(prev.length ? prev : baseItems, baseItems, bandPx, btnW),
+        convergeItemsForBand(prev.length ? prev : baseItems, baseItems, bandPx, toolbarBtnWidthPx()),
       );
     };
 
