@@ -7,8 +7,6 @@ import { useNotificationStore } from "../stores/notificationStore";
 import { useComposerFocusStore } from "../stores/composerFocusStore";
 import { useStatusBarStore } from "../stores/statusBarStore";
 import { useExtensionUiStore } from "../stores/extensionUiStore";
-import { resolveBtwTurnId, useBtwStore } from "../stores/btwStore";
-import { useComposerPanelStore } from "../stores/composerPanelStore";
 import { hasVisibleWidgets } from "../components/extension-ui/ExtensionWidgetBody";
 import { applyStatusPayload } from "./useStatusBarSync";
 import { useComposerLayoutSync } from "./useComposerLayoutSync";
@@ -17,24 +15,23 @@ import type { ExtensionUIRequest } from "../types/extension-ui";
 import { apiGet } from "../lib/api";
 import type { SlashCommand } from "../stores/slashStore";
 
-const HYDRATION_FALLBACK_MS = 8_000;
+const HYDRATION_FALLBACK_MS = 2_000;
 const RECONNECT_BASE_MS = 800;
 const RECONNECT_MAX_MS = 15_000;
 
 export interface ChatWebSocketApi {
-  sendPrompt: (text: string, images?: { mediaType: string; data: string }[]) => void;
-  sendSteer: (text: string) => void;
-  sendFollowUp: (text: string) => void;
-  sendAbort: () => void;
-  sendDequeue: () => void;
-  sendSlash: (command: string, args?: Record<string, unknown>) => void;
+  sendPrompt: (text: string, images?: { mediaType: string; data: string }[]) => boolean;
+  sendSteer: (text: string) => boolean;
+  sendFollowUp: (text: string) => boolean;
+  sendAbort: () => boolean;
+  sendDequeue: () => boolean;
+  sendSlash: (command: string, args?: Record<string, unknown>) => boolean;
   sendExtensionUiResponse: (response: {
     id: string;
     value?: string;
     confirmed?: boolean;
     cancelled?: boolean;
   }) => void;
-  sendBtwAsk: (question: string) => void;
 }
 
 function dispatchWsMessage(
@@ -50,14 +47,20 @@ function dispatchWsMessage(
     case "chat:history": {
       const agentRunning = Boolean(msg.payload?.agentRunning);
       const messages = msg.payload?.messages || [];
-      const alreadyHydrated =
-        store().hydratedPiSessionId === boundPiSessionId && store().messages.length > 0;
+      const alreadyHydrated = store().hydratedPiSessionId === boundPiSessionId;
       if (alreadyHydrated) {
         if (agentRunning) store().resumeAgentRun();
       } else {
         store().loadHistory(messages, { agentRunning });
       }
       finishHydration();
+      break;
+    }
+    case "chat:user_message": {
+      const raw = msg.payload?.message;
+      if (msg.payload?.phase === "end" && raw?.role === "user") {
+        store().commitUserMessage(raw);
+      }
       break;
     }
     case "chat:text_delta": {
@@ -97,7 +100,7 @@ function dispatchWsMessage(
       break;
     }
     case "chat:agent_start":
-      store().startAssistantMessage();
+      store().ensureStreamingAssistant();
       break;
     case "chat:agent_end": {
       const aid =
@@ -190,49 +193,6 @@ function dispatchWsMessage(
           break;
         default:
           break;
-      }
-      break;
-    }
-    case "btw:start": {
-      const question = String(msg.payload?.question ?? "").trim();
-      if (!question) break;
-      if (!useComposerPanelStore.getState().btwPanelSuppressed) {
-        useComposerPanelStore.getState().openBtwPanel();
-      }
-      const { turns } = useBtwStore.getState();
-      const exists = turns.some((t) => t.question === question && (t.pending || t.answer || t.error));
-      if (!exists) useBtwStore.getState().ensureTurn(question);
-      break;
-    }
-    case "btw:text_delta": {
-      const turnId = resolveBtwTurnId(msg.payload?.question);
-      if (turnId && msg.payload?.delta) {
-        useBtwStore.getState().appendDelta(turnId, String(msg.payload.delta));
-      }
-      break;
-    }
-    case "btw:agent_start": {
-      const turnId = resolveBtwTurnId(msg.payload?.question);
-      if (turnId) useBtwStore.getState().setPending(turnId, true);
-      break;
-    }
-    case "btw:agent_end":
-      // Keep pending until btw:end/btw:error — agent_end can arrive before any text_delta.
-      break;
-    case "btw:end": {
-      const turnId = resolveBtwTurnId(msg.payload?.question);
-      if (turnId) {
-        useBtwStore.getState().finishTurn(turnId, String(msg.payload?.answer ?? ""));
-      }
-      break;
-    }
-    case "btw:error": {
-      const turnId = resolveBtwTurnId(msg.payload?.question);
-      const message = String(msg.payload?.message ?? "Side question failed");
-      if (turnId) {
-        useBtwStore.getState().failTurn(turnId, message);
-      } else {
-        useNotificationStore.getState().notify(message, "info");
       }
       break;
     }
@@ -408,6 +368,5 @@ export function useChatWebSocket(): ChatWebSocketApi {
       confirmed?: boolean;
       cancelled?: boolean;
     }) => send("extension_ui:response", response),
-    sendBtwAsk: (question: string) => send("btw:ask", { question }),
   };
 }

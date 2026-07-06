@@ -85,6 +85,10 @@ interface UserPISession {
   onExtensionUiRequest?: PiExtensionUiCallback;
   /** True after admin-skills/ was extendResources'd onto this session's loader. */
   adminSkillsExtended?: boolean;
+  /** Sub-agent (sidecar) token usage accumulated during this session, for footer display. */
+  sidecarInput: number;
+  sidecarOutput: number;
+  sidecarCost: number;
 }
 
 type PiEventCallback = (userId: string, event: AgentSessionEvent) => void;
@@ -219,12 +223,25 @@ export class PISessionManager {
     ps.onFooter?.(ps.userId, this.getFooterSnapshot(ps.sessionId));
   }
 
+  addSidecarUsage(sessionId: string, input: number, output: number, cost: number) {
+    const ps = this.sessions.get(sessionId);
+    if (!ps) return;
+    ps.sidecarInput += input;
+    ps.sidecarOutput += output;
+    ps.sidecarCost += cost;
+    this.pushFooterSnapshot(ps);
+  }
+
   getFooterSnapshot(sessionId: string): FooterSnapshot {
     const ps = this.sessions.get(sessionId);
     if (!ps) {
       return { pwdLine: "", statsLeft: "", modelRight: "", extensionLine: null };
     }
-    return computeFooterSnapshot(ps.session, Object.fromEntries(ps.extensionStatuses));
+    return computeFooterSnapshot(ps.session, Object.fromEntries(ps.extensionStatuses), {
+      input: ps.sidecarInput,
+      output: ps.sidecarOutput,
+      cost: ps.sidecarCost,
+    });
   }
 
   getWidgetSnapshot(sessionId: string): WidgetSnapshot {
@@ -500,6 +517,9 @@ export class PISessionManager {
       widgetHost: null as unknown as WebWidgetHost,
       extensionUiBridge: null as unknown as ExtensionUIBridge,
       extensionStatuses: new Map(),
+      sidecarInput: 0,
+      sidecarOutput: 0,
+      sidecarCost: 0,
     };
     // Close over `userSession`, not `session.sessionId` — runtime rebind can
     // change the Pi session id while keeping the same UserPISession shell.
@@ -597,7 +617,7 @@ export class PISessionManager {
     return runtime;
   }
 
-  /** Public entry for orchestration (e.g. /btw fork flow). */
+  /** Public entry for orchestration (e.g. fork / branch flows). */
   async ensureRuntimeForSession(ps: UserPISession): Promise<AgentSessionRuntime> {
     return this.ensureRuntime(ps);
   }

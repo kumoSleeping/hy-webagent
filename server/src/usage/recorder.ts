@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export type UsageSource = "chat" | "btw" | "subagent";
+export type UsageSource = "chat" | "subagent";
 
 export interface ModelUsage {
   input: number;
@@ -61,7 +61,6 @@ function normalizeDailyFile(raw: DailyUsageFile): DailyUsageFile {
   const totals = normalizeUsage(raw.totals);
   const bySource = {
     chat: normalizeUsage(raw.bySource?.chat),
-    btw: normalizeUsage(raw.bySource?.btw),
     subagent: normalizeUsage(raw.bySource?.subagent),
   };
   const models: Record<string, ModelUsage> = {};
@@ -98,7 +97,7 @@ export class UsageRecorder {
         displayName,
         models: {},
         totals: emptyUsage(),
-        bySource: { chat: emptyUsage(), btw: emptyUsage(), subagent: emptyUsage() },
+        bySource: { chat: emptyUsage(), subagent: emptyUsage() },
       };
     }
   }

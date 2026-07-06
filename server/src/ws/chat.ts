@@ -11,7 +11,6 @@ import type { SlashExecutePayload } from "../slash/types.js";
 import type { UsageRecorder } from "../usage/recorder.js";
 import { applyTurnUsage, budgetExceededMessage, isBudgetExceeded } from "../usage/turn-usage.js";
 import { applySidecarToolUsage, isSidecarToolName } from "../usage/sidecar-usage.js";
-import { emitBtwAgentEvent, runBtwAsk } from "../pi/btw-ask.js";
 import { budgetSnapshot } from "../auth.js";
 import { toolResultToText } from "./tool-result-text.js";
 
@@ -61,15 +60,6 @@ export function handleChatWs(
   }
 
   function onPiEvent(_uid: string, event: AgentSessionEvent) {
-    if (btwActive) {
-      emitBtwAgentEvent(event, (type, payload) =>
-        send({
-          type,
-          payload: btwQuestion ? { question: btwQuestion, ...payload } : payload,
-        })
-      );
-      return;
-    }
     switch (event.type) {
       case "message_update": {
         const ame: any = event.assistantMessageEvent;
@@ -133,10 +123,30 @@ export function handleChatWs(
               { userId }
             );
             sendTokenUpdate(last.snapshot, last.user, { source: "subagent" });
+
+            // Accumulate sidecar tokens for session-level footer display
+            const sid = getActiveSessionId();
+            if (sid) {
+              for (const r of sidecarResults) {
+                sessionManager.addSidecarUsage(
+                  sid,
+                  r.snapshot.input,
+                  r.snapshot.output,
+                  r.snapshot.costUsd
+                );
+              }
+            }
           }
         }
 
         sendFooterSnapshot();
+        break;
+      }
+      case "message_end": {
+        const evt: any = event;
+        if (evt.message?.role === "user") {
+          send({ type: "chat:user_message", payload: { message: evt.message, phase: "end" } });
+        }
         break;
       }
       case "agent_start":
@@ -185,77 +195,6 @@ export function handleChatWs(
 
   let activePiSessionId = piSessionId;
   let rehydratePromise: Promise<void> | null = null;
-  let btwActive = false;
-  let btwInFlight = false;
-  /** Active /btw question — attached to streamed btw:* events from onPiEvent. */
-  let btwQuestion: string | null = null;
-
-  async function executeBtwAsk(question: string) {
-    const trimmed = question.trim();
-    const session = await ensureSessionReady();
-    const sid = session?.sessionId;
-    if (!sid) {
-      send({ type: "btw:error", payload: { question: trimmed, message: "No active session" } });
-      return;
-    }
-    if (!trimmed) {
-      send({ type: "btw:error", payload: { message: "Question is required" } });
-      return;
-    }
-    const user = authSystem.getUser(userId);
-    if (user && isBudgetExceeded(user)) {
-      send({ type: "btw:error", payload: { question: trimmed, message: budgetExceededMessage(user) } });
-      return;
-    }
-    if (btwInFlight) {
-      send({
-        type: "btw:error",
-        payload: { question: trimmed, message: "A /btw question is already running" },
-      });
-      return;
-    }
-    btwInFlight = true;
-    btwActive = true;
-    btwQuestion = trimmed;
-    try {
-      await runBtwAsk(
-        sessionManager,
-        sid,
-        userId,
-        trimmed,
-        (type, payload) => send({ type, payload: { question: trimmed, ...payload } }),
-        {
-          onTurnEnd: (message) => {
-            const result = applyTurnUsage({
-              userId,
-              message,
-              source: "btw",
-              authSystem,
-              tokenTracker,
-              usageRecorder,
-            });
-            if (!result) return;
-            const { snapshot, user: updatedUser } = result;
-            log.info(
-              `btw turn_end cost=$${snapshot.costUsd.toFixed(4)} model=${snapshot.provider}/${snapshot.model}`,
-              { userId }
-            );
-            sendTokenUpdate(snapshot, updatedUser, { source: "btw" });
-          },
-        }
-      );
-    } catch (err) {
-      log.error(`btw error: ${(err as Error).message}`, { userId });
-    } finally {
-      btwActive = false;
-      btwInFlight = false;
-      btwQuestion = null;
-      const restored = sessionManager.getSessionForUser(userId);
-      if (restored) activePiSessionId = restored.sessionId;
-      sendUiSnapshot();
-      sendHistorySnapshot();
-    }
-  }
 
   function getActiveSession(): ReturnType<PISessionManager["getSessionForUser"]> {
     if (activePiSessionId) {
@@ -372,16 +311,13 @@ export function handleChatWs(
 
   function attachStatusListener(sessionId: string) {
     sessionManager.setStatusListener(sessionId, (_uid, update) => {
-      if (btwActive) return;
       if (update.key.startsWith("__")) return;
       sendStatusUpdate(update.key, update.text);
     });
     sessionManager.setWidgetListener(sessionId, (_uid, snapshot) => {
-      if (btwActive) return;
       send({ type: "widget:update", payload: snapshot });
     });
     sessionManager.setFooterListener(sessionId, (_uid, snapshot) => {
-      if (btwActive) return;
       send({ type: "footer:update", payload: snapshot });
     });
     sessionManager.setExtensionUiListener(sessionId, (_uid, request) => {
@@ -521,23 +457,7 @@ export function handleChatWs(
             return;
           }
 
-          const btwMatch = result.clean.trim().match(/^\/btw(?:\s+(.+))?$/i);
-          if (btwMatch) {
-            const q = btwMatch[1]?.trim();
-            if (!q) {
-              send({ type: "btw:error", payload: { message: "Usage: /btw <question>" } });
-              return;
-            }
-            await executeBtwAsk(q);
-            return;
-          }
-
           await sessionManager.sendPrompt(promptSession.sessionId, result.clean, images);
-          break;
-        }
-        case "btw:ask": {
-          const { question } = (msg.payload ?? {}) as { question?: string };
-          await executeBtwAsk(String(question || ""));
           break;
         }
         case "chat:steer": {

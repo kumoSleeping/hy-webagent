@@ -47,7 +47,6 @@ export const defaultCommands: SlashCommand[] = [
   { id: "resume", label: "resume", description: "Open session history", kind: "instant" },
   { id: "fork", label: "fork", description: "Fork from conversation tree", kind: "instant" },
   { id: "tree", label: "tree", description: "Open conversation tree", kind: "instant" },
-  { id: "btw", label: "btw", description: "Open side Q&A panel", kind: "instant" },
   { id: "compact", label: "compact", description: "Compact conversation history", kind: "instant" },
   { id: "name", label: "name", description: "Rename the session", kind: "args" },
   { id: "session", label: "session", description: "Session information", kind: "panel" },

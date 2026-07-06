@@ -116,16 +116,17 @@ export function useChatSessionRoute() {
 
     const current = useSessionStore.getState().activePiSessionId;
     const hydrated = useChatStore.getState().hydratedPiSessionId;
-    if (urlSessionId === current) {
+
+    // Bind store + WS immediately from the URL — don't wait for HTTP activate.
+    if (current !== urlSessionId) {
+      useSessionStore.getState().setActiveSession(urlSessionId, { syncUrl: false });
+    }
+
+    if (urlSessionId === useSessionStore.getState().activePiSessionId) {
       syncedUrlIdRef.current = urlSessionId;
-      setIsSyncingSession(false);
-      return;
     }
     if (syncedUrlIdRef.current === urlSessionId && hydrated === urlSessionId) {
       setIsSyncingSession(false);
-      if (!current) {
-        useSessionStore.getState().setActiveSession(urlSessionId, { syncUrl: false });
-      }
       return;
     }
 

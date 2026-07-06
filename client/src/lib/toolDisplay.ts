@@ -106,6 +106,12 @@ export function extractToolTarget(
       const path = pickPath(input);
       return path || "list directory";
     }
+    case "subagent_explorer":
+    case "subagent_searcher":
+    case "subagent_worker": {
+      const task = (input.task ?? input.prompt ?? input.message) as string | undefined;
+      return task ? `${normalized.replace("subagent_", "")} · "${truncate(task, 80)}"` : normalized.replace("subagent_", "");
+    }
     default:
       return extractGenericTarget(input) || "…";
   }

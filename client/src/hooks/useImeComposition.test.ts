@@ -33,7 +33,7 @@ describe("useImeComposition", () => {
     const { result } = renderHook(() => useImeComposition());
     const props = result.current.imeProps;
 
-    props.onCompositionStart?.({} as CompositionEvent);
+    props.onCompositionStart?.();
     expect(result.current.isComposingActive()).toBe(true);
     expect(result.current.isComposing(enterKeyDown(false))).toBe(true);
 
@@ -46,7 +46,7 @@ describe("useImeComposition", () => {
     const onCommit = vi.fn();
     const { result } = renderHook(() => useImeComposition(onCommit));
 
-    result.current.imeProps.onCompositionStart?.({} as CompositionEvent);
+    result.current.imeProps.onCompositionStart?.();
     result.current.imeProps.onCompositionEnd?.(compositionEnd("你好"));
     expect(onCommit).not.toHaveBeenCalled();
     expect(result.current.isComposingActive()).toBe(true);

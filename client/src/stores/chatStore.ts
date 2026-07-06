@@ -6,9 +6,24 @@ import {
   parseHistoryImagePart,
   stripFileAttachmentTags,
 } from "../lib/prepareAttachments";
+import { convertSdkUserMessage } from "../lib/convertUserMessage";
 
 let counter = 0;
 function nextId() { return `msg-${++counter}-${Date.now()}`; }
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
+/** Orphan assistant bubble — created when agent_start raced ahead of tool/text events. */
+function isEmptyAssistantMessage(m: ChatMessage): boolean {
+  if (m.role !== "assistant" || m.isStreaming) return false;
+  if (m.images?.length) return false;
+  if (m.content.trim()) return false;
+  if (m.blocks?.length) return false;
+  if (m.toolCalls?.length) return false;
+  return true;
+}
 
 interface ChatState {
   messages: ChatMessage[];
@@ -20,7 +35,8 @@ interface ChatState {
   queuedSteering: string[];
   queuedFollowUp: string[];
 
-  addUserMessage: (content: string, images?: ChatImageAttachment[]) => void;
+  /** Insert a user message at the SDK-persisted position (splits a live assistant turn when needed). */
+  commitUserMessage: (raw: any) => void;
   startAssistantMessage: () => string;
   appendTextDelta: (msgId: string, delta: string) => void;
   appendThinkingDelta: (msgId: string, delta: string) => void;
@@ -41,10 +57,8 @@ interface ChatState {
   resumeAgentRun: () => void;
   /** Resolve (or create) the assistant bubble that should receive live deltas. */
   ensureStreamingAssistant: () => string;
-  /** Reconciles the server's queue snapshot against what we last knew about.
-   * Any message(s) that dropped off the *front* of either queue since last
-   * time were just actually delivered to the model — those get promoted
-   * into the real transcript now (not before). */
+  /** Reconciles the server's queue snapshot for composer badges only.
+   * User messages enter the transcript via commitUserMessage on chat:user_message. */
   syncQueuedMessages: (steering: string[], followUp: string[]) => void;
   /** Optimistically clears the local queue view right when the user asks to
    * recall queued messages back into the composer — must run *before* the
@@ -62,48 +76,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
   queuedFollowUp: [],
   hydratedPiSessionId: null,
 
-  addUserMessage: (content, images) => {
-    const msg: ChatMessage = {
-      id: nextId(),
-      role: "user",
-      content,
-      timestamp: Date.now(),
-      images: images?.length ? images : undefined,
-    };
-    set((s) => ({ messages: [...s.messages, msg] }));
+  commitUserMessage: (raw) => {
+    const msg = convertSdkUserMessage(raw, nextId);
+    if (!msg) return;
+    set((s) => {
+      if (s.messages.some((m) => m.id === msg.id)) return s;
+
+      const streamingIdx = s.messages.findIndex((m) => m.isStreaming);
+      if (streamingIdx !== -1) {
+        const streaming = s.messages[streamingIdx]!;
+        const finalizedAssistant = { ...streaming, isStreaming: false };
+        const messages = [...s.messages];
+        messages[streamingIdx] = finalizedAssistant;
+        messages.splice(streamingIdx + 1, 0, msg);
+        return {
+          messages,
+          currentAssistantId: null,
+        };
+      }
+      return { messages: [...s.messages, msg] };
+    });
   },
 
   syncQueuedMessages: (steering, followUp) => {
     set((s) => {
-      const delivered = (prev: string[], next: string[]) =>
-        prev.slice(0, Math.max(0, prev.length - next.length));
-      const deliveredTexts = [
-        ...delivered(s.queuedSteering, steering),
-        ...delivered(s.queuedFollowUp, followUp),
-      ];
-      if (deliveredTexts.length === 0) {
-        return { queuedSteering: steering, queuedFollowUp: followUp };
+      if (
+        arraysEqual(s.queuedSteering, steering) &&
+        arraysEqual(s.queuedFollowUp, followUp)
+      ) {
+        return s;
       }
-      const newMessages: ChatMessage[] = deliveredTexts.map((content) => ({
-        id: nextId(), role: "user", content, timestamp: Date.now(),
-      }));
-      return {
-        messages: [...s.messages, ...newMessages],
-        queuedSteering: steering,
-        queuedFollowUp: followUp,
-      };
+      return { queuedSteering: steering, queuedFollowUp: followUp };
     });
   },
 
   clearQueuedMessagesLocally: () => set({ queuedSteering: [], queuedFollowUp: [] }),
 
   startAssistantMessage: () => {
+    const s = get();
+    if (s.currentAssistantId) {
+      const current = s.messages.find((m) => m.id === s.currentAssistantId);
+      if (current?.isStreaming) return s.currentAssistantId;
+    }
+    const streaming = s.messages.find((m) => m.isStreaming);
+    if (streaming) {
+      set({ currentAssistantId: streaming.id, isStreaming: true });
+      return streaming.id;
+    }
     const id = nextId();
     const msg: ChatMessage = {
       id, role: "assistant", content: "", timestamp: Date.now(),
       toolCalls: [], blocks: [], isStreaming: true,
     };
-    set((s) => ({ messages: [...s.messages, msg], isStreaming: true, currentAssistantId: id }));
+    set((prev) => ({ messages: [...prev.messages, msg], isStreaming: true, currentAssistantId: id }));
     return id;
   },
 
@@ -225,8 +250,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   finishAssistantMessage: (msgId) => {
     set((s) => ({
-      messages: s.messages.map((m) => m.id === msgId ? { ...m, isStreaming: false } : m),
-      isStreaming: false, currentAssistantId: null,
+      messages: s.messages
+        .map((m) => (m.id === msgId ? { ...m, isStreaming: false } : m))
+        .filter((m) => !isEmptyAssistantMessage(m)),
+      isStreaming: false,
+      currentAssistantId: null,
     }));
   },
 

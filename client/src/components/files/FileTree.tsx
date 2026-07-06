@@ -200,11 +200,7 @@ export function FileTree({ onFileClick }: FileTreeProps) {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <PanelFilterBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Filter files…"
-      />
+      <PanelFilterBar value={query} onChange={setQuery} />
       <div className="flex-1 min-h-0 overflow-y-auto pi-scrollbar py-0.5">
         {noMatches ? (
           <div className="px-2 py-1 text-base text-[var(--pi-muted)]">No matching files</div>

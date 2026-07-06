@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Command, SquarePen, GitBranch, History, FolderOpen, MessageSquareQuote, Cpu, Plus, Send, X, UserRound } from "lucide-react";
+import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
 import type { SlashCommand } from "../../stores/slashStore";
-import { commandKindLabel, commandOriginLabel } from "../../lib/slashCommandMeta";
+import { SlashCommandListItem } from "../slash/SlashCommandListItem";
 import {
   canSubmitBareSlash,
   getBareSlashId,
@@ -18,17 +18,23 @@ import {
 import { useComposerFocusStore } from "../../stores/composerFocusStore";
 import { useComposerPanelStore, type ComposerPanelKind } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
-import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { FileTree } from "../files/FileTree";
 import { PanelFilterBar } from "../common/PanelFilterBar";
-import { BtwPanel } from "../extension-ui/BtwPanel";
 import { AccountPanel } from "../platform/AccountPanel";
 import { useImeComposition } from "../../hooks/useImeComposition";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
 import { useNotificationStore } from "../../stores/notificationStore";
 import type { FileEntry } from "../../types";
+import {
+  isElevatedPanel,
+  panelChromeLabel,
+  panelToolbarIndex,
+  toolbarItemsForLayout,
+  type MobileComposerPanel,
+  type ToolbarItemDef,
+} from "../../lib/composerLayout";
 
 interface ComposerBarProps {
   disabled?: boolean;
@@ -56,38 +62,14 @@ interface ComposerBarProps {
    * settings, etc.) — shown in place of the command list once a command
    * has been picked. Lives in the same right-aligned popup as history/files. */
   commandsContent?: ReactNode;
-  /** Conversation tree — Pi's signature feature gets its own direct toggle,
-   * same popup mechanism as history/files. */
-  treeContent?: ReactNode;
   /** Model picker — direct toolbar toggle, same popup as history/files. */
   modelContent?: ReactNode;
-  onBtwAsk?: (question: string) => void;
-  onBtwNew?: () => void;
+  isMobileLayout?: boolean;
+  onMobilePanelChange?: (panel: MobileComposerPanel | null) => void;
 }
 
 const MIN_ROWS = 1;
 const MAX_ROWS = 8;
-
-type ToolbarItemId = "new-chat" | "commands" | "model" | "tree" | "history" | "files" | "btw" | "account";
-
-// "New chat" sits last (rightmost) — it's the one rendered as a solid
-// red accent button, at the toolbar's own outer corner.
-const TOOLBAR_ITEMS: {
-  id: ToolbarItemId;
-  panel: Exclude<ComposerPanelKind, null> | null;
-  enterToActivate: boolean;
-}[] = [
-  { id: "commands", panel: "commands", enterToActivate: false },
-  { id: "model", panel: "model", enterToActivate: false },
-  { id: "tree", panel: "tree", enterToActivate: false },
-  { id: "history", panel: "history", enterToActivate: false },
-  { id: "files", panel: "files", enterToActivate: false },
-  { id: "btw", panel: "btw", enterToActivate: false },
-  { id: "account", panel: "account", enterToActivate: false },
-  { id: "new-chat", panel: null, enterToActivate: true },
-];
-
-const NEW_CHAT_TOOLBAR_INDEX = TOOLBAR_ITEMS.findIndex((item) => item.id === "new-chat");
 
 interface PendingAttachment {
   id: string;
@@ -98,15 +80,62 @@ interface PendingAttachment {
   error?: string;
 }
 
-const PANEL_TOOLBAR_INDEX: Record<Exclude<ComposerPanelKind, null>, number> = {
-  commands: 0,
-  model: 1,
-  tree: 2,
-  history: 3,
-  files: 4,
-  btw: 5,
-  account: 6,
-};
+function toolbarIcon(item: ToolbarItemDef) {
+  switch (item.id) {
+    case "commands":
+      return <Command strokeWidth={2} aria-hidden="true" />;
+    case "model":
+      return <Cpu strokeWidth={2} aria-hidden="true" />;
+    case "tree":
+      return <GitBranch strokeWidth={2} aria-hidden="true" />;
+    case "history":
+      return <History strokeWidth={2} aria-hidden="true" />;
+    case "files":
+      return <FolderOpen strokeWidth={2} aria-hidden="true" />;
+    case "account":
+      return <UserRound strokeWidth={2} aria-hidden="true" />;
+    case "new-chat":
+      return <SquarePen strokeWidth={2} aria-hidden="true" />;
+  }
+}
+
+function toolbarTitle(item: ToolbarItemDef): string {
+  switch (item.id) {
+    case "commands":
+      return "Commands";
+    case "model":
+      return "Model";
+    case "tree":
+      return "Tree";
+    case "history":
+      return "History";
+    case "files":
+      return "Files";
+    case "account":
+      return "Account & budget";
+    case "new-chat":
+      return "New chat (Enter)";
+  }
+}
+
+function toolbarAriaLabel(item: ToolbarItemDef): string {
+  switch (item.id) {
+    case "commands":
+      return "Toggle commands";
+    case "model":
+      return "Toggle model selector";
+    case "tree":
+      return "Toggle tree";
+    case "history":
+      return "Toggle history";
+    case "files":
+      return "Toggle files";
+    case "account":
+      return "Toggle account panel";
+    case "new-chat":
+      return "New chat";
+  }
+}
 
 function getSlashParts(value: string): { id: string; argText: string } | null {
   const id = getBareSlashId(value);
@@ -137,13 +166,15 @@ export function ComposerBar({
   onNewChat,
   onFileClick,
   commandsContent,
-  treeContent,
   modelContent,
-  onBtwAsk,
-  onBtwNew,
+  isMobileLayout = false,
+  onMobilePanelChange,
 }: ComposerBarProps) {
+  const toolbarItems = toolbarItemsForLayout(isMobileLayout);
+  const newChatToolbarIndex = toolbarItems.findIndex((item) => item.id === "new-chat");
+  const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
+    panelToolbarIndex(kind, isMobileLayout);
   const [text, setText] = useState("");
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   /** ↑/↓ in the command list (panel body above the toolbar row). */
   const [commandListFocus, setCommandListFocus] = useState(false);
   /** ↑/↓ cursor in the history list (mirrors commandListFocus/selectedIndex,
@@ -157,15 +188,12 @@ export function ComposerBar({
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { imeProps, isComposing, isComposingActive, composingRef } = useImeComposition((value, caret) => {
+  const { imeProps, isComposing, composingRef } = useImeComposition((value) => {
     setText(value);
-    typingCaretRef.current = caret ?? value.length;
   });
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const argsLockRef = useRef<string | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
-  /** Saved caret from the last onChange — restored after controlled re-renders. */
-  const typingCaretRef = useRef<number | null>(null);
   const focusTick = useComposerFocusStore((s) => s.focusTick);
   const requestFocus = useComposerFocusStore((s) => s.requestFocus);
   const pendingText = useComposerFocusStore((s) => s.pendingText);
@@ -181,7 +209,6 @@ export function ComposerBar({
   const toolbarKeyboardFocus = useComposerPanelStore((s) => s.toolbarKeyboardFocus);
   const setToolbarKeyboardFocus = useComposerPanelStore((s) => s.setToolbarKeyboardFocus);
   const { sessions, activePiSessionId, activateSession } = useSessionStore();
-  const clearMessages = useChatStore((s) => s.clearMessages);
   const activePanel = useSlashStore((s) => s.activePanel);
   const setActivePanel = useSlashStore((s) => s.setActivePanel);
   const showCommandList = panel === "commands" && activePanel === null;
@@ -207,7 +234,7 @@ export function ComposerBar({
 
   function handleNewChatClick() {
     closePanel();
-    setToolbarIndex(NEW_CHAT_TOOLBAR_INDEX);
+    setToolbarIndex(newChatToolbarIndex);
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
     onNewChat();
@@ -218,7 +245,7 @@ export function ComposerBar({
     const opening = panel !== "commands";
     togglePanel("commands");
     if (opening) {
-      setToolbarIndex(PANEL_TOOLBAR_INDEX.commands);
+      setToolbarIndex(panelToolbarIdx("commands"));
       setActivePanel(null);
       focusCommandList();
       // Stale slash query (e.g. "/nomatch" from a prior pick) would leave
@@ -236,8 +263,28 @@ export function ComposerBar({
   function handleFilesClick() {
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
-    toggleFilesPanel();
+    if (isMobileLayout) {
+      togglePanel("files");
+    } else {
+      toggleFilesPanel();
+    }
     blurComposerInput();
+  }
+
+  function handleToolbarItemClick(item: ToolbarItemDef) {
+    if (item.id === "new-chat") {
+      handleNewChatClick();
+      return;
+    }
+    if (item.id === "commands") {
+      handleSlashButtonClick();
+      return;
+    }
+    if (item.id === "files") {
+      handleFilesClick();
+      return;
+    }
+    if (item.panel) handleToolbarClick(item.panel);
   }
 
   function handleToolbarClick(panelKind: Exclude<ComposerPanelKind, null>) {
@@ -263,7 +310,6 @@ export function ComposerBar({
     if (!ta) return;
     const pos = Math.min(pendingCaretRef.current, ta.value.length);
     pendingCaretRef.current = null;
-    typingCaretRef.current = null;
     const shouldFocus = options?.focus ?? true;
     if (shouldFocus) ta.focus({ preventScroll: true });
     ta.setSelectionRange(pos, pos);
@@ -287,17 +333,7 @@ export function ComposerBar({
 
   useLayoutEffect(() => {
     applyPendingCaret();
-    if (pendingCaretRef.current !== null) return;
-    // Never touch selection while IME is composing — iOS duplicates glyphs.
-    if (isComposingActive()) return;
-
-    const ta = taRef.current;
-    const saved = typingCaretRef.current;
-    if (!ta || saved === null) return;
-    const pos = Math.min(saved, ta.value.length);
-    typingCaretRef.current = null;
-    ta.setSelectionRange(pos, pos);
-  }, [text, focusTick, isComposingActive]);
+  }, [text, focusTick]);
 
   function focusCommandList() {
     setToolbarKeyboardFocus(false);
@@ -320,9 +356,15 @@ export function ComposerBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel, activePanel]);
 
+  useEffect(() => {
+    if (toolbarIndex >= toolbarItems.length) {
+      setToolbarIndex(Math.max(0, toolbarItems.length - 1));
+    }
+  }, [toolbarIndex, toolbarItems.length, setToolbarIndex]);
+
   // Mouse-opened panels: keep toolbarIndex aligned with the active tab.
   useEffect(() => {
-    if (panel) setToolbarIndex(PANEL_TOOLBAR_INDEX[panel]);
+    if (panel) setToolbarIndex(panelToolbarIdx(panel));
   }, [panel]);
 
   // Closing the commands popup (toggle, backdrop click, ESC, picking a
@@ -401,7 +443,7 @@ export function ComposerBar({
       }
       if (panel !== "commands") {
         setPanel("commands");
-        setToolbarIndex(PANEL_TOOLBAR_INDEX.commands);
+        setToolbarIndex(panelToolbarIdx("commands"));
       }
       focusCommandList();
     } else if (prevText.startsWith("/")) {
@@ -449,7 +491,7 @@ export function ComposerBar({
       e.preventDefault();
       setText("/");
       setPanel("commands");
-      setToolbarIndex(PANEL_TOOLBAR_INDEX.commands);
+      setToolbarIndex(panelToolbarIdx("commands"));
       focusCommandList();
       focusComposerAtEnd("/");
     }
@@ -459,7 +501,7 @@ export function ComposerBar({
   }, [text, setPanel]);
 
   // Composer-wide keyboard navigation. ←/→ always switch *which* toolbar
-  // button (commands/tree/history/files/btw/new-chat) is focused, live-
+  // button (commands/tree/history/files/new-chat) is focused, live-
   // opening that panel as the cursor lands on it. ↑/↓ move *within*
   // whatever's currently open: the first ↓ off the toolbar row hands focus
   // into that panel's list, and ↑ at the top of a list hands it back.
@@ -504,11 +546,11 @@ export function ComposerBar({
         if (isMainTextarea && text.length > 0 && !toolbarKeyboardFocus && panel === null) return;
         e.preventDefault();
         e.stopPropagation();
-        const len = TOOLBAR_ITEMS.length;
-        const base = toolbarKeyboardFocus ? toolbarIndex : panel ? PANEL_TOOLBAR_INDEX[panel] : key === "ArrowRight" ? -1 : 0;
+        const len = toolbarItems.length;
+        const base = toolbarKeyboardFocus ? toolbarIndex : panel ? panelToolbarIdx(panel) : key === "ArrowRight" ? -1 : 0;
         const next = key === "ArrowRight" ? (base + 1 + len) % len : (base - 1 + len) % len;
         setToolbarIndex(next);
-        const item = TOOLBAR_ITEMS[next];
+        const item = toolbarItems[next];
         if (item.panel === "commands") {
           focusCommandList();
         } else {
@@ -531,7 +573,7 @@ export function ComposerBar({
       if (key === "ArrowUp" && toolbarKeyboardFocus) return; // nothing above the toolbar row
 
       if (key === "Enter") {
-        if (toolbarKeyboardFocus && TOOLBAR_ITEMS[toolbarIndex]?.enterToActivate) {
+        if (toolbarKeyboardFocus && toolbarItems[toolbarIndex]?.enterToActivate) {
           e.preventDefault();
           e.stopPropagation();
           handleNewChatClick();
@@ -561,7 +603,6 @@ export function ComposerBar({
         if (key === "ArrowDown" && filtered.length > 0) {
           e.preventDefault();
           e.stopPropagation();
-          setHoverIndex(null);
           setCommandListFocus(true);
           selectNext();
           return;
@@ -574,7 +615,6 @@ export function ComposerBar({
             setToolbarKeyboardFocus(true);
             return;
           }
-          setHoverIndex(null);
           setCommandListFocus(true);
           selectPrev();
           return;
@@ -586,11 +626,9 @@ export function ComposerBar({
         if (key === "ArrowDown") {
           e.preventDefault();
           e.stopPropagation();
-          setHistorySelectedIndex((i) => {
-            const next = Math.min(i + 1, filteredHistorySessions.length - 1);
-            setHistoryHoverId(filteredHistorySessions[next]?.id ?? null);
-            return next;
-          });
+          setHistorySelectedIndex((i) =>
+            Math.min(i + 1, filteredHistorySessions.length - 1)
+          );
           return;
         }
         if (key === "ArrowUp") {
@@ -600,11 +638,7 @@ export function ComposerBar({
             setToolbarKeyboardFocus(true);
             return;
           }
-          setHistorySelectedIndex((i) => {
-            const next = Math.max(i - 1, 0);
-            setHistoryHoverId(filteredHistorySessions[next]?.id ?? null);
-            return next;
-          });
+          setHistorySelectedIndex((i) => Math.max(i - 1, 0));
           return;
         }
         if (key === "Enter") {
@@ -632,11 +666,9 @@ export function ComposerBar({
   }, [selectedIndex]);
 
   useEffect(() => {
-    if (!showCommandList) setHoverIndex(null);
   }, [showCommandList]);
 
   useEffect(() => {
-    setHoverIndex(null);
   }, [query, filtered.length]);
 
   useEffect(() => {
@@ -823,11 +855,11 @@ export function ComposerBar({
       closeMenu();
       if (command.id === "model") {
         setPanel("model");
-        setToolbarIndex(PANEL_TOOLBAR_INDEX.model);
+        setToolbarIndex(panelToolbarIdx("model"));
       } else {
         onSlash?.(command.id);
         setPanel("commands");
-        setToolbarIndex(PANEL_TOOLBAR_INDEX.commands);
+        setToolbarIndex(panelToolbarIdx("commands"));
       }
       setText("");
       blurComposerInput();
@@ -898,46 +930,25 @@ export function ComposerBar({
   }
 
   const commandListContent = (
-    <>
+    <div className="pi-composer-cmd-list">
       {filtered.length === 0 ? (
         <div className="pi-composer-cmd-empty">No matching commands</div>
       ) : (
-        filtered.map((cmd, index) => {
-          const isKeyboardActive =
-            showCommandList && index === selectedIndex && (commandListFocus || !toolbarKeyboardFocus);
-          const origin = commandOriginLabel(cmd, systemCommands);
-          return (
-            <button
-              key={cmd.id}
-              ref={(el) => { itemRefs.current[index] = el; }}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => activateCommand(cmd)}
-              onMouseEnter={() => setHoverIndex(index)}
-              onMouseLeave={() => setHoverIndex(null)}
-              className={`pi-panel-row pi-composer-cmd-row w-full flex items-center text-left transition-colors cursor-pointer outline-none border-none bg-transparent${
-                isKeyboardActive ? " pi-panel-row--selected" : ""
-              }`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <span className="pi-composer-cmd-name">/{cmd.label}</span>
-                  <span className="pi-composer-cmd-meta">
-                    {commandKindLabel(cmd.kind)}
-                  </span>
-                  {origin !== cmd.kind && (
-                    <span className="pi-composer-cmd-meta pi-composer-cmd-meta--accent">
-                      {origin}
-                    </span>
-                  )}
-                </div>
-                <p className="pi-composer-cmd-desc">{cmd.description}</p>
-              </div>
-            </button>
-          );
-        })
+        filtered.map((cmd, index) => (
+          <SlashCommandListItem
+            key={cmd.id}
+            command={cmd}
+            systemCommands={systemCommands}
+            selected={
+              showCommandList && index === selectedIndex && (commandListFocus || !toolbarKeyboardFocus)
+            }
+            itemRef={(el) => { itemRefs.current[index] = el; }}
+            onMouseDown={(e) => e.preventDefault()}
+            onActivate={() => activateCommand(cmd)}
+          />
+        ))
       )}
-    </>
+    </div>
   );
 
   const historyContent = (
@@ -973,8 +984,57 @@ export function ComposerBar({
   );
 
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
-  const toolbarActive = panel !== null && !(previewOpen && panel === "files");
-  const filesOverlay = previewOpen && panel === "files";
+  const elevatedPanel = isElevatedPanel(panel, isMobileLayout);
+  const toolbarActive = panel !== null && !elevatedPanel && !(previewOpen && panel === "files" && !isMobileLayout);
+  const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
+  const showInlinePanel = panel !== null && !elevatedPanel;
+
+  function renderPanelBody(): ReactNode {
+    if (!panel) return null;
+    switch (panel) {
+      case "commands":
+        return showCommandList ? (
+          <div className="flex flex-1 min-h-0 flex-col">
+            <div className="flex flex-1 min-h-0 overflow-auto pi-scrollbar pi-composer-panel-body">{commandListContent}</div>
+          </div>
+        ) : (
+          commandsContent
+        );
+      case "model":
+        return modelContent;
+      case "history":
+        return (
+          <div className="flex flex-1 min-h-0 flex-col py-0.5">
+            <PanelFilterBar value={historyQuery} onChange={setHistoryQuery} />
+            <div className="flex flex-1 min-h-0 overflow-y-auto pi-scrollbar pb-1">{historyContent}</div>
+          </div>
+        );
+      case "files":
+        if (!isMobileLayout && previewOpen) return null;
+        return (
+          <div className="flex flex-1 min-h-0 flex-col px-1 py-0.5">
+            <FileTree onFileClick={onFileClick} />
+          </div>
+        );
+      case "account":
+        return <AccountPanel />;
+      default:
+        return null;
+    }
+  }
+
+  useEffect(() => {
+    if (!onMobilePanelChange) return;
+    if (!isMobileLayout || !panel || !elevatedPanel || panel === "tree") {
+      onMobilePanelChange(null);
+      return;
+    }
+    onMobilePanelChange({
+      panel,
+      label: panelChromeLabel(panel),
+      content: renderPanelBody(),
+    });
+  });
 
   // One slot per queued message (steering first, then follow-up) — each
   // stays a separate numbered cell rather than collapsing into a single
@@ -1029,138 +1089,25 @@ export function ComposerBar({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="pi-composer-toolbar-bar">
-          <button
-            type="button"
-            className="pi-composer-toolbar-btn"
-            data-active={panel === "commands"}
-            data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === 0}
-            onPointerDown={handleToolbarPointerDown}
-            onClick={handleSlashButtonClick}
-            title="Commands"
-            aria-label="Toggle commands"
-          >
-            <Command strokeWidth={2} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pi-composer-toolbar-btn"
-            data-active={panel === "model"}
-            data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === 1}
-            onPointerDown={handleToolbarPointerDown}
-            onClick={() => handleToolbarClick("model")}
-            title="Model"
-            aria-label="Toggle model selector"
-          >
-            <Cpu strokeWidth={2} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pi-composer-toolbar-btn"
-            data-active={panel === "tree"}
-            data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === 2}
-            onPointerDown={handleToolbarPointerDown}
-            onClick={() => handleToolbarClick("tree")}
-            title="Conversation tree"
-            aria-label="Toggle conversation tree"
-          >
-            <GitBranch strokeWidth={2} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pi-composer-toolbar-btn"
-            data-active={panel === "history"}
-            data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === 3}
-            onPointerDown={handleToolbarPointerDown}
-            onClick={() => handleToolbarClick("history")}
-            title="History"
-            aria-label="Toggle history"
-          >
-            <History strokeWidth={2} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pi-composer-toolbar-btn"
-            data-active={panel === "files"}
-            data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === 4}
-            onPointerDown={handleToolbarPointerDown}
-            onClick={handleFilesClick}
-            title="Files"
-            aria-label="Toggle files"
-          >
-            <FolderOpen strokeWidth={2} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pi-composer-toolbar-btn"
-            data-active={panel === "btw"}
-            data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === 5}
-            onPointerDown={handleToolbarPointerDown}
-            onClick={() => handleToolbarClick("btw")}
-            title="/btw — side questions"
-            aria-label="Toggle /btw panel"
-          >
-            <MessageSquareQuote strokeWidth={2} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pi-composer-toolbar-btn"
-            data-active={panel === "account"}
-            data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === 6}
-            onPointerDown={handleToolbarPointerDown}
-            onClick={() => handleToolbarClick("account")}
-            title="Account & budget"
-            aria-label="Toggle account panel"
-          >
-            <UserRound strokeWidth={2} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="pi-composer-toolbar-btn pi-composer-toolbar-btn--accent"
-            data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === NEW_CHAT_TOOLBAR_INDEX}
-            onClick={handleNewChatClick}
-            title="New chat (Enter)"
-            aria-label="New chat"
-          >
-            <SquarePen strokeWidth={2} aria-hidden="true" />
-          </button>
+          {toolbarItems.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`pi-composer-toolbar-btn${item.id === "new-chat" ? " pi-composer-toolbar-btn--accent" : ""}`}
+              data-active={item.panel ? panel === item.panel : false}
+              data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === index}
+              onPointerDown={item.id === "new-chat" ? undefined : handleToolbarPointerDown}
+              onClick={() => handleToolbarItemClick(item)}
+              title={toolbarTitle(item)}
+              aria-label={toolbarAriaLabel(item)}
+            >
+              {toolbarIcon(item)}
+            </button>
+          ))}
         </div>
 
         <div className="pi-composer-panel">
-          {panel === "commands" &&
-            (showCommandList ? (
-              <div className="flex flex-1 min-h-0 flex-col">
-                <div className="flex-1 min-h-0 overflow-auto pi-scrollbar pi-composer-panel-body">{commandListContent}</div>
-              </div>
-            ) : (
-              commandsContent
-            ))}
-
-          {panel === "tree" && treeContent}
-
-          {panel === "model" && modelContent}
-
-          {panel === "history" && (
-            <div className="flex flex-1 min-h-0 flex-col py-0.5">
-              <PanelFilterBar
-                value={historyQuery}
-                onChange={setHistoryQuery}
-                placeholder="Filter sessions…"
-              />
-              <div className="flex-1 min-h-0 overflow-y-auto pi-scrollbar pb-1">{historyContent}</div>
-            </div>
-          )}
-
-          {panel === "files" && !previewOpen && (
-            <div className="flex flex-1 min-h-0 flex-col px-1 py-0.5">
-              <FileTree onFileClick={onFileClick} />
-            </div>
-          )}
-
-          {panel === "btw" && onBtwAsk && onBtwNew && (
-            <BtwPanel disabled={disabled} onAsk={onBtwAsk} onNew={onBtwNew} />
-          )}
-
-          {panel === "account" && <AccountPanel />}
+          {showInlinePanel && renderPanelBody()}
         </div>
       </div>
 
@@ -1239,9 +1186,6 @@ export function ComposerBar({
           }
           value={text}
           onChange={(e) => {
-            if (!isComposingActive()) {
-              typingCaretRef.current = e.target.selectionStart;
-            }
             setText(e.target.value);
           }}
           onInput={resizeComposerInput}

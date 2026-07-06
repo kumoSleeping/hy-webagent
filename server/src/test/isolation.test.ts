@@ -307,8 +307,8 @@ describe("syncBundledAgentExtensions", () => {
       const agentDir = path.join(root, ".pi", "agent");
       await syncBundledAgentExtensions(agentDir);
       await expect(
-        fs.readFile(path.join(agentDir, "extensions", "btw-h", "index.ts"), "utf-8")
-      ).resolves.toContain("BTW_COMMAND");
+        fs.readFile(path.join(agentDir, "extensions", "goal-h.ts"), "utf-8")
+      ).resolves.toContain("goal_manager");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

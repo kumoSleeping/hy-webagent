@@ -95,7 +95,10 @@ app.post("/api/workspace/init", authMiddleware(authSystem), async (req: any, res
     const userId = req.userSession.userId;
     const sessionId = req.userSession.sessionId as string;
     const ws = await isolator.ensureUserWorkspace(userId);
-    await sessionManager.syncUserAgentCredentials(userId, ws);
+    // Credential sync touches live sessions only — must not block first paint.
+    void sessionManager.syncUserAgentCredentials(userId, ws).catch((err) => {
+      log.warn(`workspace credential sync failed: ${(err as Error).message}`, { userId });
+    });
     log.info(`workspace init: ${userId}`);
 
     const payload: Record<string, unknown> = { workspacePath: ws };
@@ -340,10 +343,9 @@ app.get("/api/token/usage", authMiddleware(authSystem), (req: any, res) => {
     costTodayBySource: daily
       ? {
           chat: daily.bySource.chat.costUsd,
-          btw: daily.bySource.btw.costUsd,
           subagent: daily.bySource.subagent.costUsd,
         }
-      : { chat: 0, btw: 0, subagent: 0 },
+      : { chat: 0, subagent: 0 },
   });
 });
 

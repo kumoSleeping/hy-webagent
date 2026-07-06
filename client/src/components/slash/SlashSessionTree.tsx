@@ -55,6 +55,35 @@ function treeHasFork(nodes: TreeNode[]): boolean {
   });
 }
 
+/** Matches the CLI tree browser: active branch is listed first at a fork. */
+function branchContainsLeaf(node: TreeNode, leafId: string | undefined): boolean {
+  if (!leafId) return false;
+  if (node.id === leafId) return true;
+  return (node.children ?? []).some((child) => branchContainsLeaf(child, leafId));
+}
+
+function orderBranchChildren(children: TreeNode[], leafId: string | undefined): TreeNode[] {
+  if (children.length <= 1) return children;
+  const active: TreeNode[] = [];
+  const rest: TreeNode[] = [];
+  for (const child of children) {
+    if (branchContainsLeaf(child, leafId)) active.push(child);
+    else rest.push(child);
+  }
+  return [...active, ...rest];
+}
+
+/** Same indent rules as pi's CLI `TreeList.flattenTree()`. */
+function childIndentFor(
+  parentIndent: number,
+  childCount: number,
+  justBranched: boolean
+): number {
+  if (childCount > 1) return parentIndent + 1;
+  if (justBranched && parentIndent > 0) return parentIndent + 1;
+  return parentIndent;
+}
+
 interface FlatTreeEntry {
   id: string;
   parentId: string | null;
@@ -69,17 +98,24 @@ function flattenVisible(
   nodes: TreeNode[],
   parentId: string | null,
   needle: string,
-  collapsed: Set<string>
+  collapsed: Set<string>,
+  leafId: string | undefined,
+  indent = 0,
+  justBranched = false
 ): FlatTreeEntry[] {
   const out: FlatTreeEntry[] = [];
   for (const node of nodes) {
     if (needle && !nodeMatches(node, needle)) continue;
-    const children = node.children ?? [];
+    const children = orderBranchChildren(node.children ?? [], leafId);
     const isFork = children.length > 1;
     const isCollapsed = isFork && collapsed.has(node.id) && !needle;
     out.push({ id: node.id, parentId, isFork, hasChildren: children.length > 0 });
     if (children.length > 0 && !isCollapsed) {
-      out.push(...flattenVisible(children, node.id, needle, collapsed));
+      const nextIndent = childIndentFor(indent, children.length, justBranched);
+      const nextJustBranched = children.length > 1;
+      out.push(
+        ...flattenVisible(children, node.id, needle, collapsed, leafId, nextIndent, nextJustBranched)
+      );
     }
   }
   return out;
@@ -92,6 +128,8 @@ interface SlashSessionTreeProps {
 }
 
 const PANEL_ICON_SM = 14;
+/** ~3 monospace cols per indent level — matches the CLI tree gutter step. */
+const INDENT_PX = 14;
 
 const CHOICE_BTN =
   "pi-panel-row w-full text-left px-2.5 py-2 text-[length:var(--pi-panel-font)] text-[var(--pi-text)] cursor-pointer outline-none border-none bg-transparent";
@@ -146,8 +184,8 @@ export function SlashSessionTree({
   }
 
   const flatVisible = useMemo(
-    () => flattenVisible(tree, null, needle, collapsed),
-    [tree, needle, collapsed]
+    () => flattenVisible(tree, null, needle, collapsed, currentEntryId),
+    [tree, needle, collapsed, currentEntryId]
   );
 
   // A purely linear session has no chevrons anywhere, so reserving the
@@ -296,16 +334,15 @@ export function SlashSessionTree({
     setCustomText("");
   }
 
-  function renderNode(node: TreeNode): ReactNode {
+  function renderNode(node: TreeNode, indent = 0, justBranched = false): ReactNode {
     if (needle && !nodeMatches(node, needle)) return null;
 
-    const children = node.children ?? [];
-    // A linear chain (0 or 1 child) renders flat; only real forks indent.
+    const children = orderBranchChildren(node.children ?? [], currentEntryId);
     const isFork = children.length > 1;
-    // While searching, ignore manual collapse state so matches stay visible.
     const isCollapsed = isFork && collapsed.has(node.id) && !needle;
     const isCurrent = node.id === currentEntryId;
     const isCursor = node.id === cursorId;
+    const isOnActivePath = Boolean(currentEntryId && branchContainsLeaf(node, currentEntryId));
     const isStructural =
       node.role === "summary" ||
       node.role === "compaction" ||
@@ -337,6 +374,9 @@ export function SlashSessionTree({
           ? "Compacted: "
           : "";
 
+    const nextIndent = childIndentFor(indent, children.length, justBranched);
+    const nextJustBranched = children.length > 1;
+
     return (
       <div key={node.id}>
         <div
@@ -345,6 +385,7 @@ export function SlashSessionTree({
             else rowRefs.current.delete(node.id);
           }}
           className={`pi-panel-row flex items-center gap-2 py-1${isCursor ? " pi-panel-row--selected" : ""}`}
+          style={{ paddingLeft: `${indent * INDENT_PX}px` }}
         >
           {isFork ? (
             <button
@@ -361,11 +402,14 @@ export function SlashSessionTree({
               />
             </button>
           ) : (
-            // Full chevron-width placeholder only when some row actually has
-            // a chevron; otherwise just a sliver so the selection bar and row
-            // edge don't press right up against the icon.
             <span className={`h-6 shrink-0 ${hasFork ? "w-6" : "w-1"}`} aria-hidden="true" />
           )}
+          <span
+            className={`w-1.5 shrink-0 select-none ${isOnActivePath ? "text-[var(--pi-theme)]" : "text-transparent"}`}
+            aria-hidden="true"
+          >
+            •
+          </span>
           <span
             className={`flex h-7 w-7 shrink-0 items-center justify-center ${
               node.role === "user"
@@ -399,26 +443,27 @@ export function SlashSessionTree({
             </span>
           )}
         </div>
-        {children.length > 0 && !isCollapsed && (
-          isFork ? (
-            <div className="ml-2.5 border-l border-[var(--pi-line)] pl-2.5">
-              {children.map((child) => renderNode(child))}
+        {children.length > 0 && !isCollapsed &&
+          children.map((child, index) => (
+            <div key={child.id}>
+              {isFork && index > 0 && (
+                <div
+                  className="border-t border-dashed border-[var(--pi-line)]"
+                  style={{ marginLeft: `${nextIndent * INDENT_PX}px` }}
+                  aria-hidden="true"
+                />
+              )}
+              {renderNode(child, nextIndent, nextJustBranched)}
             </div>
-          ) : (
-            children.map((child) => renderNode(child))
-          )
-        )}
+          ))
+        }
       </div>
     );
   }
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <PanelFilterBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Filter tree…"
-      />
+      <PanelFilterBar value={query} onChange={setQuery} />
 
       {pendingTarget !== null && (
         <div className="shrink-0 border-y border-[var(--pi-line)] bg-[var(--pi-panel-subtle)] px-1 py-1.5">

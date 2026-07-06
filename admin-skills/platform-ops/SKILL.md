@@ -92,7 +92,7 @@ curl -s -H "$AUTH" "$BASE/usage/alice/daily" | jq .
       }
     },
     "totals": { "input": 51483, "output": 4362, "costUsd": 0.01146, "turns": 23 },
-    "bySource": { "chat": {...}, "btw": {...}, "subagent": {...} }
+    "bySource": { "chat": {...}, "subagent": {...} }
   }]
 }
 ```

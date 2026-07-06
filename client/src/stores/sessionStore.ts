@@ -3,7 +3,6 @@ import { apiGet, apiPost, apiDelete } from "../lib/api";
 import { navigateToSession } from "../lib/sessionNavigation";
 import { useChatStore } from "./chatStore";
 import { useStatusBarStore } from "./statusBarStore";
-import { useBtwStore } from "./btwStore";
 
 export interface SessionSummary {
   id: string;
@@ -35,10 +34,9 @@ function maybeSyncUrl(sessionId: string | null, syncUrl: boolean | undefined) {
   }
 }
 
-function onPiSessionChange(prev: string | null, next: string | null) {
+function onPiSessionChange(prev: string | null, _next: string | null) {
   useChatStore.getState().resetForSessionChange();
   if (prev !== null) useStatusBarStore.getState().clear();
-  useBtwStore.getState().bindSession(next);
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({

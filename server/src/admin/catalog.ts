@@ -142,7 +142,7 @@ export function getAdminApiCatalog(baseUrl = "http://localhost:3001"): AdminApiC
         method: "GET",
         path: "/api/admin/usage/:userId",
         auth: "admin",
-        description: "User usage range with per-model and bySource (chat/btw/subagent) breakdown",
+        description: "User usage range with per-model and bySource (chat/subagent) breakdown",
         query: { from: "YYYY-MM-DD", to: "YYYY-MM-DD" },
         example: { cli: "npm run admin -- usage user alice --from 2026-07-01 --to 2026-07-02" },
       },

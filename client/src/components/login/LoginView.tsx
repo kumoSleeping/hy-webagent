@@ -1,11 +1,9 @@
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { PlatformSignature } from "../common/PlatformSignature";
-import { pickWelcomePhrase } from "../../lib/welcomePhrases";
 import { useAuthStore } from "../../stores/authStore";
 
 export function LoginView() {
   const [apiKey, setApiKey] = useState("");
-  const [phrase] = useState(pickWelcomePhrase);
   const { login, isLoading, error, clearError } = useAuthStore();
 
   async function handleSubmit(e: FormEvent) {
@@ -26,9 +24,6 @@ export function LoginView() {
           <h1 className="text-[28px] font-black leading-none tracking-tight uppercase text-[var(--pi-text)]">
             HY-Webagent
           </h1>
-          <blockquote className="mt-4 ml-0 border-l-[3px] border-[var(--pi-theme)] bg-[var(--pi-panel-subtle)] py-[0.55rem] pl-4 pr-0 text-[13px] leading-[1.65] text-[var(--pi-muted)]">
-            {phrase}
-          </blockquote>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input

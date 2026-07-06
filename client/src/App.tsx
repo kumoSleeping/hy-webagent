@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
-import { useSessionStore } from "./stores/sessionStore";
 import { parseSessionIdFromPath } from "./lib/chatRoutes";
 import { LoginView } from "./components/login/LoginView";
 import { LogoutView } from "./components/logout/LogoutView";
@@ -33,19 +32,19 @@ export default function App() {
 
 function MainApp() {
   const { isLoggedIn, isLoading } = useAuthStore();
-  const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
   const location = useLocation();
   const urlSessionId = parseSessionIdFromPath(location.pathname) ?? undefined;
   const sessionRoute = useChatSessionRoute();
   const chat = useChatWebSocket();
   useAccountProfileSync(isLoggedIn);
 
-  const sessionReady = urlSessionId
-    ? activePiSessionId === urlSessionId
-    : Boolean(activePiSessionId);
-
+  // Block only on auth + workspace init. Session activate / Pi cold-open runs in the
+  // background while the shell is visible (ChatPanel shows its own hydrating state).
+  // At `/` we still gate until default session redirect finishes.
   const showLoading =
-    isLoading || (isLoggedIn && (!sessionReady || sessionRoute.isSyncingSession));
+    isLoading ||
+    (isLoggedIn && !sessionRoute.routeReady) ||
+    (isLoggedIn && sessionRoute.isSyncingSession && !urlSessionId);
 
   return (
     <>

@@ -47,8 +47,8 @@ export function SlashModelSelector({
   });
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col">
-      <div className="pi-composer-panel-body pi-scrollbar space-y-0.5">
+    <div className="flex flex-1 min-h-0 w-full flex-col">
+      <div className="pi-composer-panel-body pi-scrollbar flex flex-col gap-0.5">
         {models.map((model, index) => {
           const { isActive } = getHighlight(index);
           const mouse = getMouseHandlers(index);
@@ -62,7 +62,7 @@ export function SlashModelSelector({
               }
               onMouseEnter={mouse.onMouseEnter}
               onMouseLeave={mouse.onMouseLeave}
-              className={`pi-panel-row pi-composer-panel-item border-none bg-transparent${
+              className={`pi-panel-row pi-composer-panel-item w-full border-none bg-transparent${
                 isActive ? " pi-panel-row--selected" : ""
               }`}
             >

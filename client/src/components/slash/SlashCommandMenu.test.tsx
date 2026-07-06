@@ -19,8 +19,8 @@ describe("SlashCommandMenu", () => {
         onClose={vi.fn()}
       />
     );
-    expect(screen.getByText("/Model")).toBeInTheDocument();
-    expect(screen.getByText("/Settings")).toBeInTheDocument();
+    expect(screen.getByText("Model")).toBeInTheDocument();
+    expect(screen.getByText("Settings")).toBeInTheDocument();
   });
 
   it("calls onExecute when a command is clicked", () => {
@@ -33,7 +33,7 @@ describe("SlashCommandMenu", () => {
         onClose={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByText("/New"));
+    fireEvent.click(screen.getByText("New"));
     expect(onExecute).toHaveBeenCalledWith(commands[2]);
   });
 

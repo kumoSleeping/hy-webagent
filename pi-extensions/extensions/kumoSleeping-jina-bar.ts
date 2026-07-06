@@ -5,6 +5,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
 import { existsSync, readFileSync } from "node:fs";
 import { resolveJinaApiKey } from "./_lib/jina-auth.ts";
 
@@ -105,10 +106,14 @@ export default function (pi: ExtensionAPI) {
             : null;
 
           const parts = [timer, jina, goalStr].filter(Boolean);
-          const left = parts.join("  ");
-
-          const gap = Math.max(1, width - left.length - SIGNATURE.length);
-          return [dim(left) + "\u00A0".repeat(gap) + theme.fg("error", SIGNATURE)];
+          const left = dim(parts.join("  "));
+          const sigColored = theme.fg("error", SIGNATURE);
+          const sigWidth = visibleWidth(sigColored);
+          const maxLeft = Math.max(0, width - sigWidth - 1);
+          const leftTruncated = truncateToWidth(left, maxLeft, dim("..."), false);
+          const leftWidth = visibleWidth(leftTruncated);
+          const gap = Math.max(1, width - leftWidth - sigWidth);
+          return [leftTruncated + "\u00A0".repeat(gap) + sigColored];
         },
         invalidate() {},
       };

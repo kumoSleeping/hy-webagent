@@ -24,7 +24,7 @@ export interface TokenUsage {
   budgetRemainingUsd: number | null;
   budgetUnlimited: boolean;
   costTodayUsd?: number;
-  costTodayBySource?: { chat: number; btw: number; subagent: number };
+  costTodayBySource?: { chat: number; subagent: number };
 }
 
 export interface FileEntry {

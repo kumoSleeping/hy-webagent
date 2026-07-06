@@ -24,8 +24,6 @@ export function resolveToolbarSlash(text: string): ToolbarSlashAction | null {
       return { panel: "tree", treeMode: "tree" };
     case "fork":
       return { panel: "tree", treeMode: "fork" };
-    case "btw":
-      return { panel: "btw" };
     case "model":
       return { panel: "model" };
     default:
@@ -37,10 +35,6 @@ export function openToolbarSlashPanel(action: ToolbarSlashAction): void {
   const store = useComposerPanelStore.getState();
   if (action.panel === "tree") {
     store.openTreePanel(action.treeMode ?? "tree");
-    return;
-  }
-  if (action.panel === "btw") {
-    store.openBtwPanel();
     return;
   }
   if (action.panel === "model") {

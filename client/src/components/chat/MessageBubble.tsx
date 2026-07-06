@@ -55,6 +55,16 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   // always recomputed from the raw blocks, never a one-off side effect.
   const units = useMemo(() => groupBlocksForDisplay(blocks ?? [], isStreaming), [blocks, isStreaming]);
 
+  const hasLegacyTools = !blocks && (message.toolCalls?.length ?? 0) > 0;
+  const hasImages = (message.images?.length ?? 0) > 0;
+  const hasVisibleContent =
+    hasImages ||
+    hasLegacyTools ||
+    units.length > 0 ||
+    Boolean(message.content?.trim());
+
+  if (!isUser && !isStreaming && !hasVisibleContent) return null;
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-6`}>
       <GlassPanel variant={variant} className="min-w-0">

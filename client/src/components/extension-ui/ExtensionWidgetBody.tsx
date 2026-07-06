@@ -1,5 +1,4 @@
 const WIDGET_LABELS: Record<string, string> = {
-  btw: "/btw",
   goal: "Goal",
   "pi-subagents": "Subagents",
   timer: "Status",
@@ -19,16 +18,10 @@ export function visibleWidgetLines(lines: string[] | undefined): string[] {
   return lines.slice(start, end);
 }
 
-const CENTER_STAGE_EXCLUDE = new Set(["btw"]);
-
-export function hasVisibleWidgets(
-  aboveEditor: Record<string, string[]> | undefined,
-  excludeKeys: Iterable<string> = CENTER_STAGE_EXCLUDE
-): boolean {
+export function hasVisibleWidgets(aboveEditor: Record<string, string[]> | undefined): boolean {
   if (!aboveEditor) return false;
-  const excluded = new Set(excludeKeys);
   return Object.keys(aboveEditor).some(
-    (key) => !excluded.has(key) && visibleWidgetLines(aboveEditor[key]).length > 0
+    (key) => visibleWidgetLines(aboveEditor[key]).length > 0
   );
 }
 
@@ -49,7 +42,7 @@ interface ExtensionWidgetBodyProps {
 
 const NBSP = "\u00A0";
 
-/** Extension widgets in the center stage (/btw, pi-goal-x, pi-subagents, …). */
+/** Extension widgets in the center stage (pi-goal-x, pi-subagents, …). */
 export function ExtensionWidgetBody({ aboveEditor, compact = true }: ExtensionWidgetBodyProps) {
   const widgets = Object.keys(aboveEditor)
     .sort()

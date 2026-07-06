@@ -56,12 +56,19 @@ export function extractSidecarToolUsage(toolName: string, details: unknown): Usa
   const entries: UsageSnapshot[] = [];
   const d = details as Record<string, unknown>;
 
-  if (d.result && typeof d.result === "object") {
-    const result = d.result as Record<string, unknown>;
-    const usage = result.usage;
-    if (usage && typeof usage === "object") {
-      const snap = usageFromRecord(usage as Record<string, number>, result.model);
-      if (snap) entries.push(snap);
+  // AgentToolResult wraps extension details as { content, details, terminate? }.
+  // The subagent extension sets details: { result }, so navigate: d.details.result
+  const extensionDetails = d.details;
+  if (extensionDetails && typeof extensionDetails === "object") {
+    const inner = extensionDetails as Record<string, unknown>;
+    const wrappedResult = inner.result;
+    if (wrappedResult && typeof wrappedResult === "object") {
+      const result = wrappedResult as Record<string, unknown>;
+      const usage = result.usage;
+      if (usage && typeof usage === "object") {
+        const snap = usageFromRecord(usage as Record<string, number>, result.model);
+        if (snap) entries.push(snap);
+      }
     }
   }
 

@@ -1,6 +1,0 @@
-{
-  "name": "btw-web",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Web-native /btw side question — uses official Extension UI (setWidget, notify, confirm)"
-}

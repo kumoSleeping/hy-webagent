@@ -5,9 +5,11 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useSlashStore, type SlashCommand } from "../../stores/slashStore";
 import type { ChatWebSocketApi } from "../../hooks/useChatWebSocket";
 import { useComposerFocusStore } from "../../stores/composerFocusStore";
+import { useMobileLayout } from "../../hooks/useMobileLayout";
+import { isElevatedPanel, type MobileComposerPanel } from "../../lib/composerLayout";
 import { apiGet } from "../../lib/api";
+import { PlatformSignature } from "../common/PlatformSignature";
 import { MessageFeed } from "./MessageFeed";
-import { WelcomePhrase } from "./WelcomePhrase";
 import { ComposerBar } from "./ComposerBar";
 import { StatusBar } from "./StatusBar";
 import { CenterStage, useCenterStageOpen } from "./CenterStage";
@@ -17,13 +19,11 @@ import { SlashSettingsPanel } from "../slash/SlashSettingsPanel";
 import { SlashSessionTree } from "../slash/SlashSessionTree";
 import { SlashExportDialog } from "../slash/SlashExportDialog";
 import { SlashToast } from "../slash/SlashToast";
-import { FileTree } from "../files/FileTree";
-import { isSilentCommand, parseBtwQuestion } from "../../lib/silentCommands";
-import { useBtwStore } from "../../stores/btwStore";
-import { submitBtwQuestion } from "../../lib/btwAsk";
+import { isSilentCommand } from "../../lib/silentCommands";
 import { openToolbarSlashPanel, resolveToolbarSlash } from "../../lib/toolbarSlashCommands";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
+import { useNotificationStore } from "../../stores/notificationStore";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
 
 interface ModelInfo {
@@ -66,10 +66,12 @@ export function ChatPanel({
   const queuedFollowUp = useChatStore((s) => s.queuedFollowUp);
   const composerPanel = useComposerPanelStore((s) => s.panel);
   const treeMode = useComposerPanelStore((s) => s.treeMode);
-  const centerStageOpen = useCenterStageOpen();
+  const isMobileLayout = useMobileLayout();
+  const [mobilePanel, setMobilePanel] = useState<MobileComposerPanel | null>(null);
+  const centerStageOpen = useCenterStageOpen(isMobileLayout, mobilePanel);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
-  /** File preview uses the elevated stack above composer; /btw stays in the compact toolbar panel. */
-  const elevatedOpen = previewOpen;
+  /** File preview and elevated mobile panels use the stack above composer. */
+  const elevatedOpen = previewOpen || isElevatedPanel(composerPanel, isMobileLayout);
   const dockCardOpen = centerStageOpen && !elevatedOpen;
   const closeAll = useComposerPanelStore((s) => s.closeAll);
   const closeComposerPanel = useComposerPanelStore((s) => s.closePanel);
@@ -78,10 +80,16 @@ export function ChatPanel({
   // Only pick welcome vs conversation layout once the session is hydrated —
   // avoids the composer jumping from center to bottom while history loads.
   const isHydrating = Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId);
-  const isWelcome = hydratedPiSessionId === activePiSessionId && messages.length === 0;
-  const addUserMessage = useChatStore((s) => s.addUserMessage);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  useEffect(() => {
+    setWelcomeDismissed(false);
+  }, [activePiSessionId]);
+  const isWelcome =
+    !welcomeDismissed &&
+    hydratedPiSessionId === activePiSessionId &&
+    messages.length === 0;
+  const notify = useNotificationStore((s) => s.notify);
   const fetchSessions = useSessionStore((s) => s.fetchSessions);
-  const sessions = useSessionStore((s) => s.sessions);
   const activePanel = useSlashStore((s) => s.activePanel);
   const setActivePanel = useSlashStore((s) => s.setActivePanel);
   const setCommands = useSlashStore((s) => s.setCommands);
@@ -96,7 +104,6 @@ export function ChatPanel({
     sendDequeue,
     sendSlash,
     sendExtensionUiResponse,
-    sendBtwAsk,
   } = chat;
 
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -163,12 +170,8 @@ export function ChatPanel({
     }
   }, [activePanel]);
 
-  function handleBtwAsk(question: string) {
-    submitBtwQuestion(question, sendBtwAsk);
-  }
-
-  function handleBtwNew() {
-    useBtwStore.getState().clear();
+  function notifySendFailure() {
+    notify("连接未就绪，消息未发送。请稍候再试。", "info");
   }
 
   function handleSend(text: string, images?: { mediaType: string; data: string }[], displayText?: string) {
@@ -197,17 +200,18 @@ export function ChatPanel({
       const slash = parseSlashCommand(trimmed);
       if (slash) {
         handleExecute(slash.command, slash.args);
-      } else if (parseBtwQuestion(trimmed)) {
-        handleBtwAsk(parseBtwQuestion(trimmed)!);
-      } else {
-        sendPrompt(promptText, images);
+      } else if (!sendPrompt(promptText, images)) {
+        notifySendFailure();
       }
       setTimeout(() => fetchSessions(), 800);
       return;
     }
 
-    addUserMessage(trimmed, images);
-    sendPrompt(promptText, images);
+    if (!sendPrompt(promptText, images)) {
+      notifySendFailure();
+      return;
+    }
+    setWelcomeDismissed(true);
     setTimeout(() => fetchSessions(), 800);
   }
 
@@ -215,10 +219,9 @@ export function ChatPanel({
   // steering message and delivered once the current turn's tool calls
   // finish, before the next model call — the model hasn't actually seen it
   // yet at send time, so it stays out of the transcript (shown only as a
-  // pending badge on the composer) until the server confirms it was
-  // actually dequeued for delivery. See chatStore.syncQueuedMessages.
+  // pending badge on the composer) until the SDK persists it via message_end.
   function handleSteer(text: string) {
-    sendSteer(text);
+    if (!sendSteer(text)) notifySendFailure();
   }
 
   // The SDK can only pull the *entire* steering/follow-up queue back out at
@@ -456,12 +459,11 @@ export function ChatPanel({
   );
 
   return (
-    <div className={`pi-app-shell pi-app-shell--revealed${isHydrating ? " pi-app-shell--hydrating" : ""}`}>
-      {isWelcome && !isHydrating ? (
-        <WelcomePhrase />
-      ) : (
-        !isHydrating && <MessageFeed />
-      )}
+    <div
+      className={`pi-app-shell pi-app-shell--revealed${isWelcome && !isHydrating ? " pi-app-shell--welcome" : ""}${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
+    >
+      {!isWelcome && !isHydrating && <MessageFeed />}
+      {isWelcome && !isHydrating && <PlatformSignature />}
       {(composerPanel || centerStageOpen) && (
         <div
           className="pi-click-backdrop"
@@ -483,6 +485,10 @@ export function ChatPanel({
               onContentChange={onContentChange}
               onViewModeChange={onViewModeChange}
               onEditorFocus={onEditorFocus}
+              treeContent={treeContent}
+              treeMode={treeMode}
+              isMobileLayout={isMobileLayout}
+              mobilePanel={mobilePanel}
               onClose={() => {
                 closePreview();
                 useExtensionUiStore.getState().setExtensionPanelDismissed(true);
@@ -490,7 +496,10 @@ export function ChatPanel({
             />
           </div>
           <ComposerBar
+            disabled={isHydrating}
             isStreaming={isStreaming}
+            isMobileLayout={isMobileLayout}
+            onMobilePanelChange={setMobilePanel}
             onSend={handleSend}
             onSteer={handleSteer}
             onAbort={sendAbort}
@@ -507,10 +516,7 @@ export function ChatPanel({
             onNewChat={onNewChat}
             onFileClick={onFileClick}
             commandsContent={commandsContent}
-            treeContent={treeContent}
             modelContent={modelContent}
-            onBtwAsk={handleBtwAsk}
-            onBtwNew={handleBtwNew}
           />
         </div>
         <StatusBar />

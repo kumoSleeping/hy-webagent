@@ -45,7 +45,8 @@ export interface FooterSnapshot {
 /** Mirror native FooterComponent.render() — plain text for web. */
 export function computeFooterSnapshot(
   session: AgentSession,
-  extensionStatuses: Record<string, string>
+  extensionStatuses: Record<string, string>,
+  sidecar?: { input: number; output: number; cost: number }
 ): FooterSnapshot {
   const state = session.state;
   const cwd = session.sessionManager.getCwd();
@@ -72,6 +73,13 @@ export function computeFooterSnapshot(
           ? (entry.message.usage.cacheRead / latestPromptTokens) * 100
           : undefined;
     }
+  }
+
+  // Include sidecar (sub-agent) tokens accumulated during this session
+  if (sidecar) {
+    totalInput += sidecar.input;
+    totalOutput += sidecar.output;
+    totalCost += sidecar.cost;
   }
 
   const contextUsage = session.getContextUsage();

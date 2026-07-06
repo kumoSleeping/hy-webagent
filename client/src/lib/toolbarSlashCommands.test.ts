@@ -6,11 +6,10 @@ describe("resolveToolbarSlash", () => {
     expect(resolveToolbarSlash("/resume")).toEqual({ panel: "history", fetchSessions: true });
     expect(resolveToolbarSlash("/tree")).toEqual({ panel: "tree", treeMode: "tree" });
     expect(resolveToolbarSlash("/fork")).toEqual({ panel: "tree", treeMode: "fork" });
-    expect(resolveToolbarSlash("/btw")).toEqual({ panel: "btw" });
+    expect(resolveToolbarSlash("/model")).toEqual({ panel: "model" });
   });
 
   it("ignores slash commands with arguments", () => {
-    expect(resolveToolbarSlash("/btw what is this")).toBeNull();
     expect(resolveToolbarSlash("/name foo")).toBeNull();
   });
 });

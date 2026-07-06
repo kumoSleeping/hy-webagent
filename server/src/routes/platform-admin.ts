@@ -245,7 +245,7 @@ export function createPlatformAdminRouter(
       from,
       to,
       days,
-      hint: "Per-model breakdown is in days[].models (keys like provider/model). Source split in days[].bySource (chat/btw/subagent).",
+      hint: "Per-model breakdown is in days[].models (keys like provider/model). Source split in days[].bySource (chat/subagent).",
     });
   });
 

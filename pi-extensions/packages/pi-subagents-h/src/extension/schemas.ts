@@ -16,3 +16,19 @@ export const WorkerParams = {
   },
   required: ["task"],
 };
+
+/** Explorer / Searcher — lightweight, no model override exposed. */
+export const LightWorkerParams = {
+  type: "object" as const,
+  properties: {
+    task: {
+      type: "string" as const,
+      description: "任务描述。",
+    },
+    timeoutMs: {
+      type: "number" as const,
+      description: "超时毫秒，超时后中断并返回部分结果",
+    },
+  },
+  required: ["task"],
+};

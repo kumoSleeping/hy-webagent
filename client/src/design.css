@@ -42,8 +42,6 @@
   /* —— Typography —— */
   --pi-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC", Arial, sans-serif;
   --pi-font-mono: "SF Mono", "JetBrains Mono", "Menlo", ui-monospace, "Cascadia Code", "PingFang SC", monospace;
-  /* Welcome phrase — literary serif (JP + SC), not system sans */
-  --pi-font-welcome: "Shippori Mincho B1", "Noto Serif SC", "Songti SC", "STSong", serif;
   --pi-body-size: 1rem;
   --pi-body-line: 1.68;
   --pi-small-size: 0.82rem;
@@ -61,7 +59,7 @@
   --pi-composer-line: 1.625rem;
   /* 16px minimum — iOS Safari zooms focused inputs below this size */
   --pi-composer-font: 16px;
-  /* Toolbar popup lists (commands / history / files / tree / model / btw) */
+  /* Toolbar popup lists (commands / history / files / tree / model) */
   --pi-panel-font: 1rem;
   --pi-panel-font-meta: 0.8125rem;
   --pi-panel-font-desc: 0.875rem;
@@ -72,7 +70,7 @@
   --pi-composer-toolbar-icon: 16px;
   --pi-editor-font: 16px;
   /* Eight toolbar buttons share one bar — width / count must stay in sync. */
-  --pi-composer-toolbar-count: 8;
+  --pi-composer-toolbar-count: 7;
   --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / var(--pi-composer-toolbar-count));
   /* Height of the gradient that fades messages out as they approach the
      composer (the scrim's soft upper edge). */
@@ -385,6 +383,26 @@ body {
   cursor: pointer;
 }
 .pi-center-stage-close:hover { color: var(--pi-theme); }
+.pi-center-stage--headless {
+  position: relative;
+}
+.pi-center-stage-close--overlay {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 2;
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line-soft);
+  border-radius: 0;
+}
+.pi-editor-floating-tools {
+  position: absolute;
+  top: 0.35rem;
+  right: 2.25rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+}
 .pi-center-stage-body {
   flex: 1;
   min-height: 0;
@@ -407,6 +425,7 @@ body {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  position: relative;
   background: var(--pi-panel);
 }
 .pi-editor-tabs {
@@ -548,80 +567,6 @@ body {
   font-family: var(--pi-font-mono);
 }
 
-/* Welcome — one random phrase, page center, composer width */
-.pi-welcome-phrase-area {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 3.5rem;
-  pointer-events: none;
-}
-.pi-welcome-phrase-inner {
-  width: 100%;
-  max-width: var(--pi-composer-max);
-  padding-inline: min(1.5rem, var(--pi-feed-edge));
-  margin-inline: auto;
-  transform: translateY(-1.25rem);
-}
-.pi-welcome-phrase {
-  margin: 0;
-  text-align: center;
-  font-family: var(--pi-font-welcome);
-  font-size: 1.02rem;
-  font-weight: 400;
-  font-style: italic;
-  letter-spacing: 0.04em;
-  line-height: 1.75;
-  color: color-mix(in srgb, var(--pi-muted) 88%, white);
-}
-@media (max-width: 639px) {
-  .pi-welcome-phrase {
-    font-size: 0.925rem;
-    line-height: 1.65;
-    letter-spacing: 0.03em;
-  }
-}
-
-/* /btw — compact panel in composer toolbar */
-.pi-btw-panel--compact {
-  padding: 0.35rem 0.5rem 0.5rem;
-}
-.pi-btw-panel--compact-history {
-  display: flex;
-  flex-direction: column;
-  max-height: min(40vh, 320px);
-  min-height: 0;
-}
-.pi-btw-panel--compact-history .pi-btw-turns {
-  flex: 1;
-  min-height: 0;
-  max-height: none;
-  padding-left: 0.25rem;
-  padding-right: 0.25rem;
-}
-.pi-btw-answer--streaming-md {
-  opacity: 0.95;
-}
-.pi-btw-answer--streaming {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font: inherit;
-  font-size: var(--pi-panel-font);
-  color: var(--pi-text);
-}
-
-/* /btw panel in composer popup */
-.pi-btw-turns { display: flex; flex-direction: column; gap: 0.625rem; }
-
 /* Account detail panel — composer toolbar popup (single panel font size) */
 .pi-account-panel {
   flex: 1;
@@ -677,124 +622,6 @@ body {
 .pi-account-panel-logout:hover {
   color: var(--pi-text-body);
 }
-
-.pi-btw-turn {
-  padding: 0.125rem 0;
-}
-.pi-btw-question,
-.pi-btw-pending,
-.pi-btw-error,
-.pi-btw-answer-wrap {
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-start;
-}
-.pi-btw-question + .pi-btw-answer-wrap,
-.pi-btw-question + .pi-btw-pending,
-.pi-btw-question + .pi-btw-error { margin-top: 0.5rem; }
-.pi-btw-label {
-  flex-shrink: 0;
-  width: 1.25rem;
-  font-size: var(--pi-panel-font-meta);
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--pi-theme);
-  line-height: 1.5;
-  text-align: center;
-}
-.pi-btw-question span:last-child {
-  font-size: var(--pi-panel-font);
-  line-height: 1.5;
-  color: var(--pi-text);
-}
-.pi-btw-answer-wrap { flex: 1; min-width: 0; }
-.pi-btw-answer-wrap .pi-btw-label { margin-top: 0.1rem; }
-.pi-btw-answer { flex: 1; min-width: 0; font-size: var(--pi-panel-font); }
-.pi-btw-pending .pi-btw-dots {
-  font-family: var(--pi-font-mono);
-  font-size: var(--pi-panel-font-desc);
-  color: var(--pi-muted);
-  animation: pi-btw-pulse 1.2s ease-in-out infinite;
-}
-.pi-btw-error span:last-child {
-  font-size: var(--pi-panel-font-desc);
-  color: #dc2626;
-  line-height: 1.45;
-}
-@keyframes pi-btw-pulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-.pi-btw-input-row {
-  display: flex; align-items: flex-end; gap: 0.35rem;
-}
-.pi-btw-input {
-  flex: 1; min-width: 0; min-height: 2.125rem; max-height: 6.5rem;
-  resize: none; overflow-y: auto;
-  padding: 0.4rem 0.3rem;
-  font-size: 16px; line-height: 1.5;
-  color: var(--pi-text);
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  outline: none;
-  box-shadow: none;
-  font-family: var(--pi-font);
-  caret-color: var(--pi-theme);
-}
-.pi-btw-input:focus,
-.pi-btw-input:focus-visible {
-  border: none;
-  outline: none;
-  box-shadow: none;
-}
-.pi-btw-input::placeholder { color: var(--pi-muted); }
-.pi-btw-input:disabled { opacity: 0.55; cursor: not-allowed; }
-.pi-btw-send {
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  width: 1.875rem; height: 2.125rem;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--pi-muted);
-  box-shadow: none;
-  cursor: pointer; outline: none;
-  transition: color 120ms, opacity 120ms;
-}
-.pi-btw-send:disabled { opacity: 0.3; cursor: not-allowed; }
-.pi-btw-send:not(:disabled):hover,
-.pi-btw-send:not(:disabled):focus-visible {
-  color: var(--pi-theme);
-  background: transparent;
-}
-.pi-btw-input-wrap { padding: 0.35rem 0.5rem 0.5rem; }
-.pi-btw-new-btn {
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  width: 2.125rem; height: 2.125rem;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  color: var(--pi-muted);
-  cursor: pointer;
-  outline: none;
-  transition: color 120ms, background 120ms;
-}
-.pi-btw-new-btn:hover:not(:disabled),
-.pi-btw-new-btn:focus-visible {
-  color: var(--pi-text);
-  background: var(--pi-panel-subtle);
-}
-.pi-btw-new-btn svg,
-.pi-btw-send svg {
-  width: var(--pi-panel-icon);
-  height: var(--pi-panel-icon);
-}
-.pi-btw-new-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* Extension dialog (inside center stage) */
 .pi-ext-dialog {
@@ -1245,11 +1072,31 @@ body {
 
 /* Command list inside composer toolbar popup */
 .pi-composer-cmd-row {
-  padding: 0.42rem 0.55rem;
+  gap: 0.5rem;
+  padding: 0.38rem 0.55rem;
+  align-items: center;
+}
+.pi-composer-cmd-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--pi-muted);
+}
+.pi-composer-cmd-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+.pi-panel-row--selected .pi-composer-cmd-icon {
+  color: var(--pi-theme);
 }
 .pi-composer-cmd-name {
+  flex-shrink: 0;
   font-size: var(--pi-panel-font);
-  font-weight: 400;
+  font-weight: 500;
   color: var(--pi-text);
 }
 .pi-composer-cmd-meta {
@@ -1260,6 +1107,8 @@ body {
 }
 .pi-composer-cmd-meta--accent { color: var(--pi-theme); }
 .pi-composer-cmd-desc {
+  flex: 1;
+  min-width: 0;
   font-size: var(--pi-panel-font-desc);
   color: var(--pi-muted);
   overflow: hidden;
@@ -1315,12 +1164,28 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 /* Shared list rows inside composer toolbar popup (models, etc.) */
 .pi-composer-panel-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   flex: 1; min-height: 0; overflow: auto;
   padding: 0.35rem;
 }
+.pi-composer-cmd-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+.pi-composer-cmd-list > .pi-composer-cmd-row {
+  width: 100%;
+  flex-shrink: 0;
+}
 .pi-composer-panel-item {
   width: 100%;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   padding: 0.42rem 0.55rem;
   text-align: left;
   transition: background 100ms;
@@ -2007,10 +1872,9 @@ button.pi-panel-row.pi-panel-row--selected {
  * Composer toolbar — four plain actions (commands / new / history /
  * files) attached flush to the composer's own top-right corner. No
  * dark chrome — just the app's normal panel/line/muted palette. The
- * button row and its popup share ONE border/shadow so they read as a
- * single connected block, never two stacked floating pieces.
- * column-reverse keeps the button row glued to that corner at all
- * times; only the popup above it grows/shrinks.
+ * button row stays a fixed-height strip; the popup is absolutely
+ * positioned above it so opening a panel never reflows the message feed
+ * or shifts the welcome/centered composer.
  * ========================================================== */
 .pi-composer-files-overlay {
   position: absolute;
@@ -2037,9 +1901,9 @@ button.pi-panel-row.pi-panel-row--selected {
   /* Sit flush on the composer's outer top-right corner — offset by border
      width so our right edge lines up with the shell's visible right edge. */
   position: absolute; right: calc(-1 * var(--pi-composer-border)); bottom: 100%;
-  display: flex; flex-direction: column-reverse;
   width: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count));
-  overflow: hidden;
+  height: var(--pi-composer-toolbar-btn-h);
+  overflow: visible;
   background: var(--pi-panel);
   border: 1px solid var(--pi-line);
   /* No border or shadow on the seam side — it sits flush against the
@@ -2102,14 +1966,21 @@ button.pi-panel-row.pi-panel-row--selected {
   background: #dc2626;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
-/* Popup — collapsed to nothing, pops open upward, collapses back down.
-   Same box as the button row (no border/shadow/gap of its own) — only
-   a hairline seam appears where the two sections meet, once open. */
+/* Popup — floats above the button row without changing toolbar layout.
+   Same visual seam as before: panel bottom edge meets the bar top edge. */
 .pi-composer-panel {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: 100%;
   display: flex; flex-direction: column; min-height: 0;
   max-height: 0; opacity: 0;
   overflow: hidden;
   font-size: var(--pi-panel-font);
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  box-shadow: var(--pi-shadow-float);
   transition: max-height 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease;
 }
 .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
@@ -2237,6 +2108,24 @@ button.pi-panel-row.pi-panel-row--selected {
   margin-left: auto;
   pointer-events: none;
 }
+@media (max-width: 639px) {
+  :root {
+    --pi-composer-toolbar-count: 4;
+  }
+  .pi-composer-toolbar {
+    left: calc(-1 * var(--pi-composer-border));
+    right: calc(-1 * var(--pi-composer-border));
+    width: auto;
+  }
+  .pi-composer-toolbar-bar {
+    width: 100%;
+  }
+  .pi-composer-dock--preview .pi-center-stage--preview {
+    height: calc(100dvh - 11rem);
+    max-height: calc(100dvh - 11rem);
+  }
+}
+
 @media (min-width: 640px) {
   .pi-notification-stack {
     top: 1.25rem;

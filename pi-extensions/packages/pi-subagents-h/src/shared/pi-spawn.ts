@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 const TASK_ARG_LIMIT = 8000;
 
@@ -8,6 +9,10 @@ interface SpawnInput {
   task: string;
   model?: string;
   cwd?: string;
+  /** Comma-separated tool allowlist. Default: full read/write set. */
+  tools?: string;
+  /** Thinking level: off, minimal, low, medium, high, xhigh */
+  thinking?: string;
 }
 
 export interface SpawnResult {
@@ -23,11 +28,19 @@ export function buildPiArgs(input: SpawnInput): SpawnResult {
   args.push("--no-session");
 
   if (input.model) {
+    if (typeof input.model !== "string") {
+      throw new Error(`Invalid model option: expected string, got ${typeof input.model}`);
+    }
     args.push("--model", input.model);
   }
 
-  // Worker tools: full read/write
-  args.push("--tools", "read,grep,find,ls,bash,edit,write");
+  if (input.thinking) {
+    args.push("--thinking", input.thinking);
+  }
+
+  if (input.tools) {
+    args.push("--tools", input.tools);
+  }
 
   // Large task → temp file
   let tempDir: string | undefined;
@@ -40,8 +53,13 @@ export function buildPiArgs(input: SpawnInput): SpawnResult {
     args.push(`Task: ${input.task}`);
   }
 
+  // Point child pi to the same agent dir as the parent so it loads the same
+  // user config (settings, models, auth keys) and bundled extensions.
+  const agentDir = process.env.PI_CODING_AGENT_DIR || getAgentDir();
+
   const env: Record<string, string> = {
     PI_SUBAGENT_CHILD: "1",
+    PI_CODING_AGENT_DIR: agentDir,
   };
 
   return { command: "pi", args, env, tempDir };

@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import * as fs from "node:fs";
 import type { Message } from "@earendil-works/pi-ai";
 import type { SingleResult, Usage } from "../shared/types.ts";
 import { buildPiArgs, cleanupTempDir } from "../shared/pi-spawn.ts";
@@ -8,13 +7,21 @@ function emptyUsage(): Usage {
   return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
 }
 
-function extractText(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return (content as Array<{ type?: string; text?: string }>)
-      .filter((p) => p.type === "text" && typeof p.text === "string")
-      .map((p) => p.text)
-      .join("\n");
+/** Get the last assistant text from the message list — avoids leaking intermediate reasoning/tool-call texts. */
+function getFinalOutput(messages: Message[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "assistant") continue;
+    const content = msg.content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      for (const part of content) {
+        // Only pick up text blocks — skip thinking/reasoning/tool_call blocks
+        if ((part as any).type === "text" && typeof (part as any).text === "string") {
+          return (part as any).text;
+        }
+      }
+    }
   }
   return "";
 }
@@ -25,6 +32,10 @@ interface RunOptions {
   cwd?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
+  /** Comma-separated tool allowlist. */
+  tools?: string;
+  /** Thinking level. */
+  thinking?: string;
 }
 
 export function runSubagent(options: RunOptions): Promise<SingleResult> {
@@ -33,6 +44,8 @@ export function runSubagent(options: RunOptions): Promise<SingleResult> {
       task: options.task,
       model: options.model,
       cwd: options.cwd,
+      tools: options.tools,
+      thinking: options.thinking,
     });
 
     const result: SingleResult = {
@@ -70,16 +83,14 @@ export function runSubagent(options: RunOptions): Promise<SingleResult> {
       result.exitCode = interrupted ? 0 : code;
       result.interrupted = interrupted;
 
-      const texts = result.messages
-        .filter((m) => m.role === "assistant")
-        .map((m) => extractText(m.content));
+      const finalText = getFinalOutput(result.messages);
 
-      if (interrupted && texts.length === 0) {
+      if (interrupted && !finalText) {
         result.finalOutput = "[Interrupted before producing output]";
       } else if (interrupted) {
-        result.finalOutput = "[INTERRUPTED]\n\n" + texts.filter(Boolean).join("\n\n");
+        result.finalOutput = "[INTERRUPTED]\n\n" + finalText;
       } else {
-        result.finalOutput = texts.filter(Boolean).join("\n\n") || stderrBuf || "(no output)";
+        result.finalOutput = finalText || "(no output)";
       }
 
       if (!interrupted && code !== 0 && !result.error) {

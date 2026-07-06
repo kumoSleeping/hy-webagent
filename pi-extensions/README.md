@@ -7,7 +7,6 @@ Custom [PI Coding Agent](https://github.com/earendil-works/pi-coding-agent) exte
 ```
 pi-extensions/
   extensions/              → synced to each user's workspace/.pi/agent/extensions/
-    btw-h/                   /btw side question (Web + TUI)
     goal-h.ts                goal_manager tool + auto-continue
     image-viewer/            describe_image for non-vision models
     jina-more/               parallel_search_web + read_url (needs JINA_API_KEY)

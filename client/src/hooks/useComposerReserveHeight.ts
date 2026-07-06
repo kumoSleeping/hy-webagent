@@ -22,7 +22,7 @@ export function measureComposerReserveHeight(): number {
   const shellRect = shell.getBoundingClientRect();
   let top = shellRect.top;
 
-  for (const sel of [".pi-composer-toolbar", ".pi-composer-badges", ".pi-composer-files-overlay"]) {
+  for (const sel of [".pi-composer-toolbar-bar", ".pi-composer-badges"]) {
     const el = document.querySelector(sel);
     if (!el) continue;
     const { top: elTop, height } = el.getBoundingClientRect();
@@ -46,8 +46,8 @@ export function useComposerReserveHeight(deps: readonly unknown[] = []) {
     const ro = new ResizeObserver(measure);
     ro.observe(shell);
 
-    const toolbar = document.querySelector(".pi-composer-toolbar");
-    if (toolbar) ro.observe(toolbar);
+    const toolbarBar = document.querySelector(".pi-composer-toolbar-bar");
+    if (toolbarBar) ro.observe(toolbarBar);
 
     window.addEventListener("resize", measure);
     return () => {

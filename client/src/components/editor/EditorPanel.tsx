@@ -14,10 +14,13 @@ interface EditorPanelProps {
   onContentChange: (tabId: string, content: string) => void;
   onViewModeChange: (tabId: string, viewMode: EditorViewMode) => void;
   onEditorFocus?: () => void;
+  /** When false, hide the tab strip (center-stage file preview). */
+  showTabBar?: boolean;
 }
 
 export function EditorPanel({
   tabs, activeTabId, onTabClick, onTabClose, onContentChange, onViewModeChange, onEditorFocus,
+  showTabBar = true,
 }: EditorPanelProps) {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const markdown = activeTab ? isMarkdownFile(activeTab.name) : false;
@@ -44,13 +47,17 @@ export function EditorPanel({
 
   return (
     <div className="pi-editor-panel">
-      <EditorTabs
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onTabClick={onTabClick}
-        onTabClose={onTabClose}
-        trailing={viewToggle}
-      />
+      {showTabBar ? (
+        <EditorTabs
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onTabClick={onTabClick}
+          onTabClose={onTabClose}
+          trailing={viewToggle}
+        />
+      ) : viewToggle ? (
+        <div className="pi-editor-floating-tools">{viewToggle}</div>
+      ) : null}
       <div className="pi-editor-body">
         {activeTab ? (
           activeTab.mediaType ? (

@@ -1,7 +1,7 @@
 {
   "name": "pi-subagents-h",
-  "version": "0.2.0",
-  "description": "Minimal worker subagent for pi — spawn child pi for implementation tasks",
+  "version": "0.2.3",
+  "description": "Three specialised subagent workers for pi — explorer, searcher, worker, all defaulting to the active session model",
   "author": "kumo",
   "license": "MIT",
   "type": "module",
