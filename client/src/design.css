@@ -2289,8 +2289,9 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 @media (max-width: 639px) {
   :root {
-    /* Button size matches desktop; count comes from fitted toolbar items. */
-    --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / 7);
+    /* Button size matches desktop up to a cap — large accessibility font sizes
+       would otherwise push buttons off-screen on narrow phones. */
+    --pi-composer-toolbar-btn-w: min(calc(22rem / 7), 54px);
   }
 }
 

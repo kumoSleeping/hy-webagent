@@ -48,15 +48,20 @@ export const TOOLBAR_TRIM_ORDER: ToolbarItemId[] = [
 /** Never dropped — commands stays; send lives in the input row below. */
 export const TOOLBAR_PROTECTED: ToolbarItemId[] = ["commands"];
 
+export function getRootFontPx(): number {
+  if (typeof document === "undefined") return 16;
+  return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+}
+
 export function toolbarBtnWidthPx(rootFontPx?: number): number {
-  const fontPx =
-    rootFontPx ??
-    ((typeof document !== "undefined"
-      ? parseFloat(getComputedStyle(document.documentElement).fontSize)
-      : 16) || 16);
+  const fontPx = rootFontPx ?? getRootFontPx();
   // Matches design.css: 22rem bar / 7 desktop slots — button size stays constant.
   return (22 / 7) * fontPx;
 }
+
+/** Mobile buttons can grow with the user's font size, but we cap them so the
+ *  toolbar does not collapse to one or two giant buttons on a phone. */
+export const MOBILE_TOOLBAR_BTN_MAX_PX = 54;
 
 /** Drop at most one toolbar item when the button row exceeds the 80% band. */
 export function trimOneToolbarItem(

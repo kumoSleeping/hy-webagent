@@ -1,6 +1,8 @@
 import { useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import {
   adjustToolbarItemsForBand,
+  getRootFontPx,
+  MOBILE_TOOLBAR_BTN_MAX_PX,
   TOOLBAR_BAND_RATIO,
   toolbarBtnWidthPx,
   toolbarItemsForLayout,
@@ -33,13 +35,17 @@ function computeBandPx(): number {
   const viewport = window.innerWidth;
   if (viewport <= 0) return 0;
 
-  const btnW = toolbarBtnWidthPx();
-  const rootFontPx = (btnW * 7) / 22;
-  // padding-inline = min(1.5rem, clamp(1rem, 2.8vw, 3rem))
+  const rootFontPx = getRootFontPx();
   const clamped = Math.max(rootFontPx, Math.min(3 * rootFontPx, viewport * 0.028));
   const shellPadding = Math.min(1.5 * rootFontPx, clamped);
   const shellWidth = viewport - 2 * shellPadding;
   return Math.max(0, shellWidth * TOOLBAR_BAND_RATIO);
+}
+
+/** Effective mobile button width, capped so large accessibility font sizes
+ *  do not collapse the toolbar to one or two buttons. */
+function mobileBtnWidthPx(): number {
+  return Math.min(toolbarBtnWidthPx(), MOBILE_TOOLBAR_BTN_MAX_PX);
 }
 
 /** Mobile: step toolbar buttons in/out one at a time to fit the right 80% band. */
@@ -54,7 +60,7 @@ export function useFittedToolbarItems(
   // the shell measurement is available.
   const [items, setItems] = useState<ToolbarItemDef[]>(() => {
     if (!isMobileLayout) return baseItems;
-    return convergeItemsForBand(baseItems, baseItems, computeBandPx(), toolbarBtnWidthPx());
+    return convergeItemsForBand(baseItems, baseItems, computeBandPx(), mobileBtnWidthPx());
   });
 
   // Sync the fitted set when the layout changes (mobile <-> desktop) or when
@@ -65,7 +71,7 @@ export function useFittedToolbarItems(
       setItems(baseItems);
       return;
     }
-    setItems(convergeItemsForBand(baseItems, baseItems, computeBandPx(), toolbarBtnWidthPx()));
+    setItems(convergeItemsForBand(baseItems, baseItems, computeBandPx(), mobileBtnWidthPx()));
   }, [baseItems, isMobileLayout]);
 
   // Measure the composer shell immediately before paint and keep it in sync on
@@ -90,7 +96,7 @@ export function useFittedToolbarItems(
       const measuredBand = measured * TOOLBAR_BAND_RATIO;
       const bandPx = measured > 0 && measuredBand > estimated * 0.5 ? measuredBand : estimated;
       setItems((prev) =>
-        convergeItemsForBand(prev.length ? prev : baseItems, baseItems, bandPx, toolbarBtnWidthPx()),
+        convergeItemsForBand(prev.length ? prev : baseItems, baseItems, bandPx, mobileBtnWidthPx()),
       );
     };
 
