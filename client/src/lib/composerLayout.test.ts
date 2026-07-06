@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  adjustToolbarItemsForBand,
   fitToolbarItemsToBand,
   isElevatedPanel,
   MOBILE_TOOLBAR_ITEMS,
   panelToolbarIndex,
+  restoreOneToolbarItem,
   toolbarItemsForLayout,
+  trimOneToolbarItem,
 } from "./composerLayout";
 
 describe("composerLayout", () => {
@@ -31,29 +34,48 @@ describe("composerLayout", () => {
     expect(panelToolbarIndex("history", mobile)).toBe(2);
   });
 
-  it("trims toolbar items until the bar fits the 80% band", () => {
-    const items = toolbarItemsForLayout(true);
+  it("trims only one item per adjust step", () => {
+    const base = toolbarItemsForLayout(true);
     const btn = 50;
-    expect(fitToolbarItemsToBand(items, 400, btn).map((i) => i.id)).toEqual([
+    const band = 175;
+    const step1 = adjustToolbarItemsForBand(base, base, band, btn);
+    expect(step1.map((i) => i.id)).toEqual(["commands", "history", "new-chat"]);
+    const step2 = adjustToolbarItemsForBand(step1, base, band, btn);
+    expect(step2.map((i) => i.id)).toEqual(["commands", "history", "new-chat"]);
+    const tight = 125;
+    const step3 = adjustToolbarItemsForBand(step1, base, tight, btn);
+    expect(step3.map((i) => i.id)).toEqual(["commands", "new-chat"]);
+  });
+
+  it("restores one item when the band widens", () => {
+    const base = toolbarItemsForLayout(true);
+    const btn = 50;
+    const current = base.filter((i) => i.id !== "files");
+    const wider = restoreOneToolbarItem(current, base, 220, btn);
+    expect(wider.map((i) => i.id)).toEqual([
       "commands",
       "files",
       "history",
       "new-chat",
     ]);
-    expect(fitToolbarItemsToBand(items, 199, btn).map((i) => i.id)).toEqual([
-      "commands",
-      "history",
-      "new-chat",
-    ]);
-    expect(fitToolbarItemsToBand(items, 149, btn).map((i) => i.id)).toEqual(["commands", "new-chat"]);
-    expect(fitToolbarItemsToBand(items, 49, btn).map((i) => i.id)).toEqual(["commands"]);
   });
 
-  it("drops model before account on desktop", () => {
-    const items = toolbarItemsForLayout(false);
+  it("drops model before account on desktop when stepping repeatedly", () => {
+    const base = toolbarItemsForLayout(false);
     const btn = 50;
-    const trimmed = fitToolbarItemsToBand(items, 300, btn).map((i) => i.id);
+    const trimmed = fitToolbarItemsToBand(base, 300, btn);
     expect(trimmed).not.toContain("model");
-    expect(trimmed).toContain("account");
+    expect(trimmed.some((i) => i.id === "account")).toBe(true);
+  });
+
+  it("trimOne never removes commands", () => {
+    const base = toolbarItemsForLayout(true);
+    const btn = 50;
+    const onlyCommands = trimOneToolbarItem(
+      trimOneToolbarItem(trimOneToolbarItem(base, 40, btn), 40, btn),
+      40,
+      btn,
+    );
+    expect(onlyCommands.map((i) => i.id)).toEqual(["commands"]);
   });
 });

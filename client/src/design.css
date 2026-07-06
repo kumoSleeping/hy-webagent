@@ -826,20 +826,16 @@ body {
   cursor: not-allowed;
 }
 .pi-composer-send-btn--accent {
-  color: var(--pi-theme-ink);
-  background: var(--pi-theme);
-  width: var(--pi-composer-toolbar-btn-h);
-  height: var(--pi-composer-toolbar-btn-h);
-  padding: 0;
-  margin: 0 0 0.15rem;
+  color: var(--pi-theme);
+  background: transparent;
 }
 .pi-composer-send-btn--accent:hover:not(:disabled),
 .pi-composer-send-btn--accent:focus-visible:not(:disabled) {
-  color: var(--pi-theme-ink);
-  background: #dc2626;
+  color: #dc2626;
+  background: transparent;
 }
 .pi-composer-send-btn--accent:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
 }
 .pi-composer-send-btn svg {
   width: 16px;
@@ -2152,10 +2148,38 @@ button.pi-panel-row.pi-panel-row--selected {
     /* Button size matches desktop; count comes from fitted toolbar items. */
     --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / 7);
   }
-  /* Smart-trim keeps the bar within the right 80% — same compact chrome as desktop. */
-  .pi-app-shell--mobile .pi-composer-badges {
-    right: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count, 4) + 0.35rem);
-  }
+}
+
+/* Mobile — popup + bar share the right 80% of the composer; buttons sit on the right edge. */
+.pi-app-shell--mobile .pi-composer-toolbar {
+  left: 20%;
+  right: calc(-1 * var(--pi-composer-border));
+  width: auto;
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  background: var(--pi-panel);
+  box-shadow: none;
+}
+.pi-app-shell--mobile .pi-composer-toolbar-bar {
+  width: 100%;
+  justify-content: flex-end;
+  border: none;
+  background: transparent;
+}
+.pi-app-shell--mobile .pi-composer-panel {
+  left: 0;
+  right: 0;
+}
+.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
+  border-bottom: none;
+  box-shadow: none;
+}
+.pi-app-shell--mobile .pi-composer-dock--open .pi-composer-toolbar,
+.pi-app-shell--mobile .pi-composer-dock--preview .pi-composer-toolbar {
+  border: none;
+}
+.pi-app-shell--mobile .pi-composer-badges {
+  right: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count, 4) + 0.35rem);
 }
 
 @media (min-width: 640px) {

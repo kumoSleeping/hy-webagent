@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type RefObject } from "react";
 import {
-  fitToolbarItemsToBand,
+  adjustToolbarItemsForBand,
   TOOLBAR_BAND_RATIO,
   toolbarBtnWidthPx,
   toolbarItemsForLayout,
   type ToolbarItemDef,
 } from "../lib/composerLayout";
 
-/** Mobile/narrow: trim toolbar buttons until the bar fits in the right 80% band. */
+/** Mobile: step toolbar buttons in/out one at a time to fit the right 80% band. */
 export function useFittedToolbarItems(
   isMobileLayout: boolean,
   shellRef: RefObject<HTMLElement | null>,
@@ -16,15 +16,23 @@ export function useFittedToolbarItems(
   const [items, setItems] = useState<ToolbarItemDef[]>(baseItems);
 
   useEffect(() => {
-    setItems(baseItems);
-    if (!isMobileLayout) return;
+    if (!isMobileLayout) {
+      setItems(baseItems);
+      return;
+    }
 
     const shell = shellRef.current;
     if (!shell) return;
 
+    setItems(baseItems);
+
     const update = () => {
       const bandPx = shell.clientWidth * TOOLBAR_BAND_RATIO;
-      setItems(fitToolbarItemsToBand(baseItems, bandPx, toolbarBtnWidthPx()));
+      const btnW = toolbarBtnWidthPx();
+      setItems((prev) => {
+        const seed = prev.length ? prev : baseItems;
+        return adjustToolbarItemsForBand(seed, baseItems, bandPx, btnW);
+      });
     };
 
     update();
