@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import {
   adjustToolbarItemsForBand,
   TOOLBAR_BAND_RATIO,
@@ -6,6 +6,24 @@ import {
   toolbarItemsForLayout,
   type ToolbarItemDef,
 } from "../lib/composerLayout";
+
+/** Repeatedly apply one-at-a-time trimming/restoring until the set stops changing. */
+function convergeItemsForBand(
+  current: ToolbarItemDef[],
+  base: ToolbarItemDef[],
+  bandWidthPx: number,
+  btnWidthPx: number,
+): ToolbarItemDef[] {
+  let prev = current;
+  let next = adjustToolbarItemsForBand(prev, base, bandWidthPx, btnWidthPx);
+  let safety = 0;
+  while (next.length !== prev.length && safety < 20) {
+    prev = next;
+    next = adjustToolbarItemsForBand(prev, base, bandWidthPx, btnWidthPx);
+    safety++;
+  }
+  return next;
+}
 
 /** Mobile: step toolbar buttons in/out one at a time to fit the right 80% band. */
 export function useFittedToolbarItems(
@@ -21,7 +39,7 @@ export function useFittedToolbarItems(
     const width = typeof window !== "undefined" ? window.innerWidth : 0;
     const bandPx = width * TOOLBAR_BAND_RATIO;
     const btnW = toolbarBtnWidthPx();
-    return adjustToolbarItemsForBand(baseItems, baseItems, bandPx, btnW);
+    return convergeItemsForBand(baseItems, baseItems, bandPx, btnW);
   });
 
   // Sync the fitted set when the layout changes (mobile <-> desktop) or when
@@ -36,10 +54,12 @@ export function useFittedToolbarItems(
     const width = typeof window !== "undefined" ? window.innerWidth : 0;
     const bandPx = width * TOOLBAR_BAND_RATIO;
     const btnW = toolbarBtnWidthPx();
-    setItems(adjustToolbarItemsForBand(baseItems, baseItems, bandPx, btnW));
+    setItems(convergeItemsForBand(baseItems, baseItems, bandPx, btnW));
   }, [baseItems, isMobileLayout]);
 
-  useEffect(() => {
+  // Measure the composer shell immediately before paint and keep it in sync on
+  // resize. This ensures the visible button row never overflows the right band.
+  useLayoutEffect(() => {
     if (!isMobileLayout) {
       setItems(baseItems);
       return;
@@ -52,7 +72,7 @@ export function useFittedToolbarItems(
       const bandPx = shell.clientWidth * TOOLBAR_BAND_RATIO;
       const btnW = toolbarBtnWidthPx();
       setItems((prev) =>
-        adjustToolbarItemsForBand(prev.length ? prev : baseItems, baseItems, bandPx, btnW),
+        convergeItemsForBand(prev.length ? prev : baseItems, baseItems, bandPx, btnW),
       );
     };
 
