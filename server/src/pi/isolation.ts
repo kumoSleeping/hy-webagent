@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { config } from "../config.js";
@@ -203,7 +204,7 @@ async function syncExtensionTree(sourceDir: string, targetDir: string): Promise<
 
 /** Drop bundled extension entries removed from the repo mirror (e.g. retired btw-h). */
 async function pruneExtensionTreeOrphans(sourceDir: string, targetDir: string): Promise<void> {
-  let targetEntries: fs.Dirent[];
+  let targetEntries: Dirent[];
   try {
     targetEntries = await fs.readdir(targetDir, { withFileTypes: true });
   } catch {
