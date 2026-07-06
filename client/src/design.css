@@ -568,7 +568,7 @@ body {
 
 /* Account detail panel — composer toolbar popup (single panel font size) */
 .pi-account-panel {
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 0;
   padding: 0.35rem;
   font-size: var(--pi-panel-font);
@@ -619,6 +619,100 @@ body {
   text-decoration: none;
 }
 .pi-account-panel-logout:hover {
+  color: var(--pi-text-body);
+}
+
+.pi-account-panel-prefs {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--pi-line-soft);
+}
+.pi-account-panel-row--pref {
+  align-items: center;
+  padding-block: 0.3rem;
+}
+.pi-account-panel-pref-hint {
+  margin: 0.15rem 0.55rem 0.25rem;
+  font-size: var(--pi-panel-font-meta);
+  line-height: 1.4;
+  color: var(--pi-muted);
+}
+.pi-account-panel-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  user-select: none;
+}
+.pi-account-panel-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.pi-account-panel-toggle-ui {
+  position: relative;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 1.1rem;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.pi-account-panel-toggle-ui::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: calc(1.1rem - 4px);
+  height: calc(1.1rem - 4px);
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line);
+  transition: transform 140ms ease, background 140ms ease;
+}
+.pi-account-panel-toggle input:checked + .pi-account-panel-toggle-ui {
+  background: color-mix(in srgb, var(--pi-theme) 18%, var(--pi-panel));
+  border-color: color-mix(in srgb, var(--pi-theme) 45%, var(--pi-line));
+}
+.pi-account-panel-toggle input:checked + .pi-account-panel-toggle-ui::after {
+  transform: translateX(calc(2rem - 1.1rem));
+  background: var(--pi-theme);
+  border-color: var(--pi-theme);
+}
+.pi-account-panel-toggle-label {
+  min-width: 1.6rem;
+  text-align: right;
+  font-size: var(--pi-panel-font-meta);
+  color: var(--pi-text-body);
+}
+.pi-account-panel-segment {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+}
+.pi-account-panel-segment-btn {
+  appearance: none;
+  border: none;
+  border-right: 1px solid var(--pi-line);
+  background: transparent;
+  padding: 0.2rem 0.45rem;
+  font: inherit;
+  font-size: var(--pi-panel-font-meta);
+  line-height: 1.2;
+  color: var(--pi-muted);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.pi-account-panel-segment-btn:last-child {
+  border-right: none;
+}
+.pi-account-panel-segment-btn[data-active="true"] {
+  color: var(--pi-text);
+  background: var(--pi-panel);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pi-theme) 35%, transparent);
+}
+.pi-account-panel-segment-btn:hover {
   color: var(--pi-text-body);
 }
 
@@ -989,12 +1083,13 @@ body {
    than floating extra controls. Row layout so a second badge just slots
    in beside the first with zero extra positioning math. */
 .pi-composer-badges {
-  position: absolute;
-  top: calc(-1 * var(--pi-composer-toolbar-btn-h) - 9px);
-  right: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count, 7) + 0.35rem);
-  left: auto;
-  z-index: 10;
-  display: flex; align-items: center; gap: 0.3rem;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  margin-right: 0.35rem;
 }
 
 /* "Working" indicator — replaces the old solid-red stop square. A small
@@ -1911,25 +2006,35 @@ button.pi-panel-row.pi-panel-row--selected {
   /* Sit flush on the composer's outer top-right corner — offset by border
      width so our right edge lines up with the shell's visible right edge. */
   position: absolute; right: calc(-1 * var(--pi-composer-border)); bottom: 100%;
-  width: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count));
+  width: max-content;
+  max-width: 100%;
   height: var(--pi-composer-toolbar-btn-h);
   overflow: visible;
   background: var(--pi-panel);
   border: 1px solid var(--pi-line);
-  /* No border or shadow on the seam side — it sits flush against the
-     composer's own top edge (which keeps its border there) and casts no
-     shadow of its own, so the composer's single shadow is the only one
-     defining the whole attached shape. Zero gap, zero competing layer. */
   border-bottom: none;
   box-shadow: none;
   z-index: 50;
   transition: right 200ms;
-  /* Messages scroll behind the toolbar row — keep the bar fully opaque. */
   background-clip: padding-box;
 }
 .pi-composer-toolbar-bar {
-  display: flex; flex-shrink: 0;
-  width: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count));
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  width: max-content;
+  max-width: 100%;
+  height: 100%;
+}
+.pi-composer-toolbar-bar-fill {
+  display: none;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pi-composer-toolbar-bar-tail {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 .pi-composer-toolbar-btn {
   flex: 0 0 var(--pi-composer-toolbar-btn-w); min-width: 0;
@@ -2001,6 +2106,13 @@ button.pi-panel-row.pi-panel-row--selected {
   min-width: 0;
   border-bottom: none;
   box-shadow: none;
+  margin-bottom: -1px;
+}
+/* Account panel — hug content, sit flush above the toolbar (no empty band). */
+.pi-composer-toolbar[data-open="true"][data-panel="account"] .pi-composer-panel {
+  height: auto;
+  max-height: min(20rem, calc(100dvh - 9rem));
+  overflow: visible;
 }
 .pi-composer-panel-stack {
   display: flex;
@@ -2150,36 +2262,26 @@ button.pi-panel-row.pi-panel-row--selected {
   }
 }
 
-/* Mobile — popup + bar share the right 80% of the composer; buttons sit on the right edge. */
+/* Mobile — popup + bar share the right 80% of the composer; left 20% stays empty. */
 .pi-app-shell--mobile .pi-composer-toolbar {
   left: 20%;
   right: calc(-1 * var(--pi-composer-border));
   width: auto;
-  border: 1px solid var(--pi-line);
-  border-bottom: none;
-  background: var(--pi-panel);
-  box-shadow: none;
+  max-width: none;
 }
 .pi-app-shell--mobile .pi-composer-toolbar-bar {
   width: 100%;
-  justify-content: flex-end;
-  border: none;
-  background: transparent;
+}
+.pi-app-shell--mobile .pi-composer-toolbar-bar-fill {
+  display: block;
 }
 .pi-app-shell--mobile .pi-composer-panel {
   left: 0;
   right: 0;
 }
-.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
-  border-bottom: none;
-  box-shadow: none;
-}
 .pi-app-shell--mobile .pi-composer-dock--open .pi-composer-toolbar,
 .pi-app-shell--mobile .pi-composer-dock--preview .pi-composer-toolbar {
   border: none;
-}
-.pi-app-shell--mobile .pi-composer-badges {
-  right: calc(var(--pi-composer-toolbar-btn-w) * var(--pi-composer-toolbar-count, 4) + 0.35rem);
 }
 
 @media (min-width: 640px) {

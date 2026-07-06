@@ -16,6 +16,10 @@ export function useFittedToolbarItems(
   const [items, setItems] = useState<ToolbarItemDef[]>(baseItems);
 
   useEffect(() => {
+    setItems(baseItems);
+  }, [baseItems]);
+
+  useEffect(() => {
     if (!isMobileLayout) {
       setItems(baseItems);
       return;
@@ -24,15 +28,12 @@ export function useFittedToolbarItems(
     const shell = shellRef.current;
     if (!shell) return;
 
-    setItems(baseItems);
-
     const update = () => {
       const bandPx = shell.clientWidth * TOOLBAR_BAND_RATIO;
       const btnW = toolbarBtnWidthPx();
-      setItems((prev) => {
-        const seed = prev.length ? prev : baseItems;
-        return adjustToolbarItemsForBand(seed, baseItems, bandPx, btnW);
-      });
+      setItems((prev) =>
+        adjustToolbarItemsForBand(prev.length ? prev : baseItems, baseItems, bandPx, btnW),
+      );
     };
 
     update();

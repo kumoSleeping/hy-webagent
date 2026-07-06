@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
@@ -1032,57 +1032,66 @@ export function ComposerBar({
     ...queuedFollowUp.map((text, index) => ({ key: `followUp-${index}`, source: "followUp" as const, index, text })),
   ];
 
+  const badgeRow =
+    isStreaming || queuedItems.length > 0 ? (
+      <div className="pi-composer-badges" onClick={(e) => e.stopPropagation()}>
+        {isStreaming && (
+          <button
+            type="button"
+            className="pi-composer-working"
+            onClick={(e) => { e.stopPropagation(); onAbort?.(); }}
+            title="Stop"
+            aria-label="Stop — click to interrupt"
+          >
+            <span className="pi-composer-working-bars" aria-hidden="true">
+              <span /><span /><span /><span />
+            </span>
+          </button>
+        )}
+        {queuedItems.map((item, i) => (
+          <div key={item.key} className="pi-composer-queue-cell-wrap">
+            <button
+              type="button"
+              className="pi-composer-queue-cell"
+              onClick={(e) => { e.stopPropagation(); onEditQueued?.(item.source, item.index); }}
+              onMouseEnter={() => setHoveredQueueKey(item.key)}
+              onMouseLeave={() => setHoveredQueueKey((k) => (k === item.key ? null : k))}
+              aria-label={`Queued message ${i + 1} — not seen by the model yet, click to edit`}
+            >
+              {i + 1}
+            </button>
+            {hoveredQueueKey === item.key && (
+              <div className="pi-composer-queue-preview" role="tooltip">
+                {item.text}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    ) : null;
+
   return (
     <div
       className="pi-composer-shell relative"
       ref={shellRef}
-      style={{ "--pi-composer-toolbar-count": toolbarItems.length } as CSSProperties}
       onClick={focusInput}
     >
-      {(isStreaming || queuedItems.length > 0) && (
-        <div className="pi-composer-badges" onClick={(e) => e.stopPropagation()}>
-          {isStreaming && (
-            <button
-              type="button"
-              className="pi-composer-working"
-              onClick={(e) => { e.stopPropagation(); onAbort?.(); }}
-              title="Stop"
-              aria-label="Stop — click to interrupt"
-            >
-              <span className="pi-composer-working-bars" aria-hidden="true">
-                <span /><span /><span /><span />
-              </span>
-            </button>
-          )}
-          {queuedItems.map((item, i) => (
-            <div key={item.key} className="pi-composer-queue-cell-wrap">
-              <button
-                type="button"
-                className="pi-composer-queue-cell"
-                onClick={(e) => { e.stopPropagation(); onEditQueued?.(item.source, item.index); }}
-                onMouseEnter={() => setHoveredQueueKey(item.key)}
-                onMouseLeave={() => setHoveredQueueKey((k) => (k === item.key ? null : k))}
-                aria-label={`Queued message ${i + 1} — not seen by the model yet, click to edit`}
-              >
-                {i + 1}
-              </button>
-              {hoveredQueueKey === item.key && (
-                <div className="pi-composer-queue-preview" role="tooltip">
-                  {item.text}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
       <div
         className="pi-composer-toolbar"
         data-open={toolbarActive ? "true" : "false"}
+        data-panel={toolbarActive && panel ? panel : undefined}
         data-files-overlay={filesOverlay ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="pi-composer-panel">
+          {showInlinePanel && renderPanelBody()}
+        </div>
+
         <div className="pi-composer-toolbar-bar">
-          {toolbarItems.map((item, index) => (
+          {isMobileLayout && <div className="pi-composer-toolbar-bar-fill" aria-hidden="true" />}
+          <div className="pi-composer-toolbar-bar-tail">
+            {badgeRow}
+            {toolbarItems.map((item, index) => (
             <button
               key={item.id}
               type="button"
@@ -1097,10 +1106,7 @@ export function ComposerBar({
               {toolbarIcon(item)}
             </button>
           ))}
-        </div>
-
-        <div className="pi-composer-panel">
-          {showInlinePanel && renderPanelBody()}
+          </div>
         </div>
       </div>
 
