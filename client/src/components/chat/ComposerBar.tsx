@@ -178,9 +178,9 @@ export function ComposerBar({
   const shellRef = useRef<HTMLDivElement>(null);
   const toolbarItems = useFittedToolbarItems(isMobileLayout, shellRef);
   const btnWidthPx = useMemo(() => {
-    if (!isMobileLayout) return undefined;
-    return Math.min(toolbarBtnWidthPx(), MOBILE_TOOLBAR_BTN_MAX_PX);
-  }, [isMobileLayout]);
+    const raw = toolbarBtnWidthPx();
+    return Math.min(raw, MOBILE_TOOLBAR_BTN_MAX_PX);
+  }, []);
   // DEBUG — remove after toolbar issue is resolved
   const [debugInfo, setDebugInfo] = useState("");
   useLayoutEffect(() => {
@@ -202,7 +202,7 @@ export function ComposerBar({
       const bCw = bar?.clientWidth ?? 0;
       const bRw = bar?.getBoundingClientRect?.()?.width ?? 0;
       setDebugInfo(
-        `vw=${vw} rf=${rf} rawBtn=${Math.round(rawBtnW)} cssBtn=${cssBtnW} n=${toolbarItems.length} | shell cw=${sCw} ow=${sOw} rw=${Math.round(sRw)} | tb cw=${tCw} ow=${tOw} rw=${Math.round(tRw)} | bar cw=${bCw} rw=${Math.round(bRw)}`,
+        `vw=${vw} rf=${rf} rawBtn=${Math.round(rawBtnW)} cssBtn=${cssBtnW} n=${toolbarItems.length} isMob=${String(isMobileLayout)} | shell cw=${sCw} ow=${sOw} rw=${Math.round(sRw)} | tb cw=${tCw} ow=${tOw} rw=${Math.round(tRw)} | bar cw=${bCw} rw=${Math.round(bRw)}`,
       );
     };
     measure();
@@ -1173,7 +1173,7 @@ export function ComposerBar({
             {badgeRow}
             {toolbarItems.map((item, index) => (
             <button
-              style={isMobileLayout && btnWidthPx ? { width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` } : undefined}
+              style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
               key={item.id}
               type="button"
               className={`pi-composer-toolbar-btn${item.id === "new-chat" && !hasDraft ? " pi-composer-toolbar-btn--accent" : ""}`}
