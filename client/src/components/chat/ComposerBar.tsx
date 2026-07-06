@@ -176,15 +176,33 @@ export function ComposerBar({
   const shellRef = useRef<HTMLDivElement>(null);
   const toolbarItems = useFittedToolbarItems(isMobileLayout, shellRef);
   // DEBUG — remove after toolbar issue is resolved
-  const debugToolbar = useMemo(() => {
-    if (!isMobileLayout) return "";
-    const vw = typeof window !== "undefined" ? window.innerWidth : 0;
-    const rf = typeof document !== "undefined" ? (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) : 16;
-    const btnW = Math.min((22 / 7) * rf, 54);
-    const clamped = Math.max(rf, Math.min(3 * rf, vw * 0.028));
-    const shellPad = Math.min(1.5 * rf, clamped);
-    const band = Math.max(0, (vw - 2 * shellPad) * 0.8);
-    return `vw=${vw} rf=${rf} band=${Math.round(band)}px btn=${Math.round(btnW)}px item=${toolbarItems.length}`;
+  const [debugInfo, setDebugInfo] = useState("");
+  useLayoutEffect(() => {
+    if (!isMobileLayout) return;
+    const measure = () => {
+      const shell = shellRef.current;
+      const bar = shell?.querySelector(".pi-composer-toolbar-bar") as HTMLElement | null;
+      const toolbar = shell?.querySelector(".pi-composer-toolbar") as HTMLElement | null;
+      const vw = typeof window !== "undefined" ? window.innerWidth : 0;
+      const rf = typeof document !== "undefined" ? (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) : 16;
+      const rawBtnW = (22 / 7) * rf;
+      const cssBtnW = toolbar ? parseInt(getComputedStyle(toolbar).getPropertyValue("--pi-composer-toolbar-btn-w"), 10) || 0 : 0;
+      const sCw = shell?.clientWidth ?? 0;
+      const sOw = shell?.offsetWidth ?? 0;
+      const sRw = shell?.getBoundingClientRect?.()?.width ?? 0;
+      const tCw = toolbar?.clientWidth ?? 0;
+      const tOw = toolbar?.offsetWidth ?? 0;
+      const tRw = toolbar?.getBoundingClientRect?.()?.width ?? 0;
+      const bCw = bar?.clientWidth ?? 0;
+      const bRw = bar?.getBoundingClientRect?.()?.width ?? 0;
+      setDebugInfo(
+        `vw=${vw} rf=${rf} rawBtn=${Math.round(rawBtnW)} cssBtn=${cssBtnW} n=${toolbarItems.length} | shell cw=${sCw} ow=${sOw} rw=${Math.round(sRw)} | tb cw=${tCw} ow=${tOw} rw=${Math.round(tRw)} | bar cw=${bCw} rw=${Math.round(bRw)}`,
+      );
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (shellRef.current) ro.observe(shellRef.current);
+    return () => ro.disconnect();
   }, [toolbarItems.length, isMobileLayout]);
   const newChatToolbarIndex = toolbarItems.findIndex((item) => item.id === "new-chat");
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
@@ -1162,7 +1180,7 @@ export function ComposerBar({
               {toolbarIcon(item)}
             </button>
           ))}
-            {debugToolbar && (
+            {debugInfo && (
               <span
                 style={{
                   position: "fixed",
@@ -1177,9 +1195,12 @@ export function ComposerBar({
                   zIndex: 99999,
                   pointerEvents: "none",
                   lineHeight: 1.4,
+                  maxWidth: "calc(100vw - 16px)",
+                  overflowWrap: "break-word",
+                  wordBreak: "break-all",
                 }}
               >
-                {debugToolbar}
+                {debugInfo}
               </span>
             )}
           </div>
