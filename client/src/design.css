@@ -1142,6 +1142,15 @@ body {
   0%, 100% { transform: scaleY(0.32); }
   50% { transform: scaleY(1); }
 }
+/* Working indicator pinned to the composer shell's top‑left —
+   sits above the input row, flush with the shell's inset padding. */
+.pi-composer-working--shell {
+  position: absolute;
+  top: 0;
+  left: var(--pi-composer-pad-x, 0.875rem);
+  z-index: 51;
+  box-shadow: var(--pi-shadow-float);
+}
 
 /* Queued-message cells — one per steering/follow-up message still waiting
    behind the current turn (not seen by the model yet), so they sit here

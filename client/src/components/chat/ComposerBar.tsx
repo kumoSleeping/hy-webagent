@@ -1084,21 +1084,8 @@ export function ComposerBar({
   ];
 
   const badgeRow =
-    isStreaming || queuedItems.length > 0 ? (
+    queuedItems.length > 0 ? (
       <div className="pi-composer-badges" onClick={(e) => e.stopPropagation()}>
-        {isStreaming && (
-          <button
-            type="button"
-            className="pi-composer-working"
-            onClick={(e) => { e.stopPropagation(); onAbort?.(); }}
-            title="Stop"
-            aria-label="Stop — click to interrupt"
-          >
-            <span className="pi-composer-working-bars" aria-hidden="true">
-              <span /><span /><span /><span />
-            </span>
-          </button>
-        )}
         {queuedItems.map((item, i) => (
           <div key={item.key} className="pi-composer-queue-cell-wrap">
             <button
@@ -1127,6 +1114,19 @@ export function ComposerBar({
       ref={shellRef}
       onClick={focusInput}
     >
+      {isStreaming && (
+        <button
+          type="button"
+          className="pi-composer-working pi-composer-working--shell"
+          onClick={(e) => { e.stopPropagation(); onAbort?.(); }}
+          title="Stop"
+          aria-label="Stop — click to interrupt"
+        >
+          <span className="pi-composer-working-bars" aria-hidden="true">
+            <span /><span /><span /><span />
+          </span>
+        </button>
+      )}
       <div
         className="pi-composer-toolbar"
         data-open={toolbarActive ? "true" : "false"}
