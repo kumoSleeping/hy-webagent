@@ -30,7 +30,9 @@ import { useNotificationStore } from "../../stores/notificationStore";
 import type { FileEntry } from "../../types";
 import {
   isElevatedPanel,
+  MOBILE_TOOLBAR_BTN_MAX_PX,
   panelToolbarIndex,
+  toolbarBtnWidthPx,
   type ToolbarItemDef,
 } from "../../lib/composerLayout";
 import {
@@ -175,6 +177,10 @@ export function ComposerBar({
 }: ComposerBarProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const toolbarItems = useFittedToolbarItems(isMobileLayout, shellRef);
+  const btnWidthPx = useMemo(() => {
+    if (!isMobileLayout) return undefined;
+    return Math.min(toolbarBtnWidthPx(), MOBILE_TOOLBAR_BTN_MAX_PX);
+  }, [isMobileLayout]);
   // DEBUG — remove after toolbar issue is resolved
   const [debugInfo, setDebugInfo] = useState("");
   useLayoutEffect(() => {
@@ -1167,6 +1173,7 @@ export function ComposerBar({
             {badgeRow}
             {toolbarItems.map((item, index) => (
             <button
+              style={isMobileLayout && btnWidthPx ? { width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` } : undefined}
               key={item.id}
               type="button"
               className={`pi-composer-toolbar-btn${item.id === "new-chat" && !hasDraft ? " pi-composer-toolbar-btn--accent" : ""}`}
