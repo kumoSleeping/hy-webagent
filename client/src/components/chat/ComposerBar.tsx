@@ -1114,19 +1114,6 @@ export function ComposerBar({
       ref={shellRef}
       onClick={focusInput}
     >
-      {isStreaming && (
-        <button
-          type="button"
-          className="pi-composer-working pi-composer-working--shell"
-          onClick={(e) => { e.stopPropagation(); onAbort?.(); }}
-          title="Stop"
-          aria-label="Stop — click to interrupt"
-        >
-          <span className="pi-composer-working-bars" aria-hidden="true">
-            <span /><span /><span /><span />
-          </span>
-        </button>
-      )}
       <div
         className="pi-composer-toolbar"
         data-open={toolbarActive ? "true" : "false"}
@@ -1169,6 +1156,21 @@ export function ComposerBar({
       )}
 
       <div className="pi-composer-body">
+        {isStreaming && (
+          <div className="pi-composer-working-row" aria-hidden>
+            <button
+              type="button"
+              className="pi-composer-working"
+              onClick={(e) => { e.stopPropagation(); onAbort?.(); }}
+              title="Stop"
+              aria-label="Stop — click to interrupt"
+            >
+              <span className="pi-composer-working-bars" aria-hidden="true">
+                <span /><span /><span /><span />
+              </span>
+            </button>
+          </div>
+        )}
         {pendingAttachments.length > 0 && (
           <div className="pi-composer-attachments" onClick={(e) => e.stopPropagation()}>
             {pendingAttachments.map((item) => (

@@ -1142,14 +1142,17 @@ body {
   0%, 100% { transform: scaleY(0.32); }
   50% { transform: scaleY(1); }
 }
-/* Working indicator pinned to the composer shell's top‑left —
-   sits above the input row, flush with the shell's inset padding. */
-.pi-composer-working--shell {
+/* Working indicator sits in a row above the composer input, flush left. */
+.pi-composer-working-row {
+  position: relative;
+  height: 0;
+  overflow: visible;
+  z-index: 1;
+}
+.pi-composer-working-row .pi-composer-working {
   position: absolute;
   top: 0;
-  left: var(--pi-composer-pad-x, 0.875rem);
-  z-index: 51;
-  box-shadow: var(--pi-shadow-float);
+  left: 0;
 }
 
 /* Queued-message cells — one per steering/follow-up message still waiting
