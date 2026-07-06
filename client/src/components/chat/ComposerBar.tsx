@@ -175,6 +175,17 @@ export function ComposerBar({
 }: ComposerBarProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const toolbarItems = useFittedToolbarItems(isMobileLayout, shellRef);
+  // DEBUG — remove after toolbar issue is resolved
+  const debugToolbar = useMemo(() => {
+    if (!isMobileLayout) return "";
+    const vw = typeof window !== "undefined" ? window.innerWidth : 0;
+    const rf = typeof document !== "undefined" ? (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) : 16;
+    const btnW = Math.min((22 / 7) * rf, 54);
+    const clamped = Math.max(rf, Math.min(3 * rf, vw * 0.028));
+    const shellPad = Math.min(1.5 * rf, clamped);
+    const band = Math.max(0, (vw - 2 * shellPad) * 0.8);
+    return `vw=${vw} rf=${rf} band=${Math.round(band)}px btn=${Math.round(btnW)}px item=${toolbarItems.length}`;
+  }, [toolbarItems.length, isMobileLayout]);
   const newChatToolbarIndex = toolbarItems.findIndex((item) => item.id === "new-chat");
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
     panelToolbarIndex(kind, toolbarItems);
@@ -1151,6 +1162,26 @@ export function ComposerBar({
               {toolbarIcon(item)}
             </button>
           ))}
+            {debugToolbar && (
+              <span
+                style={{
+                  position: "fixed",
+                  bottom: 8,
+                  left: 8,
+                  background: "#000c",
+                  color: "#0f0",
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                  zIndex: 99999,
+                  pointerEvents: "none",
+                  lineHeight: 1.4,
+                }}
+              >
+                {debugToolbar}
+              </span>
+            )}
           </div>
         </div>
       </div>
