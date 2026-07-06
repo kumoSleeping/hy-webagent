@@ -1005,9 +1005,9 @@ export function ComposerBar({
         return modelContent;
       case "history":
         return (
-          <div className="flex flex-1 min-h-0 flex-col py-0.5">
+          <div className="pi-composer-panel-stack py-0.5">
             <PanelFilterBar value={historyQuery} onChange={setHistoryQuery} />
-            <div className="flex flex-1 min-h-0 overflow-y-auto pi-scrollbar pb-1">{historyContent}</div>
+            <div className="pi-composer-panel-scroll pi-scrollbar pb-1">{historyContent}</div>
           </div>
         );
       case "files":
