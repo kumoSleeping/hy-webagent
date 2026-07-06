@@ -2295,7 +2295,8 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 
 /* Mobile — closed: compact bar on the right only (left 20% stays empty).
-   Open: popup + bar share one 80% border-box with aligned corners. */
+   Open: popup + bar share one border-box sized to the visible button row;
+   the popup is stacked above the bar inside the same box. */
 .pi-app-shell--mobile .pi-composer-toolbar {
   left: auto;
   right: calc(-1 * var(--pi-composer-border));
@@ -2309,6 +2310,9 @@ button.pi-panel-row.pi-panel-row--selected {
   display: none;
 }
 .pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   left: auto;
   right: calc(-1 * var(--pi-composer-border));
   width: max-content;
@@ -2322,16 +2326,18 @@ button.pi-panel-row.pi-panel-row--selected {
   display: none;
 }
 .pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar {
-  width: max-content;
+  width: 100%;
   border: none;
   background: transparent;
 }
 .pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
   position: relative;
-  left: 0;
-  right: 0;
+  left: auto;
+  right: auto;
   top: auto;
   bottom: auto;
+  width: 100%;
+  min-width: 0;
   border: none;
   background: transparent;
   box-shadow: none;
