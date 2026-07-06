@@ -42,8 +42,8 @@
   /* —— Typography —— */
   --pi-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC", Arial, sans-serif;
   --pi-font-mono: "SF Mono", "JetBrains Mono", "Menlo", ui-monospace, "Cascadia Code", "PingFang SC", monospace;
-  --pi-body-size: 1rem;
-  --pi-body-line: 1.68;
+  --pi-body-size: 0.9375rem;
+  --pi-body-line: 1.55;
   --pi-small-size: 0.82rem;
   --pi-code-size: 0.875rem;
 
@@ -72,12 +72,12 @@
   /* Eight toolbar buttons share one bar — width / count must stay in sync. */
   --pi-composer-toolbar-count: 7;
   --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / var(--pi-composer-toolbar-count));
-  /* Height of the gradient that fades messages out as they approach the
-     composer (the scrim's soft upper edge). */
-  --pi-composer-fade: 5rem;
-  /* Empty band reserved at the very top of the chat — mirrors the composer
-     fade below so messages never touch the top edge. */
-  --pi-top-strip: 3.5rem;
+  /* Soft dissolve band above the composer — visual only; scroll padding uses
+     --pi-composer-scroll-gap so the feed does not leave a large empty band. */
+  --pi-composer-fade: 2rem;
+  --pi-composer-scroll-gap: 0.5rem;
+  /* Empty band reserved at the very top of the chat. */
+  --pi-top-strip: 2.5rem;
 }
 
 html, body, #root { height: 100%; }
@@ -137,7 +137,7 @@ body {
   border-left: none;
   border-radius: 0;
   background-color: var(--pi-panel);
-  padding: 1.2rem 1.35rem 1.35rem;
+  padding: 0.85rem 1rem 0.95rem;
   color: var(--pi-text-body);
   box-shadow: var(--pi-shadow);
 }
@@ -164,11 +164,11 @@ body {
 
 /* Spacing between mixed content inside assistant bubbles */
 .pi-message-dialog-assistant .pi-thinking-block {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 .pi-message-dialog-assistant .pi-tool-call,
 .pi-message-dialog-assistant .pi-tool-group {
-  margin-block: 1.35rem;
+  margin-block: 1rem;
 }
 .pi-message-dialog-assistant .pi-tool-call:first-child,
 .pi-message-dialog-assistant .pi-tool-group:first-child {
@@ -1356,7 +1356,7 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-markdown blockquote,
 .pi-markdown .pi-md-pre,
 .pi-markdown .pi-md-table-wrap {
-  margin: 0 0 0.9rem;
+  margin: 0 0 0.65rem;
 }
 .pi-markdown p:last-child,
 .pi-markdown ul:last-child,
@@ -1732,11 +1732,10 @@ button.pi-panel-row.pi-panel-row--selected {
   display: none;
 }
 
-/* Full-bleed scrim behind the composer: solid app background across the
-   composer band so message text is never seen overlapping the composer,
-   then a tall gradient that grows stronger the closer it gets to the
-   composer — messages dissolve into the background as they scroll down.
-   Width breaks out to the whole chat column (clipped by .pi-app-shell). */
+/* Full-bleed scrim behind the composer: opaque composer band plus a short
+   gradient above it so scrolling messages dissolve gently (not a hard cut).
+   Keep --pi-composer-fade modest — the old 5rem band ate too much readable
+   text when pinned to the bottom. */
 .pi-interactive-shell::before {
   content: "";
   position: absolute;
@@ -2131,6 +2130,41 @@ button.pi-panel-row.pi-panel-row--selected {
     /* Button size matches desktop; count comes from fitted toolbar items. */
     --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / 7);
   }
+}
+
+/* Mobile band — toolbar + popup use the right 80% of the composer; left 20% stays empty. */
+.pi-app-shell--mobile .pi-composer-toolbar {
+  left: 20%;
+  right: calc(-1 * var(--pi-composer-border));
+  width: auto;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.pi-app-shell--mobile .pi-composer-toolbar-bar {
+  width: 100%;
+  justify-content: flex-end;
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  background: var(--pi-panel);
+}
+.pi-app-shell--mobile .pi-composer-panel {
+  left: 0;
+  right: 0;
+}
+.pi-app-shell--mobile .pi-composer-dock--open .pi-composer-toolbar-bar,
+.pi-app-shell--mobile .pi-composer-dock--preview .pi-composer-toolbar-bar {
+  border: none;
+  background: transparent;
+}
+.pi-app-shell--mobile .pi-composer-dock--open .pi-preview-stack {
+  width: 80%;
+  margin-left: 20%;
+}
+.pi-app-shell--mobile .pi-composer-dock--preview .pi-preview-stack {
+  left: 20%;
+  right: calc(-1 * var(--pi-composer-border));
+  width: auto;
 }
 
 @media (min-width: 640px) {
