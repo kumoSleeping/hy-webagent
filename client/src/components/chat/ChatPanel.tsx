@@ -6,7 +6,7 @@ import { useSlashStore, type SlashCommand } from "../../stores/slashStore";
 import type { ChatWebSocketApi } from "../../hooks/useChatWebSocket";
 import { useComposerFocusStore } from "../../stores/composerFocusStore";
 import { useMobileLayout } from "../../hooks/useMobileLayout";
-import { isElevatedPanel, type MobileComposerPanel } from "../../lib/composerLayout";
+import { isElevatedPanel } from "../../lib/composerLayout";
 import { apiGet } from "../../lib/api";
 import { PlatformSignature } from "../common/PlatformSignature";
 import { MessageFeed } from "./MessageFeed";
@@ -67,10 +67,9 @@ export function ChatPanel({
   const composerPanel = useComposerPanelStore((s) => s.panel);
   const treeMode = useComposerPanelStore((s) => s.treeMode);
   const isMobileLayout = useMobileLayout();
-  const [mobilePanel, setMobilePanel] = useState<MobileComposerPanel | null>(null);
-  const centerStageOpen = useCenterStageOpen(isMobileLayout, mobilePanel);
+  const centerStageOpen = useCenterStageOpen(isMobileLayout);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
-  /** File preview and elevated mobile panels use the stack above composer. */
+  /** File preview uses the stack above composer. */
   const elevatedOpen = previewOpen || isElevatedPanel(composerPanel, isMobileLayout);
   const dockCardOpen = centerStageOpen && !elevatedOpen;
   const closeAll = useComposerPanelStore((s) => s.closeAll);
@@ -488,7 +487,6 @@ export function ChatPanel({
               treeContent={treeContent}
               treeMode={treeMode}
               isMobileLayout={isMobileLayout}
-              mobilePanel={mobilePanel}
               onClose={() => {
                 closePreview();
                 useExtensionUiStore.getState().setExtensionPanelDismissed(true);
@@ -499,7 +497,6 @@ export function ChatPanel({
             disabled={isHydrating}
             isStreaming={isStreaming}
             isMobileLayout={isMobileLayout}
-            onMobilePanelChange={setMobilePanel}
             onSend={handleSend}
             onSteer={handleSteer}
             onAbort={sendAbort}

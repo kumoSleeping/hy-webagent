@@ -40,6 +40,15 @@ async function countTokens(text: string, apiKey: string): Promise<number> {
   }
 }
 
+// ─── Reader 模式映射 ────────────────────────────────────
+type ReaderMode = "fast" | "standard" | "detailed";
+
+const MODE_HEADERS: Record<ReaderMode, Record<string, string>> = {
+  fast:     { "X-Engine": "curl",   "X-Respond-Timing": "visible-content" },
+  standard: { "X-Engine": "auto",   "X-Respond-Timing": "resource-idle" },
+  detailed: { "X-Engine": "browser", "X-Respond-Timing": "network-idle" },
+};
+
 // ─── Jina API 调用封装 ───────────────────────────────────
 async function callJinaMCP(
   method: string,
@@ -67,6 +76,55 @@ async function callJinaMCP(
   const json = JSON.parse(dataMatch[1]);
   if (json.error) throw new Error(`Jina MCP 错误: ${json.error.message || JSON.stringify(json.error)}`);
   return json.result as MCPToolResult;
+}
+
+// ─── 直调 r.jina.ai（绕过 MCP，支持 mode 控制）───────────
+async function readUrlDirect(
+  url: string,
+  apiKey: string,
+  mode: ReaderMode,
+  withAllLinks: boolean,
+  withAllImages: boolean
+): Promise<string> {
+  const headers: Record<string, string> = {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${apiKey}`,
+    "X-Md-Link-Style": "discarded",
+    ...MODE_HEADERS[mode],
+  };
+  if (withAllLinks) headers["X-With-Links-Summary"] = "all";
+  if (withAllImages) {
+    headers["X-With-Images-Summary"] = "true";
+  } else {
+    headers["X-Retain-Images"] = "none";
+  }
+
+  const response = await fetch("https://r.jina.ai/", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ url }),
+    signal: AbortSignal.timeout(mode === "detailed" ? 45000 : 20000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`r.jina.ai 返回 HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json() as any;
+  if (!data.data) throw new Error("r.jina.ai 返回数据异常");
+
+  // 格式化为与 MCP 一致的 YAML 式输出
+  const sd = data.data;
+  const parts: string[] = [];
+  parts.push(`url: ${sd.url || url}`);
+  if (sd.title) parts.push(`title: ${sd.title}`);
+  if (sd.description) parts.push(`description: ${sd.description}`);
+  if (sd.content) {
+    parts.push("");
+    parts.push(sd.content);
+  }
+  return parts.join("\n");
 }
 
 async function requireJinaApiKey(registry?: ModelRegistry): Promise<string> {
@@ -135,28 +193,59 @@ export default function (pi: ExtensionAPI) {
     label: "阅读网页",
     description:
       "读取网页或 PDF 内容，转换为干净的 Markdown 格式。适合阅读文章、文档、博客等。" +
-      "支持单个 URL 或 URL 数组并行读取。可选提取所有链接或图片。",
+      "支持单个 URL 或 URL 数组并行读取。可选提取所有链接或图片。可选解析模式。",
     promptSnippet: "读取网页/PDF 内容，转换为 Markdown",
     promptGuidelines: [
       "当需要获取网页具体内容时，使用 read_url",
       "搜索后如果要深入了解某个结果，用 read_url 打开对应链接",
+      "默认不需要填 mode 参数，会使用最快的默认解析",
+      "如果某网页返回空内容或明显不完整，优先换其他搜索结果看，而不是升级 mode",
+      "只有在这个网页信息无可替代且对用户至关重要时，才使用 mode: 'detailed' 重新请求完整渲染",
     ],
     parameters: Type.Object({
       url: Type.String({ description: "要读取的网页 URL 或 PDF 链接" }),
+      mode: Type.Optional(Type.Union([
+        Type.Literal("fast"),
+        Type.Literal("standard"),
+        Type.Literal("detailed"),
+      ], { description: "解析模式。默认不填（最快）。fast=curl轻量抓取；standard=等资源加载完；detailed=Chrome完整渲染（最慢，仅用于关键页面）" })),
       withAllLinks: Type.Optional(Type.Boolean({ description: "是否提取页面所有链接" })),
       withAllImages: Type.Optional(Type.Boolean({ description: "是否提取所有图片" })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const apiKey = await requireJinaApiKey(ctx?.modelRegistry);
-      const result = await callJinaMCP("read_url", {
-        url: params.url,
-        withAllLinks: params.withAllLinks ?? false,
-        withAllImages: params.withAllImages ?? false,
-      }, apiKey);
-      const textContent = result.content
-        .filter((c) => c.type === "text")
-        .map((c) => c.text)
-        .join("\n\n");
+      const mode = params.mode as ReaderMode | undefined;
+
+      let textContent: string;
+
+      if (mode) {
+        // 指定 mode → 直调 r.jina.ai，绕过 MCP 以使用自定义 headers
+        try {
+          textContent = await readUrlDirect(
+            params.url,
+            apiKey,
+            mode,
+            params.withAllLinks ?? false,
+            params.withAllImages ?? false
+          );
+        } catch (err) {
+          return {
+            content: [{ type: "text", text: `（读取失败 [${mode} 模式]: ${err instanceof Error ? err.message : String(err)}）` }],
+            details: { isError: true },
+          };
+        }
+      } else {
+        // 默认 → 走 MCP（最快路径）
+        const result = await callJinaMCP("read_url", {
+          url: params.url,
+          withAllLinks: params.withAllLinks ?? false,
+          withAllImages: params.withAllImages ?? false,
+        }, apiKey);
+        textContent = result.content
+          .filter((c) => c.type === "text")
+          .map((c) => c.text)
+          .join("\n\n");
+      }
 
       // Reader 按输出 token 计费 → Segmenter API 精确计数，失败则估算
       let tokens = await countTokens(textContent, apiKey);
@@ -165,7 +254,7 @@ export default function (pi: ExtensionAPI) {
 
       return {
         content: [{ type: "text", text: textContent || "（无法读取该网页）" }],
-        details: { isError: result.isError, jinaTokens: tokens },
+        details: { isError: !textContent, jinaTokens: tokens, mode: mode ?? "default" },
       };
     },
   });

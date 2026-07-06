@@ -826,6 +826,22 @@ body {
   opacity: 0.45;
   cursor: not-allowed;
 }
+.pi-composer-send-btn--accent {
+  color: var(--pi-theme-ink);
+  background: var(--pi-theme);
+  width: var(--pi-composer-toolbar-btn-h);
+  height: var(--pi-composer-toolbar-btn-h);
+  padding: 0;
+  margin: 0 0 0.15rem;
+}
+.pi-composer-send-btn--accent:hover:not(:disabled),
+.pi-composer-send-btn--accent:focus-visible:not(:disabled) {
+  color: var(--pi-theme-ink);
+  background: #dc2626;
+}
+.pi-composer-send-btn--accent:disabled {
+  opacity: 0.55;
+}
 .pi-composer-send-btn svg {
   width: 16px;
   height: 16px;
@@ -1984,6 +2000,7 @@ button.pi-panel-row.pi-panel-row--selected {
   transition: max-height 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease;
 }
 .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
+  height: min(20rem, calc(100dvh - 9rem));
   max-height: min(20rem, calc(100dvh - 9rem));
   opacity: 1;
 }
@@ -1991,6 +2008,7 @@ button.pi-panel-row.pi-panel-row--selected {
    screen is free above it, so popups need a tighter cap than the
    bottom-docked case to avoid spilling past the top of the screen. */
 .pi-app-shell--welcome .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
+  height: min(14rem, 28dvh);
   max-height: min(14rem, 28dvh);
 }
 
@@ -2110,19 +2128,8 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 @media (max-width: 639px) {
   :root {
-    --pi-composer-toolbar-count: 4;
-  }
-  .pi-composer-toolbar {
-    left: calc(-1 * var(--pi-composer-border));
-    right: calc(-1 * var(--pi-composer-border));
-    width: auto;
-  }
-  .pi-composer-toolbar-bar {
-    width: 100%;
-  }
-  .pi-composer-dock--preview .pi-center-stage--preview {
-    height: calc(100dvh - 11rem);
-    max-height: calc(100dvh - 11rem);
+    /* Button size matches desktop; count comes from fitted toolbar items. */
+    --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / 7);
   }
 }
 

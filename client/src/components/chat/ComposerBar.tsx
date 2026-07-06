@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
@@ -23,16 +23,14 @@ import { FileTree } from "../files/FileTree";
 import { PanelFilterBar } from "../common/PanelFilterBar";
 import { AccountPanel } from "../platform/AccountPanel";
 import { useImeComposition } from "../../hooks/useImeComposition";
+import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
 import { useNotificationStore } from "../../stores/notificationStore";
 import type { FileEntry } from "../../types";
 import {
   isElevatedPanel,
-  panelChromeLabel,
   panelToolbarIndex,
-  toolbarItemsForLayout,
-  type MobileComposerPanel,
   type ToolbarItemDef,
 } from "../../lib/composerLayout";
 
@@ -65,7 +63,6 @@ interface ComposerBarProps {
   /** Model picker — direct toolbar toggle, same popup as history/files. */
   modelContent?: ReactNode;
   isMobileLayout?: boolean;
-  onMobilePanelChange?: (panel: MobileComposerPanel | null) => void;
 }
 
 const MIN_ROWS = 1;
@@ -168,12 +165,12 @@ export function ComposerBar({
   commandsContent,
   modelContent,
   isMobileLayout = false,
-  onMobilePanelChange,
 }: ComposerBarProps) {
-  const toolbarItems = toolbarItemsForLayout(isMobileLayout);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const toolbarItems = useFittedToolbarItems(isMobileLayout, shellRef);
   const newChatToolbarIndex = toolbarItems.findIndex((item) => item.id === "new-chat");
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
-    panelToolbarIndex(kind, isMobileLayout);
+    panelToolbarIndex(kind, toolbarItems);
   const [text, setText] = useState("");
   /** ↑/↓ in the command list (panel body above the toolbar row). */
   const [commandListFocus, setCommandListFocus] = useState(false);
@@ -290,6 +287,9 @@ export function ComposerBar({
   function handleToolbarClick(panelKind: Exclude<ComposerPanelKind, null>) {
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
+    if (panelKind === "history") {
+      void useSessionStore.getState().fetchSessions();
+    }
     togglePanel(panelKind);
     blurComposerInput();
   }
@@ -988,6 +988,7 @@ export function ComposerBar({
   const toolbarActive = panel !== null && !elevatedPanel && !(previewOpen && panel === "files" && !isMobileLayout);
   const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
   const showInlinePanel = panel !== null && !elevatedPanel;
+  const hasDraft = text.trim().length > 0 || pendingAttachments.length > 0;
 
   function renderPanelBody(): ReactNode {
     if (!panel) return null;
@@ -1023,19 +1024,6 @@ export function ComposerBar({
     }
   }
 
-  useEffect(() => {
-    if (!onMobilePanelChange) return;
-    if (!isMobileLayout || !panel || !elevatedPanel || panel === "tree") {
-      onMobilePanelChange(null);
-      return;
-    }
-    onMobilePanelChange({
-      panel,
-      label: panelChromeLabel(panel),
-      content: renderPanelBody(),
-    });
-  });
-
   // One slot per queued message (steering first, then follow-up) — each
   // stays a separate numbered cell rather than collapsing into a single
   // count, so "queue grows by one" is visible one slot at a time.
@@ -1045,7 +1033,7 @@ export function ComposerBar({
   ];
 
   return (
-    <div className="pi-composer-shell relative" onClick={focusInput}>
+    <div className="pi-composer-shell relative" ref={shellRef} onClick={focusInput}>
       {(isStreaming || queuedItems.length > 0) && (
         <div className="pi-composer-badges" onClick={(e) => e.stopPropagation()}>
           {isStreaming && (
@@ -1084,6 +1072,7 @@ export function ComposerBar({
       )}
       <div
         className="pi-composer-toolbar"
+        style={{ "--pi-composer-toolbar-count": toolbarItems.length } as CSSProperties}
         data-open={toolbarActive ? "true" : "false"}
         data-files-overlay={filesOverlay ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
@@ -1093,7 +1082,7 @@ export function ComposerBar({
             <button
               key={item.id}
               type="button"
-              className={`pi-composer-toolbar-btn${item.id === "new-chat" ? " pi-composer-toolbar-btn--accent" : ""}`}
+              className={`pi-composer-toolbar-btn${item.id === "new-chat" && !hasDraft ? " pi-composer-toolbar-btn--accent" : ""}`}
               data-active={item.panel ? panel === item.panel : false}
               data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === index}
               onPointerDown={item.id === "new-chat" ? undefined : handleToolbarPointerDown}
@@ -1198,7 +1187,7 @@ export function ComposerBar({
         />
         <button
           type="button"
-          className="pi-composer-send-btn"
+          className={`pi-composer-send-btn${hasDraft ? " pi-composer-send-btn--accent" : ""}`}
           onPointerDown={handleToolbarPointerDown}
           onClick={handleSend}
           disabled={!canSendNow(text)}

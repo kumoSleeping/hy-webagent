@@ -7,11 +7,10 @@ import { useStatusBarStore } from "../../stores/statusBarStore";
 import { ExtensionDialogHost, type ExtensionUiResponder } from "../extension-ui/ExtensionDialogHost";
 import { ExtensionWidgetBody, hasVisibleWidgets, primaryWidgetLabel } from "../extension-ui/ExtensionWidgetBody";
 import { EditorPanel } from "../editor/EditorPanel";
-import type { MobileComposerPanel } from "../../lib/composerLayout";
 import { isElevatedPanel } from "../../lib/composerLayout";
 import type { EditorTab, EditorViewMode } from "../../types";
 
-export type CenterStageMode = "dialog" | "preview" | "tree" | "extension" | "mobile-panel";
+export type CenterStageMode = "dialog" | "preview" | "tree" | "extension";
 
 interface CenterStageProps {
   onRespondExtensionUi: ExtensionUiResponder;
@@ -26,7 +25,6 @@ interface CenterStageProps {
   treeContent?: ReactNode;
   treeMode?: TreePanelMode;
   isMobileLayout?: boolean;
-  mobilePanel?: MobileComposerPanel | null;
 }
 
 function CenterStageCloseButton({ onClick, label }: { onClick: () => void; label: string }) {
@@ -55,7 +53,6 @@ export function CenterStage({
   onClose,
   treeContent,
   isMobileLayout = false,
-  mobilePanel = null,
 }: CenterStageProps) {
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const composerPanel = useComposerPanelStore((s) => s.panel);
@@ -68,10 +65,9 @@ export function CenterStage({
     if (activeDialog) return "dialog";
     if (previewOpen) return "preview";
     if (composerPanel === "tree") return "tree";
-    if (isMobileLayout && mobilePanel && isElevatedPanel(mobilePanel.panel, true)) return "mobile-panel";
     if (hasExtension && !dismissed) return "extension";
     return null;
-  }, [activeDialog, previewOpen, composerPanel, isMobileLayout, mobilePanel, hasExtension, dismissed]);
+  }, [activeDialog, previewOpen, composerPanel, hasExtension, dismissed]);
 
   if (!mode) return null;
 
@@ -81,7 +77,7 @@ export function CenterStage({
       useExtensionUiStore.getState().setDialog(null);
       return;
     }
-    if (mode === "tree" || mode === "mobile-panel") {
+    if (mode === "tree") {
       useComposerPanelStore.getState().closePanel();
       return;
     }
@@ -128,18 +124,6 @@ export function CenterStage({
     );
   }
 
-  if (mode === "mobile-panel" && mobilePanel) {
-    return (
-      <div
-        className="pi-center-stage pi-center-stage--preview pi-center-stage--headless"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <CenterStageCloseButton onClick={handleClose} label={`Close ${mobilePanel.label.toLowerCase()}`} />
-        <div className="pi-center-stage-body">{mobilePanel.content}</div>
-      </div>
-    );
-  }
-
   return (
     <div
       className={`pi-center-stage ${isTallPanel ? "pi-center-stage--preview" : ""}`}
@@ -163,7 +147,7 @@ export function CenterStage({
   );
 }
 
-export function useCenterStageOpen(isMobileLayout = false, mobilePanel: MobileComposerPanel | null = null): boolean {
+export function useCenterStageOpen(isMobileLayout = false): boolean {
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const composerPanel = useComposerPanelStore((s) => s.panel);
   const activeDialog = useExtensionUiStore((s) => s.activeDialog);
@@ -174,7 +158,6 @@ export function useCenterStageOpen(isMobileLayout = false, mobilePanel: MobileCo
     activeDialog ||
       previewOpen ||
       isElevatedPanel(composerPanel, isMobileLayout) ||
-      (isMobileLayout && mobilePanel) ||
       (hasExtension && !dismissed)
   );
 }

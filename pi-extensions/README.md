@@ -18,6 +18,12 @@ pi-extensions/
 
 On every workspace init the server copies `extensions/` into the user's isolated agent dir and adds `packages/pi-subagents-h` to their `settings.json` `packages` list.
 
+Before **push/deploy**, if you changed extensions in `~/.pi/agent/` instead of the repo, sync back:
+
+```bash
+npm run sync:pi-from-local
+```
+
 ## Environment
 
 | Variable | Used by |
