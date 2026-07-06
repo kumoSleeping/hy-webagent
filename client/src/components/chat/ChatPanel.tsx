@@ -486,7 +486,6 @@ export function ChatPanel({
               onEditorFocus={onEditorFocus}
               treeContent={treeContent}
               treeMode={treeMode}
-              isMobileLayout={isMobileLayout}
               onClose={() => {
                 closePreview();
                 useExtensionUiStore.getState().setExtensionPanelDismissed(true);

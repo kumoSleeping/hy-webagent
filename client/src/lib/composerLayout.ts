@@ -46,10 +46,9 @@ export const TOOLBAR_PROTECTED: ToolbarItemId[] = ["commands"];
 export function toolbarBtnWidthPx(rootFontPx?: number): number {
   const fontPx =
     rootFontPx ??
-    (typeof document !== "undefined"
+    ((typeof document !== "undefined"
       ? parseFloat(getComputedStyle(document.documentElement).fontSize)
-      : 16) ||
-    16;
+      : 16) || 16);
   // Matches design.css: 22rem bar / 7 desktop slots — button size stays constant.
   return (22 / 7) * fontPx;
 }

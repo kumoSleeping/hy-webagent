@@ -24,7 +24,6 @@ interface CenterStageProps {
   onClose: () => void;
   treeContent?: ReactNode;
   treeMode?: TreePanelMode;
-  isMobileLayout?: boolean;
 }
 
 function CenterStageCloseButton({ onClick, label }: { onClick: () => void; label: string }) {
@@ -52,7 +51,6 @@ export function CenterStage({
   onEditorFocus,
   onClose,
   treeContent,
-  isMobileLayout = false,
 }: CenterStageProps) {
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const composerPanel = useComposerPanelStore((s) => s.panel);
