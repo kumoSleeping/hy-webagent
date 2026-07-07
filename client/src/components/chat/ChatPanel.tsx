@@ -57,6 +57,12 @@ interface ChatPanelProps {
   onEditorFocus?: () => void;
 }
 
+/** Tracks whether ANY session has ever completed hydration in this tab.
+ *  Stays true across session switches so we can distinguish "first paint"
+ *  from "switch to another session" — resetForSessionChange clears
+ *  hydratedPiSessionId but this flag survives. */
+let hasEverHydrated = false;
+
 export function ChatPanel({
   chat,
   onNewChat, onFileClick, editorTabs, activeTabId, onTabClick, onTabClose, onContentChange, onViewModeChange,
@@ -84,18 +90,24 @@ export function ChatPanel({
   // Only pick welcome vs conversation layout once the session is hydrated —
   // avoids the composer jumping from center to bottom while history loads.
   const isHydrating = Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId);
+
+  // Mark that at least one session has completed hydration — survives
+  // resetForSessionChange so we can tell "first paint" from "session switch".
+  if (hydratedPiSessionId && !hasEverHydrated) hasEverHydrated = true;
   const isGuestView = useAuthStore((s) => s.userId) === "__guest__";
   const isPreviewMode = useAuthStore((s) => s.isPreviewMode);
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   useEffect(() => {
     setWelcomeDismissed(false);
   }, [activePiSessionId]);
-  const isEmptySession =
-    hydratedPiSessionId === activePiSessionId &&
-    messages.length === 0;
+  const isEmptySession = messages.length === 0;
   const isStartupLayout =
     !welcomeDismissed &&
-    isEmptySession;
+    isEmptySession &&
+    // During first-ever load (no session ever hydrated), apply startup layout
+    // immediately to avoid "top→bottom→center" flash. On session switches
+    // hasEverHydrated is true and we wait for the normal hydration check.
+    (hydratedPiSessionId === activePiSessionId || !hasEverHydrated);
   const useCenteredStartup =
     isStartupLayout &&
     resolveCenteredStartup(composerPosition, isMobileLayout);
@@ -472,7 +484,7 @@ export function ChatPanel({
 
   return (
     <div
-      className={`pi-app-shell pi-app-shell--revealed${useCenteredStartup && !isHydrating ? " pi-app-shell--welcome" : ""}${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
+      className={`pi-app-shell pi-app-shell--revealed${useCenteredStartup ? " pi-app-shell--welcome" : ""}${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
     >
       {!useCenteredStartup && !isHydrating && <MessageFeed />}
       {showWelcomeSignature && !isHydrating && <PlatformSignature />}

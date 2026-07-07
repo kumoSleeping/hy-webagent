@@ -41,8 +41,11 @@ function flattenVisible(node: TreeNode, depth: number, needle: string): FlatFile
   return out;
 }
 
+/** Module-level cache — survives FileTree unmount/remount so the panel
+ *  always shows entries from the previous load while fetching fresh data. */
+const fileCache = new Map<string, FileEntry[]>();
+
 export function FileTree({ onFileClick }: FileTreeProps) {
-  const cacheRef = useRef<Map<string, FileEntry[]>>(new Map());
   const [root, setRoot] = useState<TreeNode>({
     name: "workspace", path: ".", type: "directory",
     children: [], expanded: true, loading: false,
@@ -64,7 +67,7 @@ export function FileTree({ onFileClick }: FileTreeProps) {
 
   const loadChildren = useCallback(async (node: TreeNode): Promise<TreeNode> => {
     if (node.loading) return node;
-    const cached = cacheRef.current.get(node.path);
+    const cached = fileCache.get(node.path);
     const updated = { ...node, loading: true };
     // Show cached entries immediately while fetching fresh data.
     if (cached && !updated.children?.length) {
@@ -75,7 +78,7 @@ export function FileTree({ onFileClick }: FileTreeProps) {
     }
     try {
       const entries = await apiGet<FileEntry[]>(`/api/files/list?path=${encodeURIComponent(node.path)}`);
-      cacheRef.current.set(node.path, entries);
+      fileCache.set(node.path, entries);
       updated.children = entries.map(e => ({
         ...e, children: e.type === "directory" ? [] : undefined,
         expanded: false, loading: false,
