@@ -211,8 +211,6 @@ export default function (pi: ExtensionAPI) {
       g.__subagentCost = 0;
       g.__subagentCalls = 0;
       g.__subagentRunning = 0;
-      // Clean up persisted cost file for this session
-      if (subagentCostFile) deleteCostFile(subagentCostFile);
       startTime = null;
       finalTime = null;
       jinaBalance = null;
