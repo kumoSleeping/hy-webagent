@@ -2489,17 +2489,22 @@ button.pi-panel-row.pi-panel-row--selected {
  * ========================================================== */
 .pi-composer-connecting {
   cursor: default;
+  color: #fff;
   background: #ef4444;
   border-color: #ef4444;
   pointer-events: none;
-  padding: 0 0.5rem;
-  animation: pi-connecting-pulse 1.4s ease-in-out infinite;
 }
-.pi-composer-connecting-dot {
-  display: block;
-  width: 6px;
-  height: 10px;
-  background: #fff;
+.pi-composer-connecting:hover,
+.pi-composer-connecting:focus-visible {
+  color: #fff;
+  background: #ef4444;
+  border-color: #ef4444;
+}
+.pi-composer-connecting-text {
+  font-size: 0.5rem;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1;
 }
 @keyframes pi-connecting-pulse {
   0%, 100% { opacity: 1; }
