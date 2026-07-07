@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 
 interface ThinkingBlockProps {
@@ -7,7 +7,7 @@ interface ThinkingBlockProps {
   isActive: boolean;
 }
 
-export function ThinkingBlock({ content, isActive }: ThinkingBlockProps) {
+export const ThinkingBlock = memo(function ThinkingBlock({ content, isActive }: ThinkingBlockProps) {
   // `null` = no manual override yet, follow `isActive` (open while thinking
   // is live, closes once the agent moves on to a tool call/text). Once the
   // user toggles it, their choice sticks — they always have the final say.
@@ -67,4 +67,4 @@ export function ThinkingBlock({ content, isActive }: ThinkingBlockProps) {
       )}
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ChevronDown, ChevronRight, Globe, Layers, Wrench, XCircle } from "lucide-react";
 import type { ActivityItem } from "../../lib/blockGrouping";
 import type { ToolCallRecord } from "../../types";
@@ -22,7 +22,7 @@ interface ToolGroupCardProps {
  * into this single expandable block so it doesn't dominate the transcript.
  * Expanding it reveals the exact same individual pieces, in the same order.
  */
-export function ToolGroupCard({ items, toolCount, category }: ToolGroupCardProps) {
+export const ToolGroupCard = memo(function ToolGroupCard({ items, toolCount, category }: ToolGroupCardProps) {
   const [expanded, setExpanded] = useState(false);
   const tools = items.filter((i): i is { kind: "tool"; tool: ToolCallRecord } => i.kind === "tool").map((i) => i.tool);
   const hasError = tools.some((t) => t.isError || t.status === "error");
@@ -72,4 +72,4 @@ export function ToolGroupCard({ items, toolCount, category }: ToolGroupCardProps
       )}
     </div>
   );
-}
+});

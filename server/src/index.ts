@@ -3,6 +3,7 @@ import express from "express";
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 import cors from "cors";
+import compression from "compression";
 import { AuthSystem, generateApiKey, budgetSnapshot } from "./auth.js";
 import { createAuthRouter, authMiddleware } from "./routes/auth.js";
 import { adminAuthMiddleware } from "./middleware/admin-auth.js";
@@ -14,6 +15,7 @@ import { TokenTracker } from "./pi/token-tracker.js";
 import { config } from "./config.js";
 import { handleChatWs } from "./ws/chat.js";
 import { createFilesRouter } from "./routes/files.js";
+import { proxyRenderRequest } from "./routes/render-proxy.js";
 import { createPlatformAdminRouter } from "./routes/platform-admin.js";
 import path from "node:path";
 import { findSessionFilePath } from "./pi/session-files.js";
@@ -48,6 +50,7 @@ app.use(cors({
   },
 }));
 app.use(express.json({ limit: "1mb" }));
+app.use(compression());
 app.use("/api", (req, res, next) => {
   if (req.path === "/auth/login" || req.path === "/auth/me" || req.path === "/auth/logout") {
     next();
@@ -143,6 +146,7 @@ app.post("/api/sessions/create", authMiddleware(authSystem), async (req: any, re
     const userId = req.userSession.userId;
     const ws = isolator.getUserWorkspace(userId);
     const userPiSession = await sessionManager.createSession(userId, ws, (uid, event) => {});
+    invalidateSessionsCache(userId);
     res.json({ sessionId: userPiSession.sessionId });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -156,6 +160,7 @@ app.post("/api/sessions/:id/activate", authMiddleware(authSystem), async (req: a
     const piSessionId = req.params.id;
     const ws = isolator.getUserWorkspace(userId);
     const activated = await sessionManager.createSession(userId, ws, (uid, event) => {}, piSessionId);
+    invalidateSessionsCache(userId);
     res.json({ sessionId: activated.sessionId });
   } catch (err) {
     const message = (err as Error).message;
@@ -180,6 +185,7 @@ app.delete("/api/sessions/:id", authMiddleware(authSystem), async (req: any, res
     }
     // Also kill running session if active
     sessionManager.removeSession(piSessionId);
+    invalidateSessionsCache(userId);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -347,9 +353,27 @@ app.get("/api/token/usage", authMiddleware(authSystem), (req: any, res) => {
   });
 });
 
+// --- Sessions list cache (30s TTL per user) ---
+interface SessionsCacheEntry {
+  sessions: { id: string; title: string; timestamp: string; messageCount: number }[];
+  timestamp: number;
+}
+const sessionsCache = new Map<string, SessionsCacheEntry>();
+const SESSIONS_CACHE_TTL_MS = 30_000;
+
+function invalidateSessionsCache(userId: string): void {
+  sessionsCache.delete(userId);
+}
+
 app.get("/api/sessions", authMiddleware(authSystem), async (req: any, res) => {
   try {
     const userId = req.userSession.userId;
+    const cached = sessionsCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < SESSIONS_CACHE_TTL_MS) {
+      res.json(cached.sessions);
+      return;
+    }
+
     const ws = isolator.getUserWorkspace(userId);
     const sessionsDir = path.join(ws, ".pi", "sessions");
 
@@ -382,6 +406,7 @@ app.get("/api/sessions", authMiddleware(authSystem), async (req: any, res) => {
         });
       } catch { continue; }
     }
+    sessionsCache.set(userId, { sessions, timestamp: Date.now() });
     res.json(sessions);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -390,6 +415,22 @@ app.get("/api/sessions", authMiddleware(authSystem), async (req: any, res) => {
 
 // --- File Routes ---
 app.use("/api", createFilesRouter(authSystem, isolator));
+
+// --- Render Proxy (转发到 Python 渲染微服务) ---
+// 认证用户渲染端点
+app.post("/api/render", authMiddleware(authSystem), (req: any, res) => {
+  proxyRenderRequest("/api/render", req, res);
+});
+app.post("/api/render/b64", authMiddleware(authSystem), (req: any, res) => {
+  proxyRenderRequest("/api/render/b64", req, res);
+});
+// 公开渲染端点（访客只读 — 速率限制更严格）
+app.post("/api/public/render", apiRateLimiter, (req: any, res) => {
+  proxyRenderRequest("/api/render", req, res);
+});
+app.post("/api/public/render/b64", apiRateLimiter, (req: any, res) => {
+  proxyRenderRequest("/api/render/b64", req, res);
+});
 
 // --- Health ---
 app.get("/health", (_req, res) =>
@@ -407,7 +448,7 @@ app.use(errorHandler);
 const server = createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
-// WebSocket 升级拦截：Origin + sessionId
+// WebSocket 升级拦截：Origin + sessionId（view=1 时免验证）
 server.on("upgrade", (request, socket, head) => {
   const url = new URL(request.url || "", `http://${request.headers.host}`);
 
@@ -422,6 +463,32 @@ server.on("upgrade", (request, socket, head) => {
 
   const sessionId = url.searchParams.get("sessionId");
   const piSessionId = url.searchParams.get("piSessionId");
+  const isViewOnly = url.searchParams.get("view") === "1";
+
+  // 访客只读模式：无需 sessionId，但不能写入
+  if (isViewOnly) {
+    if (!piSessionId) {
+      log.warn("ws upgrade rejected: view mode requires piSessionId", { path: url.pathname });
+      socket.destroy();
+      return;
+    }
+    (request as any).userId = "__guest__";
+    (request as any).piSessionId = piSessionId;
+    (request as any).isViewOnly = true;
+
+    if (url.pathname === "/ws/chat") {
+      log.info("ws view-only upgrade accepted", { piSessionId });
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        (ws as any).userId = "__guest__";
+        (ws as any).isViewOnly = true;
+        wss.emit("connection", ws, request);
+      });
+    } else {
+      socket.destroy();
+    }
+    return;
+  }
+
   if (!sessionId) {
     log.warn("ws upgrade rejected: missing sessionId", { path: url.pathname });
     socket.destroy();
@@ -436,11 +503,13 @@ server.on("upgrade", (request, socket, head) => {
 
   (request as any).userId = session.userId;
   (request as any).piSessionId = piSessionId;
+  (request as any).isViewOnly = false;
 
   if (url.pathname === "/ws/chat") {
     log.info("ws upgrade accepted", { userId: session.userId, piSessionId: piSessionId ?? null });
     wss.handleUpgrade(request, socket, head, (ws) => {
       (ws as any).userId = session.userId;
+      (ws as any).isViewOnly = false;
       wss.emit("connection", ws, request);
     });
   } else {
@@ -453,8 +522,9 @@ wss.on("connection", (ws, req) => {
   const url = new URL(req.url || "", `http://${req.headers.host}`);
   const userId = (ws as any).userId;
   const piSessionId = (req as any).piSessionId;
+  const isViewOnly = (ws as any).isViewOnly === true;
   if (url.pathname === "/ws/chat") {
-    handleChatWs(ws, sessionManager, tokenTracker, usageRecorder, authSystem, isolator, userId, piSessionId);
+    handleChatWs(ws, sessionManager, tokenTracker, usageRecorder, authSystem, isolator, userId, piSessionId, isViewOnly);
   }
 });
 

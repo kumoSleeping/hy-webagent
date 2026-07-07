@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ChevronDown, ChevronRight, XCircle, Loader2 } from "lucide-react";
 import type { ToolCallRecord } from "../../types";
 import { CodeBlock } from "./CodeBlock";
@@ -8,7 +8,7 @@ interface ToolCallCardProps {
   toolCall: ToolCallRecord;
 }
 
-export function ToolCallCard({ toolCall }: ToolCallCardProps) {
+export const ToolCallCard = memo(function ToolCallCard({ toolCall }: ToolCallCardProps) {
   const [expanded, setExpanded] = useState(false);
   const { toolName, status, input, output, details, isError } = toolCall;
 
@@ -72,4 +72,4 @@ export function ToolCallCard({ toolCall }: ToolCallCardProps) {
       )}
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useChatStore } from "../stores/chatStore";
 import { useAuthStore } from "../stores/authStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -15,9 +15,11 @@ import type { ExtensionUIRequest } from "../types/extension-ui";
 import { apiGet } from "../lib/api";
 import type { SlashCommand } from "../stores/slashStore";
 
-const HYDRATION_FALLBACK_MS = 2_000;
+const HYDRATION_FALLBACK_MS = 10_000;
 const RECONNECT_BASE_MS = 800;
 const RECONNECT_MAX_MS = 15_000;
+
+export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
 export interface ChatWebSocketApi {
   sendPrompt: (text: string, images?: { mediaType: string; data: string }[]) => boolean;
@@ -32,6 +34,7 @@ export interface ChatWebSocketApi {
     confirmed?: boolean;
     cancelled?: boolean;
   }) => void;
+  connectionState: ConnectionState;
 }
 
 function dispatchWsMessage(
@@ -115,6 +118,11 @@ function dispatchWsMessage(
       }
       break;
     }
+    case "chat:notice":
+      if (msg.payload?.message) {
+        useNotificationStore.getState().notify(msg.payload.message, "info");
+      }
+      break;
     case "chat:error":
       console.error("Chat error:", msg.payload.message);
       store().setStreaming(false);
@@ -246,17 +254,30 @@ function dispatchWsMessage(
   }
 }
 
+const NON_IDEMPOTENT_TYPES = new Set(['chat:prompt', 'chat:steer', 'chat:followup']);
+
 /** Keeps the WS alive for the workspace — mount once in WorkspaceLayout. */
 export function useChatWebSocket(): ChatWebSocketApi {
   const wsRef = useRef<WebSocket | null>(null);
+  const messageQueueRef = useRef<{ type: string; payload: unknown }[]>([]);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const sessionId = useAuthStore((s) => s.sessionId);
+  const userId = useAuthStore((s) => s.userId);
   const piSessionId = useSessionStore((s) => s.activePiSessionId);
+  const isGuestView = userId === "__guest__";
 
   const send = useCallback((type: string, payload: unknown = {}) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type, payload }));
       return true;
     }
+    // Queue for reconnection: keep only latest of non-idempotent types
+    if (NON_IDEMPOTENT_TYPES.has(type)) {
+      messageQueueRef.current = messageQueueRef.current.filter(
+        m => !NON_IDEMPOTENT_TYPES.has(m.type)
+      );
+    }
+    messageQueueRef.current.push({ type, payload });
     return false;
   }, []);
 
@@ -266,7 +287,9 @@ export function useChatWebSocket(): ChatWebSocketApi {
   ));
 
   useEffect(() => {
-    if (!sessionId || !piSessionId) return;
+    if (!piSessionId) return;
+    // 正常模式需要 sessionId，访客模式不需要
+    if (!isGuestView && !sessionId) return;
 
     const boundPiSessionId = piSessionId;
     const needsBootstrap = useChatStore.getState().hydratedPiSessionId !== boundPiSessionId;
@@ -287,11 +310,17 @@ export function useChatWebSocket(): ChatWebSocketApi {
     }
 
     if (needsBootstrap) {
-      fallbackTimer = setTimeout(finishHydration, HYDRATION_FALLBACK_MS);
+      fallbackTimer = setTimeout(() => {
+        // Don't finish hydration while reconnecting — history may still arrive
+        if (!disposed) {
+          finishHydration();
+        }
+      }, HYDRATION_FALLBACK_MS);
     }
 
     function scheduleReconnect() {
       if (disposed || reconnectTimer !== undefined) return;
+      setConnectionState('reconnecting');
       const delay = Math.min(RECONNECT_BASE_MS * 2 ** reconnectAttempt, RECONNECT_MAX_MS);
       reconnectAttempt += 1;
       reconnectTimer = setTimeout(() => {
@@ -304,16 +333,25 @@ export function useChatWebSocket(): ChatWebSocketApi {
       if (disposed) return;
       if (useSessionStore.getState().activePiSessionId !== boundPiSessionId) return;
 
+      setConnectionState('connecting');
       const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(
-        `${protocol}//${location.host}/ws/chat?sessionId=${sessionId}&piSessionId=${boundPiSessionId}`
-      );
+      const wsUrl = isGuestView
+        ? `${protocol}//${location.host}/ws/chat?view=1&piSessionId=${boundPiSessionId}`
+        : `${protocol}//${location.host}/ws/chat?sessionId=${sessionId}&piSessionId=${boundPiSessionId}`;
+      const ws = new WebSocket(wsUrl);
       activeWs = ws;
       wsRef.current = ws;
 
       ws.onopen = () => {
         if (disposed || wsRef.current !== ws) return;
         reconnectAttempt = 0;
+        setConnectionState('connected');
+        // Drain message queue
+        const queue = messageQueueRef.current;
+        messageQueueRef.current = [];
+        for (const msg of queue) {
+          ws.send(JSON.stringify(msg));
+        }
         ws.send(JSON.stringify({ type: "ui:request_snapshot", payload: {} }));
       };
 
@@ -340,6 +378,8 @@ export function useChatWebSocket(): ChatWebSocketApi {
 
     return () => {
       disposed = true;
+      setConnectionState('disconnected');
+      messageQueueRef.current = [];
       if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
       if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
       if (activeWs) {
@@ -351,7 +391,7 @@ export function useChatWebSocket(): ChatWebSocketApi {
       }
       if (wsRef.current === activeWs) wsRef.current = null;
     };
-  }, [sessionId, piSessionId]);
+  }, [sessionId, piSessionId, isGuestView]);
 
   return {
     sendPrompt: (text: string, images?: { mediaType: string; data: string }[]) =>
@@ -368,5 +408,6 @@ export function useChatWebSocket(): ChatWebSocketApi {
       confirmed?: boolean;
       cancelled?: boolean;
     }) => send("extension_ui:response", response),
+    connectionState,
   };
 }

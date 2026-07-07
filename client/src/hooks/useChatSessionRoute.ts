@@ -46,12 +46,20 @@ export function useChatSessionRoute() {
   bindSessionNavigation((path, options) => navigate(path, options));
   useEffect(() => () => unbindSessionNavigation(), []);
 
-  // Workspace init — runs once per login.
+  // Workspace init — runs once per login. Guest mode skips entirely.
   useEffect(() => {
-    if (!authSessionId) {
+    const isGuestView = useAuthStore.getState().userId === "__guest__";
+
+    if (!authSessionId && !isGuestView) {
       setReady(false);
       defaultRedirectStartedRef.current = false;
       syncedUrlIdRef.current = null;
+      return;
+    }
+
+    // Guest mode: skip workspace init, mark ready immediately
+    if (isGuestView) {
+      setReady(true);
       return;
     }
 

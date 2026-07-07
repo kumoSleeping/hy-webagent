@@ -14,6 +14,9 @@ import { applySidecarToolUsage, isSidecarToolName } from "../usage/sidecar-usage
 import { budgetSnapshot } from "../auth.js";
 import { toolResultToText } from "./tool-result-text.js";
 
+const HEARTBEAT_INTERVAL_MS = 30_000;  // Send ping every 30s
+const HEARTBEAT_TIMEOUT_MS = 10_000;    // Client has 10s to respond with pong
+
 const log = createLogger("ws:chat");
 
 interface WSMessage {
@@ -29,7 +32,8 @@ export function handleChatWs(
   authSystem: AuthSystem,
   isolator: WorkspaceIsolator,
   userId: string,
-  piSessionId?: string
+  piSessionId?: string,
+  isViewOnly: boolean = false,
 ) {
   function send(msg: WSMessage) {
     if (ws.readyState === ws.OPEN) {
@@ -334,10 +338,14 @@ export function handleChatWs(
 
   function switchActiveSession(newSessionId: string) {
     if (newSessionId === activePiSessionId) return;
-    if (activePiSessionId) detachStatusListener(activePiSessionId);
+    if (activePiSessionId) {
+      sessionManager.markDisconnected(activePiSessionId);
+      detachStatusListener(activePiSessionId);
+    }
     activePiSessionId = newSessionId;
     const session = sessionManager.getSession(newSessionId);
     if (session) {
+      sessionManager.markConnected(newSessionId);
       subscribeToSession(session);
       attachStatusListener(newSessionId);
       sendUiSnapshot();
@@ -359,6 +367,7 @@ export function handleChatWs(
   }
 
   if (existing) {
+    sessionManager.markConnected(existing.sessionId);
     subscribeToSession(existing);
     attachStatusListener(existing.sessionId);
     sendUiSnapshot();
@@ -370,6 +379,7 @@ export function handleChatWs(
         const workspacePath = isolator.getUserWorkspace(userId);
         const ps = await sessionManager.createSession(userId, workspacePath, onPiEvent, piSessionId);
         activePiSessionId = ps.sessionId;
+        sessionManager.markConnected(ps.sessionId);
         subscribeToSession(ps);
         attachStatusListener(ps.sessionId);
         sendUiSnapshot();
@@ -385,7 +395,11 @@ export function handleChatWs(
     });
   }
 
-  log.info("ws connected", { userId, piSessionId: activePiSessionId ?? null });
+  log.info("ws connected", { userId, piSessionId: activePiSessionId ?? null, viewOnly: isViewOnly });
+
+  if (isViewOnly) {
+    send({ type: "chat:notice", payload: { message: "Connected in view-only mode" } });
+  }
 
   ws.on("message", async (raw) => {
     let msg: WSMessage;
@@ -393,6 +407,18 @@ export function handleChatWs(
       msg = JSON.parse(raw.toString());
     } catch {
       return;
+    }
+
+    // 只读模式：禁止任何写入操作
+    if (isViewOnly) {
+      const writableTypes = new Set([
+        "chat:prompt", "chat:steer", "chat:followup", "chat:abort",
+        "chat:dequeue", "slash:execute", "extension_ui:response",
+      ]);
+      if (writableTypes.has(msg.type)) {
+        send({ type: "chat:error", payload: { message: "View-only mode: cannot send messages" } });
+        return;
+      }
     }
 
     try {
@@ -532,11 +558,58 @@ export function handleChatWs(
     }
   });
 
+  // --- Heartbeat: detect half-open connections (e.g. tab inactive, network drop) ---
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  let pongTimeout: ReturnType<typeof setTimeout> | undefined;
+  let missedPongs = 0;
+
+  function resetHeartbeat() {
+    if (pongTimeout !== undefined) clearTimeout(pongTimeout);
+    missedPongs = 0;
+  }
+
+  function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatTimer = setInterval(() => {
+      try { ws.ping(); } catch { return; }
+      pongTimeout = setTimeout(() => {
+        missedPongs += 1;
+        log.warn(`ws heartbeat missed pong #${missedPongs}`, { userId });
+        if (missedPongs >= 2) {
+          log.warn(`ws heartbeat failed — terminating connection`, { userId });
+          stopHeartbeat();
+          try { ws.terminate(); } catch { /* ignore */ }
+        }
+      }, HEARTBEAT_TIMEOUT_MS);
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  function stopHeartbeat() {
+    if (heartbeatTimer !== undefined) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = undefined;
+    }
+    if (pongTimeout !== undefined) {
+      clearTimeout(pongTimeout);
+      pongTimeout = undefined;
+    }
+  }
+
+  ws.on("pong", () => {
+    resetHeartbeat();
+  });
+
+  startHeartbeat();
+
   ws.on("close", () => {
+    stopHeartbeat();
     stopLiveUiPush();
     eventUnsubscribe?.();
     const sid = getActiveSessionId();
-    if (sid) detachStatusListener(sid);
+    if (sid) {
+      sessionManager.markDisconnected(sid);
+      detachStatusListener(sid);
+    }
     log.info(`ws disconnected`, { userId });
   });
 }

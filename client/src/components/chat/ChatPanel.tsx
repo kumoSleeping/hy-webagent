@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useAuthStore } from "../../stores/authStore";
 import { useSlashStore, type SlashCommand } from "../../stores/slashStore";
 import type { ChatWebSocketApi } from "../../hooks/useChatWebSocket";
 import { useComposerFocusStore } from "../../stores/composerFocusStore";
@@ -83,6 +84,7 @@ export function ChatPanel({
   // Only pick welcome vs conversation layout once the session is hydrated —
   // avoids the composer jumping from center to bottom while history loads.
   const isHydrating = Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId);
+  const isGuestView = useAuthStore((s) => s.userId) === "__guest__";
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   useEffect(() => {
     setWelcomeDismissed(false);
@@ -503,7 +505,7 @@ export function ChatPanel({
             />
           </div>
           <ComposerBar
-            disabled={isHydrating}
+            disabled={isHydrating || isGuestView}
             isStreaming={isStreaming}
             isMobileLayout={isMobileLayout}
             onSend={handleSend}

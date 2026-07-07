@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
+import { useSessionStore } from "./stores/sessionStore";
 import { parseSessionIdFromPath } from "./lib/chatRoutes";
 import { LoginView } from "./components/login/LoginView";
 import { LogoutView } from "./components/logout/LogoutView";
-import { WorkspaceLayout } from "./components/workspace/WorkspaceLayout";
 import { NotificationStack } from "./components/common/NotificationStack";
 import { LoadingGate } from "./components/common/LoadingGate";
 import { useChatSessionRoute } from "./hooks/useChatSessionRoute";
@@ -12,8 +12,22 @@ import { useChatWebSocket } from "./hooks/useChatWebSocket";
 import { ChatWebSocketProvider } from "./context/chatWebSocketContext";
 import { useAccountProfileSync } from "./hooks/useAccountProfileSync";
 
+const WorkspaceLayout = lazy(() =>
+  import("./components/workspace/WorkspaceLayout").then((m) => ({ default: m.WorkspaceLayout }))
+);
+
 export default function App() {
+  const searchParams = new URLSearchParams(window.location.search);
+  const isGuestView = searchParams.get("view") === "1";
+  const guestPiSessionId = searchParams.get("piSessionId") ?? undefined;
+
   useEffect(() => {
+    // 访客只读模式：跳过登录
+    if (isGuestView && guestPiSessionId) {
+      useAuthStore.getState().setGuestMode(guestPiSessionId);
+      useSessionStore.getState().setActiveSession(guestPiSessionId, { syncUrl: false });
+      return;
+    }
     void useAuthStore.getState().tryAutoLogin();
   }, []);
 
@@ -52,11 +66,17 @@ function MainApp() {
       {!isLoggedIn && !isLoading && <LoginView />}
       {isLoggedIn && !showLoading && (
         <ChatWebSocketProvider value={chat}>
-          <Routes>
-            <Route path="/" element={<WorkspaceLayout />} />
-            <Route path="/chat/:sessionId" element={<WorkspaceLayout />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-full bg-[var(--pi-bg)]">
+              <div className="pi-spinner" />
+            </div>
+          }>
+            <Routes>
+              <Route path="/" element={<WorkspaceLayout />} />
+              <Route path="/chat/:sessionId" element={<WorkspaceLayout />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </ChatWebSocketProvider>
       )}
     </>

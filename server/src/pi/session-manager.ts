@@ -97,6 +97,12 @@ export class PISessionManager {
   private sessions = new Map<string, UserPISession>();
   /** Coalesce concurrent activate/open for the same user + session id (HTTP activate vs WS rehydrate). */
   private activateInFlight = new Map<string, Promise<UserPISession>>();
+  /** Sessions that currently have an active WebSocket connection. */
+  private connectedSessions = new Set<string>();
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly maxConcurrentUsers: number;
+  private static readonly IDLE_EVICTION_MS = 30 * 60 * 1000; // 30 minutes
+  private static readonly CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(
     private includeAdminSkillsFor: (userId: string) => boolean = () => false,
@@ -105,8 +111,21 @@ export class PISessionManager {
       unrestricted: true,
       allow: null,
       providers: null,
-    })
-  ) {}
+    }),
+    maxConcurrentUsers = 4
+  ) {
+    this.maxConcurrentUsers = maxConcurrentUsers;
+  }
+
+  /** Mark a session as having an active WebSocket connection (called on WS connect). */
+  markConnected(sessionId: string): void {
+    this.connectedSessions.add(sessionId);
+  }
+
+  /** Mark a session as disconnected (called on WS close). */
+  markDisconnected(sessionId: string): void {
+    this.connectedSessions.delete(sessionId);
+  }
 
   shouldIncludeAdminSkills(userId: string): boolean {
     return this.includeAdminSkillsFor(userId);
@@ -348,6 +367,46 @@ export class PISessionManager {
     });
   }
 
+  /** Count distinct users with active sessions. */
+  private distinctUserCount(): number {
+    const users = new Set<string>();
+    for (const ps of this.sessions.values()) {
+      users.add(ps.userId);
+    }
+    return users.size;
+  }
+
+  /** Periodically evict disconnected sessions idle for > 30 min. */
+  private ensureCleanupTimer(): void {
+    if (this.cleanupTimer) return;
+    this.cleanupTimer = setInterval(() => this.evictIdleSessions(), PISessionManager.CLEANUP_INTERVAL_MS);
+    this.cleanupTimer.unref?.();
+  }
+
+  private async evictIdleSessions(): Promise<void> {
+    const now = Date.now();
+    const toEvict: string[] = [];
+    for (const [sid, ps] of this.sessions) {
+      if (this.connectedSessions.has(sid)) continue;
+      if (ps.isStreaming) continue;
+      if (now - ps.lastActivity < PISessionManager.IDLE_EVICTION_MS) continue;
+      toEvict.push(sid);
+    }
+    for (const sid of toEvict) {
+      await this.removeSession(sid);
+    }
+    if (this.sessions.size === 0) {
+      this.stopCleanupTimer();
+    }
+  }
+
+  private stopCleanupTimer(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+  }
+
   async createSession(
     userId: string,
     workspacePath: string,
@@ -356,6 +415,17 @@ export class PISessionManager {
   ): Promise<UserPISession> {
     if (piSessionId) {
       return this.activateSessionById(userId, workspacePath, piSessionId, onEvent);
+    }
+
+    // Enforce max concurrent users for new sessions (not for reactivations).
+    const existingForUser = this.getSessionForUser(userId);
+    if (!existingForUser) {
+      const currentCount = this.distinctUserCount();
+      if (currentCount >= this.maxConcurrentUsers) {
+        throw new Error(
+          `Maximum concurrent users reached (${this.maxConcurrentUsers}). Try again later or ask an admin to increase the limit.`
+        );
+      }
     }
 
     const policy = this.resolvePolicyForUser(userId);
@@ -389,6 +459,7 @@ export class PISessionManager {
     );
     await this.applySessionModelPolicy(userSession);
     this.persistEmptySessionFile(userSession);
+    this.ensureCleanupTimer();
     return userSession;
   }
 
@@ -477,6 +548,7 @@ export class PISessionManager {
       onEvent
     );
     await this.applySessionModelPolicy(userSession);
+    this.ensureCleanupTimer();
     return userSession;
   }
 
@@ -920,6 +992,8 @@ export class PISessionManager {
   }
 
   async disposeAll() {
+    this.stopCleanupTimer();
+    this.connectedSessions.clear();
     await Promise.all(
       Array.from(this.sessions.values()).map(async (ps) => {
         if (ps.runtime) {

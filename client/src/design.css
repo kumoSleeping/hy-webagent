@@ -161,6 +161,14 @@ body {
   margin-right: auto;
 }
 
+/* Per-message virtualisation hint — tells the browser this subtree can be
+   skipped during initial layout and sized ahead of time, so off-screen
+   messages don't contribute to layout cost. */
+.pi-message-bubble {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+
 /* Spacing between mixed content inside assistant bubbles */
 .pi-message-dialog-assistant .pi-thinking-block {
   margin-bottom: 0.75rem;
@@ -1795,6 +1803,19 @@ button.pi-panel-row.pi-panel-row--selected {
   align-items: center;
   gap: 0.85rem;
 }
+
+/* Minimal spinner for lazy-load Suspense fallbacks */
+.pi-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--pi-line, #e5e7eb);
+  border-top-color: var(--pi-text, #2c2c2e);
+  border-radius: 50%;
+  animation: pi-spin 600ms linear infinite;
+}
+@keyframes pi-spin {
+  to { transform: rotate(360deg); }
+}
 .pi-loading-screen-mark {
   display: flex;
   align-items: center;
@@ -2461,4 +2482,42 @@ button.pi-panel-row.pi-panel-row--selected {
 @keyframes pi-notification-out {
   0%   { opacity: 1; transform: translate3d(0, 0, 0); }
   100% { opacity: 0; transform: translate3d(16px, 0, 0); }
+}
+
+/* ============================================================
+ * Connection Status Banner
+ * ========================================================== */
+.pi-connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--pi-text-secondary, #6b7280);
+  background: var(--pi-surface-secondary, #f3f4f6);
+  border-bottom: 1px solid var(--pi-line, #e5e7eb);
+  animation: pi-connection-banner-in 300ms ease-out;
+}
+.pi-connection-banner__text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pi-connection-banner__text::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pi-accent, #f59e0b);
+  animation: pi-connection-pulse 1.4s ease-in-out infinite;
+}
+@keyframes pi-connection-banner-in {
+  0%   { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+  100% { opacity: 1; max-height: 40px; }
+}
+@keyframes pi-connection-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
 }

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -48,7 +48,7 @@ function TextBlock({ text, isUser }: { text: string; isUser?: boolean }) {
   );
 }
 
-function MessageImages({ images }: { images: NonNullable<ChatMessage["images"]> }) {
+const MessageImages = memo(function MessageImages({ images }: { images: NonNullable<ChatMessage["images"]> }) {
   return (
     <div className="pi-message-images">
       {images.map((img, index) => (
@@ -57,13 +57,15 @@ function MessageImages({ images }: { images: NonNullable<ChatMessage["images"]> 
           src={`data:${img.mediaType};base64,${img.data}`}
           alt={img.name ?? "Attached image"}
           className="pi-message-image"
+          loading="lazy"
+          decoding="async"
         />
       ))}
     </div>
   );
-}
+});
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const variant = isUser ? "message-user" : "message-assistant";
   const blocks = message.blocks;
@@ -85,7 +87,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (!isUser && !isStreaming && !hasVisibleContent) return null;
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
+    <div className={`pi-message-bubble flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
       <GlassPanel variant={variant} className="min-w-0">
         {message.images && message.images.length > 0 && (
           <MessageImages images={message.images} />
@@ -115,4 +117,4 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       </GlassPanel>
     </div>
   );
-}
+}, (prev, next) => prev.message === next.message);

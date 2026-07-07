@@ -1,10 +1,24 @@
+import { lazy, Suspense } from "react";
 import { Eye, Pencil } from "lucide-react";
-import { MonacoEditor } from "./MonacoEditor";
-import { MarkdownPreview } from "./MarkdownPreview";
 import { MediaPreview } from "./MediaPreview";
 import { EditorTabs } from "./EditorTabs";
 import { isMarkdownFile } from "../../lib/markdownFile";
 import type { EditorTab, EditorViewMode } from "../../types";
+
+const MonacoEditor = lazy(() =>
+  import("./MonacoEditor").then((m) => ({ default: m.MonacoEditor }))
+);
+const MarkdownPreview = lazy(() =>
+  import("./MarkdownPreview").then((m) => ({ default: m.MarkdownPreview }))
+);
+
+function EditorFallback() {
+  return (
+    <div className="flex items-center justify-center h-full bg-[var(--pi-bg)]">
+      <div className="pi-spinner" />
+    </div>
+  );
+}
 
 interface EditorPanelProps {
   tabs: EditorTab[];
@@ -67,16 +81,20 @@ export function EditorPanel({
               name={activeTab.name}
             />
           ) : activeTab.viewMode === "preview" && markdown ? (
-            <MarkdownPreview
-              content={activeTab.content}
-              onEnterEdit={() => onViewModeChange(activeTab.id, "edit")}
-            />
+            <Suspense fallback={<EditorFallback />}>
+              <MarkdownPreview
+                content={activeTab.content}
+                onEnterEdit={() => onViewModeChange(activeTab.id, "edit")}
+              />
+            </Suspense>
           ) : (
-            <MonacoEditor
-              tab={activeTab}
-              onChange={(content) => onContentChange(activeTab.id, content)}
-              onFocus={onEditorFocus}
-            />
+            <Suspense fallback={<EditorFallback />}>
+              <MonacoEditor
+                tab={activeTab}
+                onChange={(content) => onContentChange(activeTab.id, content)}
+                onFocus={onEditorFocus}
+              />
+            </Suspense>
           )
         ) : (
           <div className="pi-editor-empty">

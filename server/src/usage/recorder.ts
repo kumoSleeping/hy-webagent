@@ -72,6 +72,11 @@ function normalizeDailyFile(raw: DailyUsageFile): DailyUsageFile {
 
 export class UsageRecorder {
   private usageRoot: string;
+  private writeBuffer = new Map<string, DailyUsageFile>();
+  private writeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private hasShutdownHook = false;
+
+  private static readonly WRITE_DEBOUNCE_MS = 5000;
 
   constructor(usageRoot?: string) {
     this.usageRoot = usageRoot ?? path.join(process.cwd(), "..", "data", "usage");
@@ -102,9 +107,48 @@ export class UsageRecorder {
     }
   }
 
-  private writeDaily(file: DailyUsageFile): void {
+  private persistDaily(file: DailyUsageFile): void {
     fs.mkdirSync(this.userDir(file.userId), { recursive: true });
     fs.writeFileSync(this.dailyPath(file.userId, file.date), JSON.stringify(file, null, 2));
+  }
+
+  private scheduleWrite(file: DailyUsageFile): void {
+    const key = `${file.userId}:${file.date}`;
+    this.writeBuffer.set(key, file);
+
+    const existing = this.writeTimers.get(key);
+    if (existing) clearTimeout(existing);
+
+    this.writeTimers.set(key, setTimeout(() => {
+      this.writeTimers.delete(key);
+      const f = this.writeBuffer.get(key);
+      if (f) {
+        this.writeBuffer.delete(key);
+        this.persistDaily(f);
+      }
+    }, UsageRecorder.WRITE_DEBOUNCE_MS));
+
+    // Register shutdown hook once
+    if (!this.hasShutdownHook) {
+      this.hasShutdownHook = true;
+      const flush = () => this.flush();
+      process.on("beforeExit", flush);
+      process.on("SIGTERM", flush);
+      process.on("SIGINT", flush);
+    }
+  }
+
+  /** Force-flush all pending buffered writes. Call on graceful shutdown. */
+  flush(): void {
+    for (const [key, timer] of this.writeTimers) {
+      clearTimeout(timer);
+      this.writeTimers.delete(key);
+      const file = this.writeBuffer.get(key);
+      if (file) {
+        this.writeBuffer.delete(key);
+        this.persistDaily(file);
+      }
+    }
   }
 
   record(params: {
@@ -156,7 +200,7 @@ export class UsageRecorder {
       turnCount
     );
 
-    this.writeDaily(file);
+    this.scheduleWrite(file);
     return file;
   }
 

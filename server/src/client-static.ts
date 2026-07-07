@@ -29,7 +29,16 @@ export function attachClientStatic(app: Express): string | null {
   const distDir = resolveClientDistDir();
   if (!distDir) return null;
 
-  app.use(express.static(distDir, { index: false }));
+  app.use(express.static(distDir, {
+    index: false,
+    maxAge: "1y",
+    immutable: true,
+    setHeaders: (res, p) => {
+      if (p.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  }));
   app.get("*", (req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD") return next();
     if (req.path.startsWith("/api") || req.path.startsWith("/ws")) return next();

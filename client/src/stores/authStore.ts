@@ -67,6 +67,7 @@ interface AuthState {
   login: (apiKey: string) => Promise<boolean>;
   tryAutoLogin: () => Promise<boolean>;
   logout: () => Promise<void>;
+  setGuestMode: (piSessionId: string) => void;
   applyProfile: (profile: AccountProfile) => void;
   updateTokens: (used: number) => void;
   updateBudgetFromToken: (payload: {
@@ -97,6 +98,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoggedIn: false,
   isLoading: _hasCookie,
   error: null,
+
+  setGuestMode: (_piSessionId: string) => {
+    set({
+      sessionId: null,
+      userId: "__guest__",
+      displayName: "访客",
+      username: "guest",
+      role: "user",
+      isLoggedIn: true,
+      isLoading: false,
+      error: null,
+    });
+  },
 
   applyProfile: (profile) =>
     set({
