@@ -2485,38 +2485,23 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 
 /* ============================================================
- * Connection Status Banner
+ * Connection status — inline indicator inside composer shell
  * ========================================================== */
-.pi-connection-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 12px;
-  font-size: 0.75rem;
-  line-height: 1.4;
-  color: var(--pi-text-secondary, #6b7280);
-  background: var(--pi-surface-secondary, #f3f4f6);
-  border-bottom: 1px solid var(--pi-line, #e5e7eb);
-  animation: pi-connection-fade-in 300ms ease-out;
-}
-.pi-connection-banner__text {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.pi-connection-banner__text::before {
-  content: "";
-  display: inline-block;
-  width: 7px;
-  height: 7px;
+.pi-composer-connecting {
+  cursor: default;
+  color: var(--pi-theme-ink, #fff);
   background: #ef4444;
-  animation: pi-connection-pulse 1.4s ease-in-out infinite;
+  border-color: #ef4444;
+  pointer-events: none;
 }
-@keyframes pi-connection-fade-in {
-  0%   { opacity: 0; }
-  100% { opacity: 1; }
+.pi-composer-connecting-text {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  user-select: none;
 }
-@keyframes pi-connection-pulse {
+@keyframes pi-connecting-pulse {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.25; }
+  50%      { opacity: 0.6; }
 }

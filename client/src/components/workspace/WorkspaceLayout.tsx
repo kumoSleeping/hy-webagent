@@ -3,7 +3,6 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { ChatPanel } from "../chat/ChatPanel";
 import { useChatConnection } from "../../context/useChatConnection";
-import { ConnectionStatusBanner } from "../common/ConnectionStatusBanner";
 import { useEditorAutoSave } from "../../hooks/useEditorAutoSave";
 import { apiGet, apiPost } from "../../lib/api";
 import { dataUrlForMedia, getMediaType } from "../../lib/mediaType";
@@ -109,7 +108,6 @@ export function WorkspaceLayout() {
   return (
     <div className="relative flex h-full bg-[var(--pi-bg)] overflow-hidden">
       <div className="flex-1 min-w-0 flex flex-col">
-        <ConnectionStatusBanner />
         <ChatPanel
           chat={chat}
           onNewChat={handleNewChat}

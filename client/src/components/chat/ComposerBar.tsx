@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
+import { useConnectionState } from "../../context/useChatConnection";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
 import type { SlashCommand } from "../../stores/slashStore";
 import { SlashCommandListItem } from "../slash/SlashCommandListItem";
@@ -176,6 +177,8 @@ export function ComposerBar({
   isMobileLayout = false,
 }: ComposerBarProps) {
   const shellRef = useRef<HTMLDivElement>(null);
+  const connectionState = useConnectionState();
+  const isConnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
   const toolbarItems = useFittedToolbarItems(isMobileLayout, shellRef);
   const btnWidthPx = useMemo(() => {
     const raw = toolbarBtnWidthPx();
@@ -801,7 +804,7 @@ export function ComposerBar({
   }
 
   function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
-    if (disabled || isStreaming) return;
+    if (disabled || isStreaming || isConnecting) return;
     const pastedFiles = filesFromClipboard(e.clipboardData).filter(isSupportedAttachmentFile);
     if (pastedFiles.length) {
       e.preventDefault();
@@ -1102,7 +1105,7 @@ export function ComposerBar({
       ref={shellRef}
       onClick={focusInput}
     >
-      {isStreaming && (
+      {isStreaming && !isConnecting && (
         <button
           type="button"
           className="pi-composer-working pi-composer-working--shell"
@@ -1114,6 +1117,14 @@ export function ComposerBar({
             <span /><span /><span /><span />
           </span>
         </button>
+      )}
+      {isConnecting && (
+        <div
+          className="pi-composer-working pi-composer-working--shell pi-composer-connecting"
+          aria-label="正在重新连接…"
+        >
+          <span className="pi-composer-connecting-text">正在连接…</span>
+        </div>
       )}
       {badgeRow}
       <div
@@ -1206,7 +1217,7 @@ export function ComposerBar({
           className="pi-composer-attach-btn"
           onPointerDown={handleToolbarPointerDown}
           onClick={handleAttachClick}
-          disabled={disabled || isStreaming || attachmentsProcessing()}
+          disabled={disabled || isStreaming || isConnecting || attachmentsProcessing()}
           title="Upload image or file"
           aria-label="Upload image or file"
         >
@@ -1215,13 +1226,15 @@ export function ComposerBar({
         <textarea
           ref={taRef}
           rows={MIN_ROWS}
-          disabled={disabled}
+          disabled={disabled || isConnecting}
           placeholder={
-            attachmentsProcessing()
-              ? "Preparing attachments..."
-              : isStreaming
-                ? "Type — queued until the model is ready to see it..."
-                : "Type / for commands..."
+            isConnecting
+              ? "正在重新连接…"
+              : attachmentsProcessing()
+                ? "Preparing attachments..."
+                : isStreaming
+                  ? "Type — queued until the model is ready to see it..."
+                  : "Type / for commands..."
           }
           value={text}
           onChange={(e) => {

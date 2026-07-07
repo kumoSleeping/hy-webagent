@@ -18,6 +18,7 @@ import type { SlashCommand } from "../stores/slashStore";
 const HYDRATION_FALLBACK_MS = 10_000;
 const RECONNECT_BASE_MS = 800;
 const RECONNECT_MAX_MS = 15_000;
+const MAX_RECONNECT_ATTEMPTS = 8;
 
 export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 
@@ -335,6 +336,13 @@ export function useChatWebSocket(): ChatWebSocketApi {
       setConnectionState('reconnecting');
       const delay = Math.min(RECONNECT_BASE_MS * 2 ** reconnectAttempt, RECONNECT_MAX_MS);
       reconnectAttempt += 1;
+      // After too many failed attempts (e.g. server restart invalidated auth
+      // session), reload to get fresh credentials instead of looping forever.
+      if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+        console.warn('WebSocket reconnect failed after', reconnectAttempt, 'attempts — reloading');
+        window.location.reload();
+        return;
+      }
       reconnectTimer = setTimeout(() => {
         reconnectTimer = undefined;
         if (!disposed) connect();
