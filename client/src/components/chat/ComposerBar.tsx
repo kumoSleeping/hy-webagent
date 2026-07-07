@@ -1123,7 +1123,7 @@ export function ComposerBar({
           className="pi-composer-working pi-composer-working--shell pi-composer-connecting"
           aria-label="连接中…"
         >
-          <span className="pi-composer-connecting-text">连接中</span>
+          <span className="pi-composer-connecting-block" />
         </div>
       )}
       {badgeRow}

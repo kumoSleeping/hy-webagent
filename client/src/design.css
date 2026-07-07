@@ -2500,11 +2500,16 @@ button.pi-panel-row.pi-panel-row--selected {
   background: #ef4444;
   border-color: #ef4444;
 }
-.pi-composer-connecting-text {
-  font-size: 0.5rem;
-  font-weight: 700;
-  white-space: nowrap;
-  line-height: 1;
+.pi-composer-connecting-block {
+  display: block;
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  animation: pi-connecting-breathe 1.5s ease-in-out infinite;
+}
+@keyframes pi-connecting-breathe {
+  0%, 100% { transform: scale(0.5); opacity: 0.35; }
+  50%      { transform: scale(1);   opacity: 1; }
 }
 @keyframes pi-connecting-pulse {
   0%, 100% { opacity: 1; }
