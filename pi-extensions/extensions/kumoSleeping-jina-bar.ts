@@ -1,12 +1,12 @@
 /**
- * kumoSleeping-jina-bar — Timer + Jina Stats + Goal Status
+ * kumoSleeping-jina-bar — Timer + Jina Stats + Subagent Billing + Goal Status
  *
- * Single bar: timer | jina | goal title [x/y] | @kumoSleeping
+ * Single bar: timer | jina | subagent | goal title [x/y] | @kumoSleeping
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { resolveJinaApiKey } from "./_lib/jina-auth.ts";
 
 const SIGNATURE = "@kumoSleeping";
@@ -44,6 +44,53 @@ function jinaTokens(): number {
   return ((globalThis as Record<string, unknown>).__jinaTokens as number) || 0;
 }
 
+// ── subagent cost persistence (shared convention with pi-subagents-h) ──
+
+const SUBAGENT_COST_FILE = ".pi-subagent-cost.json";
+
+interface SubagentStats {
+  tokens: number;
+  cost: number;
+  calls: number;
+  running: number;
+}
+
+function subagentCostPath(cwd: string): string {
+  return `${cwd}/${SUBAGENT_COST_FILE}`;
+}
+
+function loadSubagentCost(cwd: string): SubagentStats | null {
+  try {
+    const p = subagentCostPath(cwd);
+    if (!existsSync(p)) return null;
+    return JSON.parse(readFileSync(p, "utf-8")) as SubagentStats;
+  } catch { return null; }
+}
+
+function deleteSubagentCost(cwd: string): void {
+  try {
+    const p = subagentCostPath(cwd);
+    if (existsSync(p)) unlinkSync(p);
+  } catch { /* ignore */ }
+}
+
+function restoreSubagentToGlobal(stats: SubagentStats | null): void {
+  const g = globalThis as Record<string, unknown>;
+  g.__subagentTokens = stats?.tokens ?? 0;
+  g.__subagentCost   = stats?.cost   ?? 0;
+  g.__subagentCalls  = stats?.calls  ?? 0;
+}
+
+function subagentStats(): SubagentStats {
+  const g = globalThis as Record<string, unknown>;
+  return {
+    tokens:  (g.__subagentTokens  as number) || 0,
+    cost:    (g.__subagentCost    as number) || 0,
+    calls:   (g.__subagentCalls   as number) || 0,
+    running: (g.__subagentRunning as number) || 0,
+  };
+}
+
 // ── goal.md 解析 (与 goal-h 共享格式) ────────────────────
 interface GoalStatus { title: string; done: number; total: number; active: boolean }
 
@@ -70,6 +117,9 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     const sessionFile = ctx.sessionManager.getSessionFile();
     const goalPath: string | null = sessionFile ? sessionFile.replace(/\.jsonl$/, "-goal.md") : null;
+
+    // Restore subagent billing from previous runs in this session
+    restoreSubagentToGlobal(loadSubagentCost(ctx.cwd));
 
     let startTime: number | null = null;
     let finalTime: number | null = null;
@@ -99,13 +149,27 @@ export default function (pi: ExtensionAPI) {
               ? `Jina:${jinaBalance}`
               : null;
 
+          // subagent billing (from pi-subagents-h)
+          const sub = subagentStats();
+          let subStr: string | null = null;
+          if (sub.tokens > 0 || sub.running > 0) {
+            const costStr = sub.cost > 0
+              ? `$${sub.cost.toFixed(3)}`
+              : `△${formatTokens(sub.tokens)}`;
+            if (sub.running > 0) {
+              subStr = `Sub ▶${sub.running} ✓${sub.calls} ${costStr}`;
+            } else {
+              subStr = `Sub ✓${sub.calls} ${costStr}`;
+            }
+          }
+
           // goal 状态内联 (session 隔离)
           const goal = readGoal(goalPath);
           const goalStr = goal && goal.active
             ? `\u25C9 ${goal.title}${goal.total > 0 ? ` [${goal.done}/${goal.total}]` : ""}`
             : null;
 
-          const parts = [timer, jina, goalStr].filter(Boolean);
+          const parts = [timer, jina, subStr, goalStr].filter(Boolean);
           const left = dim(parts.join("  "));
           const sigColored = theme.fg("error", SIGNATURE);
           const sigWidth = visibleWidth(sigColored);
@@ -127,6 +191,7 @@ export default function (pi: ExtensionAPI) {
 
     pi.on("agent_start", async () => {
       clearInterval_();
+      // Only reset Jina per agent-run; subagent totals persist across runs within the session
       (globalThis as Record<string, unknown>).__jinaTokens = 0;
       startTime = Date.now();
       finalTime = null;
@@ -142,6 +207,14 @@ export default function (pi: ExtensionAPI) {
 
     pi.on("session_shutdown", async () => {
       clearInterval_();
+      const g = globalThis as Record<string, unknown>;
+      g.__jinaTokens = 0;
+      g.__subagentTokens = 0;
+      g.__subagentCost = 0;
+      g.__subagentCalls = 0;
+      g.__subagentRunning = 0;
+      // Clean up persisted cost file for this session
+      deleteSubagentCost(ctx.cwd);
       startTime = null;
       finalTime = null;
       jinaBalance = null;

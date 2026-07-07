@@ -140,6 +140,10 @@ export default function register(pi: ExtensionAPI): void {
     parameters: SubagentParams,
 
     async execute(_id, params, signal, _onUpdate, ctx) {
+      // Track running count for the bar widget
+      const g = globalThis as Record<string, unknown>;
+      g.__subagentRunning = ((g.__subagentRunning as number) || 0) + 1;
+
       try {
         const model = (params as any).model || getCurrentModel(ctx);
         if (!model) {
@@ -174,6 +178,9 @@ export default function register(pi: ExtensionAPI): void {
           isError: true,
           details: {},
         };
+      } finally {
+        // Decrement running count (even on error/interrupt)
+        g.__subagentRunning = Math.max(0, ((g.__subagentRunning as number) || 0) - 1);
       }
     },
 
