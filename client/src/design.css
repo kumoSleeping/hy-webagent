@@ -2489,17 +2489,17 @@ button.pi-panel-row.pi-panel-row--selected {
  * ========================================================== */
 .pi-composer-connecting {
   cursor: default;
-  color: var(--pi-theme-ink, #fff);
   background: #ef4444;
   border-color: #ef4444;
   pointer-events: none;
+  padding: 0 0.5rem;
+  animation: pi-connecting-pulse 1.4s ease-in-out infinite;
 }
-.pi-composer-connecting-text {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  user-select: none;
+.pi-composer-connecting-dot {
+  display: block;
+  width: 6px;
+  height: 10px;
+  background: #fff;
 }
 @keyframes pi-connecting-pulse {
   0%, 100% { opacity: 1; }

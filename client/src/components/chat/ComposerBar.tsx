@@ -1121,9 +1121,9 @@ export function ComposerBar({
       {isConnecting && (
         <div
           className="pi-composer-working pi-composer-working--shell pi-composer-connecting"
-          aria-label="正在重新连接…"
+          aria-label="连接中…"
         >
-          <span className="pi-composer-connecting-text">正在连接…</span>
+          <span className="pi-composer-connecting-dot" />
         </div>
       )}
       {badgeRow}
@@ -1229,7 +1229,7 @@ export function ComposerBar({
           disabled={disabled || isConnecting}
           placeholder={
             isConnecting
-              ? "正在重新连接…"
+              ? "连接中…"
               : attachmentsProcessing()
                 ? "Preparing attachments..."
                 : isStreaming
