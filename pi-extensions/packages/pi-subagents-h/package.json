@@ -1,7 +1,7 @@
 {
   "name": "pi-subagents-h",
-  "version": "0.2.3",
-  "description": "Three specialised subagent workers for pi — explorer, searcher, worker, all defaulting to the active session model",
+  "version": "0.4.0",
+  "description": "General-purpose subagent for pi — explore, search, implement — all in one tool",
   "author": "kumo",
   "license": "MIT",
   "type": "module",

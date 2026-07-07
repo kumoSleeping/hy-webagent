@@ -8,7 +8,6 @@ const TASK_ARG_LIMIT = 8000;
 interface SpawnInput {
   task: string;
   model?: string;
-  cwd?: string;
   /** Comma-separated tool allowlist. Default: full read/write set. */
   tools?: string;
   /** Thinking level: off, minimal, low, medium, high, xhigh */

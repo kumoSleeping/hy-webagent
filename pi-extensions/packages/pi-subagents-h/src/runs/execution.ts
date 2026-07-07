@@ -43,7 +43,6 @@ export function runSubagent(options: RunOptions): Promise<SingleResult> {
     const { command, args, env, tempDir } = buildPiArgs({
       task: options.task,
       model: options.model,
-      cwd: options.cwd,
       tools: options.tools,
       thinking: options.thinking,
     });
