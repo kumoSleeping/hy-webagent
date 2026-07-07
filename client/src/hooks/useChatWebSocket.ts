@@ -366,12 +366,10 @@ export function useChatWebSocket(): ChatWebSocketApi {
         if (disposed || wsRef.current !== ws) return;
         reconnectAttempt = 0;
         setConnectionState('connected');
-        // Drain message queue
-        const queue = messageQueueRef.current;
+        // Discard queued messages — replaying stale prompts/steers after a
+        // disconnect risks duplicating turns and routing text deltas to the
+        // wrong message bubble when history reload collides with live streaming.
         messageQueueRef.current = [];
-        for (const msg of queue) {
-          ws.send(JSON.stringify(msg));
-        }
         ws.send(JSON.stringify({ type: "ui:request_snapshot", payload: {} }));
       };
 

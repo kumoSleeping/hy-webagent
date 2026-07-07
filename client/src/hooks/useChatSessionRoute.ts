@@ -101,7 +101,8 @@ export function useChatSessionRoute() {
 
   // `/` → pick default session and redirect.
   useEffect(() => {
-    if (!ready || urlSessionId || defaultRedirectStartedRef.current) return;
+    const isGuestView = useAuthStore.getState().userId === "__guest__";
+    if (!ready || urlSessionId || defaultRedirectStartedRef.current || isGuestView) return;
     defaultRedirectStartedRef.current = true;
     setIsSyncingSession(true);
 

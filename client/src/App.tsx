@@ -83,6 +83,7 @@ function MainApp() {
           <Routes>
             <Route path="/" element={<WorkspaceLayout />} />
             <Route path="/chat/:sessionId" element={<WorkspaceLayout />} />
+            <Route path="/preview/:piSessionId" element={<WorkspaceLayout />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ChatWebSocketProvider>
