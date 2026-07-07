@@ -98,7 +98,7 @@ export function ChatPanel({
   const useCenteredStartup =
     isStartupLayout &&
     resolveCenteredStartup(composerPosition, isMobileLayout);
-  const showWelcomeSignature = isStartupLayout && welcomeEnabled;
+  const showWelcomeSignature = isStartupLayout && welcomeEnabled && !useCenteredStartup;
   const notify = useNotificationStore((s) => s.notify);
   const fetchSessions = useSessionStore((s) => s.fetchSessions);
   const activePanel = useSlashStore((s) => s.activePanel);
