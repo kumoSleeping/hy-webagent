@@ -4,20 +4,9 @@ import { useAuthStore } from "../stores/authStore";
 import { useSessionStore } from "../stores/sessionStore";
 import { useChatStore } from "../stores/chatStore";
 import { apiPost, setSessionId } from "../lib/api";
-import { chatPath, parseSessionIdFromPath } from "../lib/chatRoutes";
+import { chatPath, parseSessionIdFromPath, isNewChatPath } from "../lib/chatRoutes";
 import { bindSessionNavigation, unbindSessionNavigation } from "../lib/sessionNavigation";
 import { fetchSessionStatus } from "./useStatusBarSync";
-
-async function ensureDefaultSession(): Promise<string | null> {
-  const { sessions: list, activateSession, createSession, fetchSessions } = useSessionStore.getState();
-  const mostRecent = list[0];
-  if (mostRecent && mostRecent.title === "(empty)") {
-    return activateSession(mostRecent.id, { syncUrl: false });
-  }
-  const id = await createSession({ syncUrl: false });
-  if (id) await fetchSessions();
-  return id;
-}
 
 /**
  * Binds router navigation to the session store and restores sessions from
@@ -35,6 +24,8 @@ export function useChatSessionRoute() {
   const [isSyncingSession, setIsSyncingSession] = useState(false);
   const defaultRedirectStartedRef = useRef(false);
   const syncingFromUrlRef = useRef(false);
+  /** Guards against parallel /chat/new session creation (rapid clicks). */
+  const newChatInFlightRef = useRef(false);
   /** Last URL session id we successfully applied to the store (per tab lifetime). */
   const syncedUrlIdRef = useRef<string | null>(null);
   const urlSyncGenerationRef = useRef(0);
@@ -99,25 +90,44 @@ export function useChatSessionRoute() {
     };
   }, [authSessionId]);
 
-  // `/` → pick default session and redirect.
+  // `/` → navigate to /chat/new which creates a fresh session.
+  // This keeps the bookmark URL generic (no specific session id).
   useEffect(() => {
     const isGuestView = useAuthStore.getState().userId === "__guest__";
     if (!ready || urlSessionId || defaultRedirectStartedRef.current || isGuestView) return;
     defaultRedirectStartedRef.current = true;
     setIsSyncingSession(true);
+    navigate(chatPath("new"), { replace: true });
+    setIsSyncingSession(false);
+  }, [ready, urlSessionId, navigate]);
+
+  // `/chat/new` → create a fresh session, then redirect to /chat/:id.
+  useEffect(() => {
+    if (!ready) return;
+    if (!isNewChatPath(latestPathnameRef.current)) return;
+    if (newChatInFlightRef.current) return;
+    newChatInFlightRef.current = true;
+    setIsSyncingSession(true);
 
     void (async () => {
       try {
-        const id = await ensureDefaultSession();
-        if (id) {
-          syncedUrlIdRef.current = id;
-          navigate(chatPath(id), { replace: true });
+        const id = await useSessionStore.getState().createSession({ syncUrl: false });
+        void useSessionStore.getState().fetchSessions();
+        if (!id || !isNewChatPath(latestPathnameRef.current)) return;
+        syncedUrlIdRef.current = id;
+        navigate(chatPath(id), { replace: true });
+      } catch (err) {
+        console.error(err);
+        // Fall back to / on error
+        if (isNewChatPath(latestPathnameRef.current)) {
+          navigate("/", { replace: true });
         }
       } finally {
         setIsSyncingSession(false);
+        newChatInFlightRef.current = false;
       }
     })();
-  }, [ready, urlSessionId, navigate]);
+  }, [ready, navigate]);
 
   // URL changed (refresh, direct link, browser back/forward) → activate session.
   useEffect(() => {

@@ -1,18 +1,19 @@
 import { useState, useCallback } from "react";
-import { useSessionStore } from "../../stores/sessionStore";
+import { useNavigate } from "react-router-dom";
 import { useChatStore } from "../../stores/chatStore";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { ChatPanel } from "../chat/ChatPanel";
 import { useChatConnection } from "../../context/useChatConnection";
 import { useEditorAutoSave } from "../../hooks/useEditorAutoSave";
 import { apiGet, apiPost } from "../../lib/api";
+import { chatPath } from "../../lib/chatRoutes";
 import { dataUrlForMedia, getMediaType } from "../../lib/mediaType";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
 import { defaultViewModeForFile } from "../../lib/markdownFile";
 
 export function WorkspaceLayout() {
+  const navigate = useNavigate();
   const chat = useChatConnection();
-  const { createSession, fetchSessions } = useSessionStore();
   const openPreview = useComposerPanelStore((s) => s.openPreview);
   const closePreview = useComposerPanelStore((s) => s.closePreview);
   const closeFilesPanelIfOpen = useCallback(() => {
@@ -31,11 +32,11 @@ export function WorkspaceLayout() {
   const { scheduleSave, flushSave, discardTab } = useEditorAutoSave(editorTabs, writeFile);
 
   async function handleNewChat() {
-    // Immediately enter hydrating state so the old composer doesn't flash
-    // during the HTTP create-session round-trip (especially jarring on mobile).
+    // Navigate to /chat/new immediately — the route handler creates the
+    // session and redirects to /chat/:id when ready. This keeps the URL
+    // stable during creation (no ID flash) and prevents rapid-click races.
     useChatStore.getState().resetForSessionChange();
-    const id = await createSession();
-    if (id) await fetchSessions();
+    navigate(chatPath("new"), { replace: true });
   }
 
   const handleFileClick = useCallback(async (entry: FileEntry) => {
