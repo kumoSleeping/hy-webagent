@@ -1,20 +1,17 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
 import { useSessionStore } from "./stores/sessionStore";
 import { parseSessionIdFromPath } from "./lib/chatRoutes";
 import { LoginView } from "./components/login/LoginView";
 import { LogoutView } from "./components/logout/LogoutView";
+import { WorkspaceLayout } from "./components/workspace/WorkspaceLayout";
 import { NotificationStack } from "./components/common/NotificationStack";
 import { LoadingGate } from "./components/common/LoadingGate";
 import { useChatSessionRoute } from "./hooks/useChatSessionRoute";
 import { useChatWebSocket } from "./hooks/useChatWebSocket";
 import { ChatWebSocketProvider } from "./context/chatWebSocketContext";
 import { useAccountProfileSync } from "./hooks/useAccountProfileSync";
-
-const WorkspaceLayout = lazy(() =>
-  import("./components/workspace/WorkspaceLayout").then((m) => ({ default: m.WorkspaceLayout }))
-);
 
 export default function App() {
   const searchParams = new URLSearchParams(window.location.search);
@@ -66,17 +63,11 @@ function MainApp() {
       {!isLoggedIn && !isLoading && <LoginView />}
       {isLoggedIn && !showLoading && (
         <ChatWebSocketProvider value={chat}>
-          <Suspense fallback={
-            <div className="flex items-center justify-center h-full bg-[var(--pi-bg)]">
-              <div className="pi-spinner" />
-            </div>
-          }>
-            <Routes>
-              <Route path="/" element={<WorkspaceLayout />} />
-              <Route path="/chat/:sessionId" element={<WorkspaceLayout />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
+          <Routes>
+            <Route path="/" element={<WorkspaceLayout />} />
+            <Route path="/chat/:sessionId" element={<WorkspaceLayout />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </ChatWebSocketProvider>
       )}
     </>

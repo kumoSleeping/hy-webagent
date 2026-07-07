@@ -2491,13 +2491,13 @@ button.pi-panel-row.pi-panel-row--selected {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 12px;
-  font-size: 0.8125rem;
+  padding: 3px 12px;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: var(--pi-text-secondary, #6b7280);
   background: var(--pi-surface-secondary, #f3f4f6);
   border-bottom: 1px solid var(--pi-line, #e5e7eb);
-  animation: pi-connection-banner-in 300ms ease-out;
+  animation: pi-connection-fade-in 300ms ease-out;
 }
 .pi-connection-banner__text {
   display: flex;
@@ -2507,17 +2507,16 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-connection-banner__text::before {
   content: "";
   display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--pi-accent, #f59e0b);
+  width: 7px;
+  height: 7px;
+  background: #ef4444;
   animation: pi-connection-pulse 1.4s ease-in-out infinite;
 }
-@keyframes pi-connection-banner-in {
-  0%   { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
-  100% { opacity: 1; max-height: 40px; }
+@keyframes pi-connection-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
 }
 @keyframes pi-connection-pulse {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.3; }
+  50%      { opacity: 0.25; }
 }
