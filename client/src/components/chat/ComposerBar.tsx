@@ -273,11 +273,7 @@ export function ComposerBar({
   function handleFilesClick() {
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
-    if (isMobileLayout) {
-      togglePanel("files");
-    } else {
-      toggleFilesPanel();
-    }
+    toggleFilesPanel();
     blurComposerInput();
   }
 

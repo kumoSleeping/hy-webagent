@@ -33,12 +33,14 @@ export function AccountPanel() {
   const setComposerPosition = useStartupPreferencesStore((s) => s.setComposerPosition);
 
   const [todayUsd, setTodayUsd] = useState<number | null>(null);
+  const [todayLoading, setTodayLoading] = useState(true);
 
   useEffect(() => {
     fetchAccountProfile().catch(() => undefined);
     apiGet<TokenUsage>("/api/token/usage")
       .then((data) => setTodayUsd(data.costTodayUsd ?? 0))
-      .catch(() => setTodayUsd(null));
+      .catch(() => setTodayUsd(null))
+      .finally(() => setTodayLoading(false));
   }, []);
 
   const handle = username || displayName || "user";
@@ -75,6 +77,12 @@ export function AccountPanel() {
         <div className="pi-account-panel-row">
           <span className="pi-account-panel-label">Today</span>
           <span className="pi-account-panel-value">{formatUsd(todayUsd)}</span>
+        </div>
+      )}
+      {todayLoading && todayUsd === null && (
+        <div className="pi-account-panel-row">
+          <span className="pi-account-panel-label">Today</span>
+          <span className="pi-account-panel-value pi-account-panel-muted">…</span>
         </div>
       )}
 
