@@ -52,7 +52,13 @@ function dispatchWsMessage(
       const messages = msg.payload?.messages || [];
       const alreadyHydrated = store().hydratedPiSessionId === boundPiSessionId;
       if (alreadyHydrated) {
-        if (agentRunning) store().resumeAgentRun();
+        // Fallback timer may have completed hydration before history arrived.
+        // Still load the real messages when they come in.
+        if (messages.length > 0) {
+          store().loadHistory(messages, { agentRunning });
+        } else if (agentRunning) {
+          store().resumeAgentRun();
+        }
       } else {
         store().loadHistory(messages, { agentRunning });
       }
@@ -287,9 +293,15 @@ export function useChatWebSocket(): ChatWebSocketApi {
   ));
 
   useEffect(() => {
-    if (!piSessionId) return;
+    if (!piSessionId) {
+      setConnectionState('disconnected');
+      return;
+    }
     // 正常模式需要 sessionId，访客模式不需要
-    if (!isGuestView && !sessionId) return;
+    if (!isGuestView && !sessionId) {
+      setConnectionState('disconnected');
+      return;
+    }
 
     const boundPiSessionId = piSessionId;
     const needsBootstrap = useChatStore.getState().hydratedPiSessionId !== boundPiSessionId;
@@ -378,7 +390,6 @@ export function useChatWebSocket(): ChatWebSocketApi {
 
     return () => {
       disposed = true;
-      setConnectionState('disconnected');
       messageQueueRef.current = [];
       if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
       if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
