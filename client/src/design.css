@@ -1142,14 +1142,27 @@ body {
   0%, 100% { transform: scaleY(0.32); }
   50% { transform: scaleY(1); }
 }
-/* Working indicator centered on the top-left vertex of the composer shell's border —
-   half-in, half-out, so the square straddles the corner as a badge. */
+/* Working indicator + queue badges all sit in a row along the top-left
+   of the composer shell, anchored at the outer border vertex. */
 .pi-composer-working--shell {
   position: absolute;
   top: calc(-1 * var(--pi-composer-border, 1px));
-  left: calc(-1 * var(--pi-composer-border, 1px));
+  left: calc(-1 * var(--pi-composer-border, 1px) + 4px);
   transform: translate(-50%, -50%);
   z-index: 51;
+}
+.pi-composer-badges {
+  position: absolute;
+  top: calc(-1 * var(--pi-composer-border, 1px));
+  /* Tucked just right of the stop button, nudged right so they don't
+     kiss the screen edge. */
+  left: calc(1.75rem + 6px);
+  transform: translateY(-50%);
+  z-index: 51;
+  flex-shrink: 0;
+  align-items: center;
+  gap: .3rem;
+  display: flex;
 }
 
 /* Queued-message cells — one per steering/follow-up message still waiting

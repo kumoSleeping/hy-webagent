@@ -192,9 +192,6 @@ export function ComposerBar({
   const [historySelectedIndex, setHistorySelectedIndex] = useState(0);
   const [historyQuery, setHistoryQuery] = useState("");
   const historyRowRefs = useRef<(HTMLDivElement | null)[]>([]);
-  /** Which queued-message cell is hovered — drives the custom text preview
-   * (native title tooltips don't match the app's flat design language). */
-  const [hoveredQueueKey, setHoveredQueueKey] = useState<string | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1086,25 +1083,16 @@ export function ComposerBar({
   const badgeRow =
     queuedItems.length > 0 ? (
       <div className="pi-composer-badges" onClick={(e) => e.stopPropagation()}>
-        {queuedItems.map((item, i) => (
-          <div key={item.key} className="pi-composer-queue-cell-wrap">
-            <button
-              type="button"
-              className="pi-composer-queue-cell"
-              onClick={(e) => { e.stopPropagation(); onEditQueued?.(item.source, item.index); }}
-              onMouseEnter={() => setHoveredQueueKey(item.key)}
-              onMouseLeave={() => setHoveredQueueKey((k) => (k === item.key ? null : k))}
-              aria-label={`Queued message ${i + 1} — not seen by the model yet, click to edit`}
-            >
-              {i + 1}
-            </button>
-            {hoveredQueueKey === item.key && (
-              <div className="pi-composer-queue-preview" role="tooltip">
-                {item.text}
-              </div>
-            )}
-          </div>
-        ))}
+        <div className="pi-composer-queue-cell-wrap">
+          <button
+            type="button"
+            className="pi-composer-queue-cell"
+            onClick={(e) => { e.stopPropagation(); onEditQueued?.(queuedItems[0].source, queuedItems[0].index); }}
+            aria-label={`${queuedItems.length} queued message${queuedItems.length > 1 ? "s" : ""} — not seen by the model yet, click to edit`}
+          >
+            {queuedItems.length}
+          </button>
+        </div>
       </div>
     ) : null;
 
@@ -1127,6 +1115,7 @@ export function ComposerBar({
           </span>
         </button>
       )}
+      {badgeRow}
       <div
         className="pi-composer-toolbar"
         data-open={toolbarActive ? "true" : "false"}
@@ -1141,7 +1130,6 @@ export function ComposerBar({
         <div className="pi-composer-toolbar-bar">
           {isMobileLayout && <div className="pi-composer-toolbar-bar-fill" aria-hidden="true" />}
           <div className="pi-composer-toolbar-bar-tail">
-            {badgeRow}
             {toolbarItems.map((item, index) => (
             <button
               style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
