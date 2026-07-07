@@ -11,18 +11,51 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { SubagentParams } from "./schemas.ts";
 import { runSubagent } from "../runs/execution.ts";
 import { SUBAGENT_CHILD_ENV } from "../shared/types.ts";
 import type { Usage } from "../shared/types.ts";
 
-// ── global billing counter (read by kumoSleeping-jina-bar) ──
+// ── global billing counter (read/written by kumoSleeping-jina-bar) ──
 
-function addSubagentCost(usage: Usage): void {
+const SUBAGENT_COST_FILE = ".pi-subagent-cost.json";
+
+interface CostSnapshot { tokens: number; cost: number; calls: number }
+
+function getCostFile(cwd: string): string {
+  return `${cwd}/${SUBAGENT_COST_FILE}`;
+}
+
+/** Read persisted cost from disk (called by bar on session_start to restore state). */
+export function loadCostSnapshot(cwd: string): CostSnapshot | null {
+  try {
+    const p = getCostFile(cwd);
+    if (!existsSync(p)) return null;
+    return JSON.parse(readFileSync(p, "utf-8")) as CostSnapshot;
+  } catch { return null; }
+}
+
+function persistCost(cwd: string, snap: CostSnapshot): void {
+  try {
+    const p = getCostFile(cwd);
+    const d = dirname(p);
+    if (!existsSync(d)) mkdirSync(d, { recursive: true });
+    writeFileSync(p, JSON.stringify(snap), "utf-8");
+  } catch { /* best-effort */ }
+}
+
+function addSubagentCost(usage: Usage, cwd: string): void {
   const g = globalThis as Record<string, unknown>;
-  g.__subagentTokens = ((g.__subagentTokens as number) || 0) + usage.input + usage.output;
-  g.__subagentCost   = ((g.__subagentCost   as number) || 0) + (usage.cost || 0);
-  g.__subagentCalls  = ((g.__subagentCalls  as number) || 0) + 1;
+  const tokens = ((g.__subagentTokens as number) || 0) + usage.input + usage.output;
+  const cost   = ((g.__subagentCost   as number) || 0) + (usage.cost || 0);
+  const calls  = ((g.__subagentCalls  as number) || 0) + 1;
+  g.__subagentTokens = tokens;
+  g.__subagentCost   = cost;
+  g.__subagentCalls  = calls;
+  // persist so re-entering the session restores the total
+  persistCost(cwd, { tokens, cost, calls });
 }
 
 // ── helpers ────────────────────────────────────────────
@@ -123,8 +156,8 @@ export default function register(pi: ExtensionAPI): void {
           timeoutMs: (params as any).timeoutMs,
         });
 
-        // Accumulate billing for the bar widget
-        addSubagentCost(result.usage);
+        // Accumulate billing for the bar widget (in-memory + persisted)
+        addSubagentCost(result.usage, ctx.cwd);
 
         const icon = statusIcon(result);
         const tok = formatTokens(result.usage.input + result.usage.output);

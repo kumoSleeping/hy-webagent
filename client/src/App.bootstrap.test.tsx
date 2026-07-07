@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { useAuthStore } from "./stores/authStore";
 import { useSessionStore } from "./stores/sessionStore";
-import { useChatStore } from "./stores/chatStore";
 import { setGlobalLoaderActive } from "./lib/globalLoader";
 
 const SESSION = "019f1fab-9152-74f1-b928-c553d057c0e8";
@@ -96,7 +95,6 @@ describe("App bootstrap", () => {
       error: null,
     });
     useSessionStore.setState({ sessions: [], activePiSessionId: null, loading: false });
-    useChatStore.setState({ hydratedPiSessionId: null });
     vi.stubGlobal("fetch", mockFetch());
   });
 
@@ -117,18 +115,9 @@ describe("App bootstrap", () => {
     await waitFor(
       () => {
         expect(useSessionStore.getState().activePiSessionId).toBe(SESSION);
-      },
-      { timeout: 8000 }
-    );
-
-    // Simulate chat hydration so the global loader clears (gate checks !hydratedPiSessionId).
-    useChatStore.getState().completeHydration(SESSION);
-
-    await waitFor(
-      () => {
         expect(document.getElementById("pi-global-loader")?.classList.contains("pi-loading-gate--active")).toBe(false);
       },
-      { timeout: 2000 }
+      { timeout: 8000 }
     );
   });
 });
