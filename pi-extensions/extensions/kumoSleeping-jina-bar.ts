@@ -44,9 +44,7 @@ function jinaTokens(): number {
   return ((globalThis as Record<string, unknown>).__jinaTokens as number) || 0;
 }
 
-// ── subagent cost persistence (shared convention with pi-subagents-h) ──
-
-const SUBAGENT_COST_FILE = ".pi-subagent-cost.json";
+// ── subagent cost persistence (shared with pi-subagents-h via globalThis) ──
 
 interface SubagentStats {
   tokens: number;
@@ -55,23 +53,15 @@ interface SubagentStats {
   running: number;
 }
 
-function subagentCostPath(cwd: string): string {
-  return `${cwd}/${SUBAGENT_COST_FILE}`;
-}
-
-function loadSubagentCost(cwd: string): SubagentStats | null {
+function loadCostFile(path: string): SubagentStats | null {
   try {
-    const p = subagentCostPath(cwd);
-    if (!existsSync(p)) return null;
-    return JSON.parse(readFileSync(p, "utf-8")) as SubagentStats;
+    if (!existsSync(path)) return null;
+    return JSON.parse(readFileSync(path, "utf-8")) as SubagentStats;
   } catch { return null; }
 }
 
-function deleteSubagentCost(cwd: string): void {
-  try {
-    const p = subagentCostPath(cwd);
-    if (existsSync(p)) unlinkSync(p);
-  } catch { /* ignore */ }
+function deleteCostFile(path: string): void {
+  try { if (existsSync(path)) unlinkSync(path); } catch { /* ignore */ }
 }
 
 function restoreSubagentToGlobal(stats: SubagentStats | null): void {
@@ -118,8 +108,16 @@ export default function (pi: ExtensionAPI) {
     const sessionFile = ctx.sessionManager.getSessionFile();
     const goalPath: string | null = sessionFile ? sessionFile.replace(/\.jsonl$/, "-goal.md") : null;
 
+    // Session-specific cost file so sessions don't cross-contaminate
+    const subagentCostFile = sessionFile
+      ? sessionFile.replace(/\.jsonl$/, "-subagent.json")
+      : null;
+    (globalThis as Record<string, unknown>).__subagentCostFile = subagentCostFile;
+
     // Restore subagent billing from previous runs in this session
-    restoreSubagentToGlobal(loadSubagentCost(ctx.cwd));
+    if (subagentCostFile) {
+      restoreSubagentToGlobal(loadCostFile(subagentCostFile));
+    }
 
     let startTime: number | null = null;
     let finalTime: number | null = null;
@@ -214,7 +212,7 @@ export default function (pi: ExtensionAPI) {
       g.__subagentCalls = 0;
       g.__subagentRunning = 0;
       // Clean up persisted cost file for this session
-      deleteSubagentCost(ctx.cwd);
+      if (subagentCostFile) deleteCostFile(subagentCostFile);
       startTime = null;
       finalTime = null;
       jinaBalance = null;
