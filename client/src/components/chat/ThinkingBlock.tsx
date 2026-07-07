@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { useAuthStore } from "../../stores/authStore";
 
 interface ThinkingBlockProps {
   content: string;
@@ -29,6 +30,10 @@ export const ThinkingBlock = memo(function ThinkingBlock({ content, isActive }: 
     ro.observe(el);
     return () => ro.disconnect();
   }, [content, isActive, expanded]);
+
+  const isPreviewMode = useAuthStore(s => s.isPreviewMode);
+
+  if (isPreviewMode) return null;
 
   if (!content) {
     if (!isActive) return null;

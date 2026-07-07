@@ -14,11 +14,23 @@ import { ChatWebSocketProvider } from "./context/chatWebSocketContext";
 import { useAccountProfileSync } from "./hooks/useAccountProfileSync";
 
 export default function App() {
+  // 预览模式（路径 /preview/:piSessionId）
+  const isPreviewPath = window.location.pathname.startsWith("/preview/");
+  const previewPiSessionId = isPreviewPath
+    ? window.location.pathname.slice("/preview/".length).split("?")[0]
+    : undefined;
+
   const searchParams = new URLSearchParams(window.location.search);
   const isGuestView = searchParams.get("view") === "1";
   const guestPiSessionId = searchParams.get("piSessionId") ?? undefined;
 
   useEffect(() => {
+    // 预览模式（路径 /preview/:piSessionId）：优先级高于 query 参数访客模式
+    if (isPreviewPath && previewPiSessionId) {
+      useAuthStore.getState().setGuestMode(previewPiSessionId, true);
+      useSessionStore.getState().setActiveSession(previewPiSessionId, { syncUrl: false });
+      return;
+    }
     // 访客只读模式：跳过登录
     if (isGuestView && guestPiSessionId) {
       useAuthStore.getState().setGuestMode(guestPiSessionId);

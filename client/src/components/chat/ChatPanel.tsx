@@ -85,6 +85,7 @@ export function ChatPanel({
   // avoids the composer jumping from center to bottom while history loads.
   const isHydrating = Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId);
   const isGuestView = useAuthStore((s) => s.userId) === "__guest__";
+  const isPreviewMode = useAuthStore((s) => s.isPreviewMode);
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   useEffect(() => {
     setWelcomeDismissed(false);
@@ -504,6 +505,7 @@ export function ChatPanel({
               }}
             />
           </div>
+          {!isPreviewMode && (
           <ComposerBar
             disabled={isHydrating || isGuestView}
             isStreaming={isStreaming}
@@ -526,6 +528,7 @@ export function ChatPanel({
             commandsContent={commandsContent}
             modelContent={modelContent}
           />
+          )}
         </div>
         <StatusBar />
 

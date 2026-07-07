@@ -26,19 +26,6 @@ interface CenterStageProps {
   treeMode?: TreePanelMode;
 }
 
-function CenterStageCloseButton({ onClick, label }: { onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      className="pi-center-stage-close pi-center-stage-close--overlay"
-      onClick={onClick}
-      aria-label={label}
-    >
-      <X size={14} />
-    </button>
-  );
-}
-
 /** Center panel above composer — file preview, conversation tree, extension widgets, extension dialogs. */
 export function CenterStage({
   onRespondExtensionUi,
@@ -95,7 +82,6 @@ export function CenterStage({
         className="pi-center-stage pi-center-stage--preview pi-center-stage--headless"
         onClick={(e) => e.stopPropagation()}
       >
-        <CenterStageCloseButton onClick={handleClose} label="Close preview" />
         <EditorPanel
           tabs={editorTabs}
           activeTabId={activeTabId}
@@ -116,7 +102,6 @@ export function CenterStage({
         className="pi-center-stage pi-center-stage--preview pi-center-stage--headless"
         onClick={(e) => e.stopPropagation()}
       >
-        <CenterStageCloseButton onClick={handleClose} label="Close tree" />
         <div className="pi-center-stage-body">{treeContent}</div>
       </div>
     );

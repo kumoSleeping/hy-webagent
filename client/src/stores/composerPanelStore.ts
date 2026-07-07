@@ -55,12 +55,16 @@ export const useComposerPanelStore = create<ComposerPanelState>((set) => ({
   closePreview: () => set({ previewOpen: false }),
   toggleFilesPanel: () =>
     set((s) => {
+      // File preview pad is open — two-step close:
+      //   1st click: close files sidebar, keep file preview
+      //   2nd click: close file preview
       if (s.previewOpen) {
         if (s.panel === "files") {
           return { panel: null };
         }
-        return { previewOpen: false, panel: null };
+        return { previewOpen: false };
       }
+      // No preview open — simple toggle of files sidebar
       const closing = s.panel === "files";
       return { panel: closing ? null : "files" };
     }),

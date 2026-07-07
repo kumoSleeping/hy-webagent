@@ -61,13 +61,14 @@ interface AuthState {
   budgetRemainingUsd: number | null;
   budgetUnlimited: boolean;
   isLoggedIn: boolean;
+  isPreviewMode: boolean;
   isLoading: boolean;
   error: string | null;
 
   login: (apiKey: string) => Promise<boolean>;
   tryAutoLogin: () => Promise<boolean>;
   logout: () => Promise<void>;
-  setGuestMode: (piSessionId: string) => void;
+  setGuestMode: (piSessionId: string, isPreview?: boolean) => void;
   applyProfile: (profile: AccountProfile) => void;
   updateTokens: (used: number) => void;
   updateBudgetFromToken: (payload: {
@@ -98,15 +99,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoggedIn: false,
   isLoading: _hasCookie,
   error: null,
+  isPreviewMode: false,
 
-  setGuestMode: (_piSessionId: string) => {
+  setGuestMode: (_piSessionId: string, isPreview?: boolean) => {
     set({
       sessionId: null,
       userId: "__guest__",
-      displayName: "访客",
+      displayName: isPreview ? "预览" : "访客",
       username: "guest",
       role: "user",
       isLoggedIn: true,
+      isPreviewMode: isPreview ?? false,
       isLoading: false,
       error: null,
     });
@@ -235,6 +238,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       budgetUnlimited: false,
       isLoggedIn: false,
       error: null,
+      isPreviewMode: false,
       isLoading: false,
     });
   },

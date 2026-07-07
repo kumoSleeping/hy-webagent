@@ -10,6 +10,7 @@ import { ToolGroupCard } from "./ToolGroupCard";
 import { groupBlocksForDisplay } from "../../lib/blockGrouping";
 import { markdownComponents } from "./markdownComponents";
 import { splitTextWithMarkers } from "../../lib/compressedText";
+import { useAuthStore } from "../../stores/authStore";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -70,6 +71,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
   const variant = isUser ? "message-user" : "message-assistant";
   const blocks = message.blocks;
   const isStreaming = !!message.isStreaming;
+  const isPreviewMode = useAuthStore(s => s.isPreviewMode);
 
   // Same derivation regardless of whether this message is live-streaming
   // right now or was just replayed from history — grouping/collapsing is
@@ -98,10 +100,13 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
                 case "text":
                   return <TextBlock key={u.key} text={u.text} isUser={isUser} />;
                 case "thinking":
+                  if (isPreviewMode) return null;
                   return <ThinkingBlock key={u.key} content={u.text} isActive={u.isActive} />;
                 case "tool":
+                  if (isPreviewMode) return null;
                   return <ToolCallCard key={u.key} toolCall={u.tool} />;
                 case "activity":
+                  if (isPreviewMode) return null;
                   return <ToolGroupCard key={u.key} items={u.items} toolCount={u.toolCount} category={u.category} />;
               }
             })
