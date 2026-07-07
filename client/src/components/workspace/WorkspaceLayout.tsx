@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useChatStore } from "../../stores/chatStore";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { ChatPanel } from "../chat/ChatPanel";
 import { useChatConnection } from "../../context/useChatConnection";
@@ -30,6 +31,9 @@ export function WorkspaceLayout() {
   const { scheduleSave, flushSave, discardTab } = useEditorAutoSave(editorTabs, writeFile);
 
   async function handleNewChat() {
+    // Immediately enter hydrating state so the old composer doesn't flash
+    // during the HTTP create-session round-trip (especially jarring on mobile).
+    useChatStore.getState().resetForSessionChange();
     const id = await createSession();
     if (id) await fetchSessions();
   }

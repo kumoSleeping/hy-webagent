@@ -198,12 +198,14 @@ export function ComposerBar({
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { imeProps, isComposing, composingRef } = useImeComposition((value) => {
+  const { imeProps, isComposing, composingRef } = useImeComposition((value, caret) => {
     setText(value);
+    typingCaretRef.current = caret;
   });
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const argsLockRef = useRef<string | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
+  const typingCaretRef = useRef<number | null>(null);
   const focusTick = useComposerFocusStore((s) => s.focusTick);
   const requestFocus = useComposerFocusStore((s) => s.requestFocus);
   const pendingText = useComposerFocusStore((s) => s.pendingText);
@@ -345,7 +347,19 @@ export function ComposerBar({
   }
 
   useLayoutEffect(() => {
-    applyPendingCaret();
+    if (pendingCaretRef.current !== null) {
+      applyPendingCaret();
+      return;
+    }
+    // Restore caret after React's controlled value update — iOS Safari
+    // may reset it to 0, breaking voice dictation character order.
+    if (composingRef.current) return;
+    if (typingCaretRef.current === null) return;
+    const ta = taRef.current;
+    if (!ta || ta !== document.activeElement) return;
+    const pos = Math.min(typingCaretRef.current, ta.value.length);
+    typingCaretRef.current = null;
+    ta.setSelectionRange(pos, pos);
   }, [text, focusTick]);
 
   function focusCommandList() {
@@ -1239,6 +1253,8 @@ export function ComposerBar({
           value={text}
           onChange={(e) => {
             setText(e.target.value);
+            // Track cursor for restoration after React resets it on iOS.
+            typingCaretRef.current = e.target.selectionStart;
           }}
           onInput={() => {
             /* Defer resize so iOS Safari can finish pointer/caret tracking before we
