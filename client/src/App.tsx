@@ -64,15 +64,15 @@ function MainApp() {
   const chat = useChatWebSocket();
   useAccountProfileSync(isLoggedIn);
 
-  // Gate until: auth done, workspace ready, session routed, AND chat hydrated
-  // (messages actually rendered). ChatPanel uses its own hydrating state for the
-  // centered-startup skeleton, but the global loader must stay until the last
-  // message is visible to avoid a jarring flash.
+  // Gate until: auth done, workspace ready, session routed, AND first chat
+  // hydration (messages rendered). On session switch ChatPanel handles its own
+  // inline hydrating state — the global loader must only block the very first
+  // paint to avoid the jarring 0.2s flash between workspace init and messages.
   const showLoading =
     isLoading ||
     (isLoggedIn && !sessionRoute.routeReady) ||
     (isLoggedIn && sessionRoute.isSyncingSession && !urlSessionId) ||
-    (isLoggedIn && Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId));
+    (isLoggedIn && Boolean(activePiSessionId) && !hydratedPiSessionId);
 
   return (
     <>
