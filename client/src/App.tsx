@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
 import { useSessionStore } from "./stores/sessionStore";
+import { useChatStore } from "./stores/chatStore";
 import { parseSessionIdFromPath } from "./lib/chatRoutes";
 import { LoginView } from "./components/login/LoginView";
 import { LogoutView } from "./components/logout/LogoutView";
@@ -55,19 +56,23 @@ export default function App() {
 
 function MainApp() {
   const { isLoggedIn, isLoading } = useAuthStore();
+  const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
+  const hydratedPiSessionId = useChatStore((s) => s.hydratedPiSessionId);
   const location = useLocation();
   const urlSessionId = parseSessionIdFromPath(location.pathname) ?? undefined;
   const sessionRoute = useChatSessionRoute();
   const chat = useChatWebSocket();
   useAccountProfileSync(isLoggedIn);
 
-  // Block only on auth + workspace init. Session activate / Pi cold-open runs in the
-  // background while the shell is visible (ChatPanel shows its own hydrating state).
-  // At `/` we still gate until default session redirect finishes.
+  // Gate until: auth done, workspace ready, session routed, AND chat hydrated
+  // (messages actually rendered). ChatPanel uses its own hydrating state for the
+  // centered-startup skeleton, but the global loader must stay until the last
+  // message is visible to avoid a jarring flash.
   const showLoading =
     isLoading ||
     (isLoggedIn && !sessionRoute.routeReady) ||
-    (isLoggedIn && sessionRoute.isSyncingSession && !urlSessionId);
+    (isLoggedIn && sessionRoute.isSyncingSession && !urlSessionId) ||
+    (isLoggedIn && Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId));
 
   return (
     <>

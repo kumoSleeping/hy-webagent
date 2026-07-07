@@ -14,6 +14,16 @@ import { Text } from "@earendil-works/pi-tui";
 import { SubagentParams } from "./schemas.ts";
 import { runSubagent } from "../runs/execution.ts";
 import { SUBAGENT_CHILD_ENV } from "../shared/types.ts";
+import type { Usage } from "../shared/types.ts";
+
+// ── global billing counter (read by kumoSleeping-jina-bar) ──
+
+function addSubagentCost(usage: Usage): void {
+  const g = globalThis as Record<string, unknown>;
+  g.__subagentTokens = ((g.__subagentTokens as number) || 0) + usage.input + usage.output;
+  g.__subagentCost   = ((g.__subagentCost   as number) || 0) + (usage.cost || 0);
+  g.__subagentCalls  = ((g.__subagentCalls  as number) || 0) + 1;
+}
 
 // ── helpers ────────────────────────────────────────────
 
@@ -112,6 +122,9 @@ export default function register(pi: ExtensionAPI): void {
           signal,
           timeoutMs: (params as any).timeoutMs,
         });
+
+        // Accumulate billing for the bar widget
+        addSubagentCost(result.usage);
 
         const icon = statusIcon(result);
         const tok = formatTokens(result.usage.input + result.usage.output);
