@@ -20,6 +20,7 @@ export function useChatSessionRoute() {
   const urlSessionId = parseSessionIdFromPath(location.pathname) ?? undefined;
   const navigate = useNavigate();
   const authSessionId = useAuthStore((s) => s.sessionId);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const [ready, setReady] = useState(false);
   const [isSyncingSession, setIsSyncingSession] = useState(false);
   const defaultRedirectStartedRef = useRef(false);
@@ -88,7 +89,7 @@ export function useChatSessionRoute() {
       defaultRedirectStartedRef.current = false;
       syncedUrlIdRef.current = null;
     };
-  }, [authSessionId]);
+  }, [authSessionId, isLoggedIn]);
 
   // `/` → navigate to /chat/new which creates a fresh session.
   // This keeps the bookmark URL generic (no specific session id).
@@ -105,6 +106,8 @@ export function useChatSessionRoute() {
   useEffect(() => {
     if (!ready) return;
     if (!isNewChatPath(latestPathnameRef.current)) return;
+    const isGuestView = useAuthStore.getState().userId === "__guest__";
+    if (isGuestView) return;
     if (newChatInFlightRef.current) return;
     newChatInFlightRef.current = true;
     setIsSyncingSession(true);
@@ -131,7 +134,8 @@ export function useChatSessionRoute() {
 
   // URL changed (refresh, direct link, browser back/forward) → activate session.
   useEffect(() => {
-    if (!ready || !urlSessionId) return;
+    const isGuestView = useAuthStore.getState().userId === "__guest__";
+    if (!ready || !urlSessionId || isGuestView) return;
 
     const current = useSessionStore.getState().activePiSessionId;
     const hydrated = useChatStore.getState().hydratedPiSessionId;

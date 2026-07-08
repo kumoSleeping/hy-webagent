@@ -175,7 +175,9 @@ function dispatchWsMessage(
       break;
     case "ui:snapshot":
       if (msg.payload) applyStatusPayload(msg.payload);
-      if (msg.payload?.agentRunning) store().resumeAgentRun();
+      // Note: resumeAgentRun is already called inside applyStatusPayload when
+      // agentRunning is true — do not call it again here to avoid creating a
+      // duplicate streaming assistant before chat:history has loaded.
       break;
     case "extension_ui:request": {
       const req = msg.payload as ExtensionUIRequest;
@@ -366,11 +368,55 @@ export function useChatWebSocket(): ChatWebSocketApi {
         if (disposed || wsRef.current !== ws) return;
         reconnectAttempt = 0;
         setConnectionState('connected');
-        // Discard queued messages — replaying stale prompts/steers after a
-        // disconnect risks duplicating turns and routing text deltas to the
-        // wrong message bubble when history reload collides with live streaming.
+        // Take a snapshot of the queue and clear it — queued messages will
+        // be replayed once chat:history has loaded to avoid injecting stale
+        // prompts before the transcript is ready.
+        const pendingQueue = messageQueueRef.current.slice();
         messageQueueRef.current = [];
         ws.send(JSON.stringify({ type: "ui:request_snapshot", payload: {} }));
+        // After the snapshot round-trip, drain any queued messages that
+        // accumulated during or before reconnection.
+        const drain = () => {
+          // Merge any messages queued while waiting for history
+          const merged = [...pendingQueue, ...messageQueueRef.current];
+          messageQueueRef.current = [];
+          // Deduplicate: keep only latest of non-idempotent types
+          const seen = new Set<string>();
+          const filtered = merged.filter(m => {
+            if (NON_IDEMPOTENT_TYPES.has(m.type)) {
+              if (seen.has(m.type)) return false;
+              seen.add(m.type);
+            }
+            return true;
+          });
+          for (const m of filtered) {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: m.type, payload: m.payload }));
+            }
+          }
+        };
+        // Drain on the first non-history, non-snapshot message — this means
+        // the snapshot round-trip has completed and the transcript is ready.
+        let drained = false;
+        const origOnMessage = ws.onmessage;
+        ws.onmessage = (event) => {
+          origOnMessage?.call(ws, event);
+          if (!drained) {
+            let msg: { type: string } | null = null;
+            try { msg = JSON.parse(event.data); } catch { /* ignore */ }
+            if (msg && msg.type !== 'chat:history' && msg.type !== 'ui:snapshot') {
+              drained = true;
+              drain();
+            }
+          }
+        };
+        // Fallback: drain after a short delay even if no new message arrives
+        setTimeout(() => {
+          if (!drained && !disposed) {
+            drained = true;
+            drain();
+          }
+        }, 500);
       };
 
       ws.onmessage = (event) => {

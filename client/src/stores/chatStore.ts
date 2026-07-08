@@ -81,6 +81,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!msg) return;
     set((s) => {
       if (s.messages.some((m) => m.id === msg.id)) return s;
+      // Content-based fallback: if a different-ID message with identical
+      // text + role was already committed (e.g. during a reconnect race
+      // between chat:history and chat:user_message with mismatched IDs),
+      // treat it as the same turn and skip.
+      if (s.messages.some((m) => m.role === msg.role && m.content === msg.content)) return s;
 
       const streamingIdx = s.messages.findIndex((m) => m.isStreaming);
       if (streamingIdx !== -1) {
@@ -293,6 +298,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ),
         };
       }
+      // Before hydration is complete, avoid creating a synthetic assistant
+      // bubble — chat:history will supply the real messages shortly.  Creating
+      // an empty message now would attract live deltas that get wiped when
+      // history arrives, potentially also leaking text into other UI surfaces.
+      if (!s.hydratedPiSessionId) return { isStreaming: true };
       const id = nextId();
       const msg: ChatMessage = {
         id, role: "assistant", content: "", timestamp: Date.now(),

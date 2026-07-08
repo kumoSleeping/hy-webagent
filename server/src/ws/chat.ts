@@ -13,9 +13,10 @@ import { applyTurnUsage, budgetExceededMessage, isBudgetExceeded } from "../usag
 import { applySidecarToolUsage, isSidecarToolName } from "../usage/sidecar-usage.js";
 import { budgetSnapshot } from "../auth.js";
 import { toolResultToText } from "./tool-result-text.js";
-
-const HEARTBEAT_INTERVAL_MS = 30_000;  // Send ping every 30s
-const HEARTBEAT_TIMEOUT_MS = 10_000;    // Client has 10s to respond with pong
+import { findSessionFilePath } from "../pi/session-files.js";
+import { readFile, readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { config } from "../config.js";
 
 const log = createLogger("ws:chat");
 
@@ -23,6 +24,49 @@ interface WSMessage {
   type: string;
   payload: unknown;
 }
+
+/**
+ * Search all user workspace dirs for a session file and extract message history.
+ * Used for guest/view-only connections when the session isn't in memory.
+ */
+async function findSessionHistoryOnDisk(piSessionId: string): Promise<any[] | null> {
+  try {
+    const root = config.workspaceRoot;
+    let userDirs: string[] = [];
+    try { userDirs = await readdir(root); } catch { return null; }
+    for (const name of userDirs) {
+      try {
+        const entryPath = join(root, name);
+        const s = await stat(entryPath);
+        if (!s.isDirectory()) continue;
+      } catch { continue; }
+      const sessionsDir = join(root, name, ".pi", "sessions");
+      try {
+        const filePath = await findSessionFilePath(sessionsDir, piSessionId);
+        if (filePath) {
+          const content = await readFile(filePath, "utf-8");
+          const lines = content.trim().split("\n");
+          const messages: any[] = [];
+          for (let i = 1; i < lines.length; i++) {
+            try {
+              const entry = JSON.parse(lines[i]);
+              if (entry.type === "message" && entry.message) {
+                messages.push(entry.message);
+              }
+            } catch {}
+          }
+          return messages;
+        }
+      } catch {}
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const HEARTBEAT_INTERVAL_MS = 30_000;  // Send ping every 30s
+const HEARTBEAT_TIMEOUT_MS = 10_000;    // Client has 10s to respond with pong
 
 export function handleChatWs(
   ws: WebSocket,
@@ -370,20 +414,29 @@ export function handleChatWs(
     sessionManager.markConnected(existing.sessionId);
     subscribeToSession(existing);
     attachStatusListener(existing.sessionId);
-    sendUiSnapshot();
-    sendHistorySnapshot();
+    // ui:request_snapshot (sent by client on ws.onopen) triggers the full
+    // snapshot+history delivery — avoid a duplicate round trip here.
   } else if (piSessionId) {
     // Server restarted or session evicted — rehydrate from client's piSessionId.
     rehydratePromise = (async () => {
       try {
+        // Guest/view-only mode: search disk for session file across all workspaces
+        if (isViewOnly) {
+          const messages = await findSessionHistoryOnDisk(piSessionId);
+          if (messages) {
+            send({ type: "chat:history", payload: { messages, agentRunning: false } });
+            log.info("guest history served from disk", { piSessionId, count: messages.length });
+            return;
+          }
+          send({ type: "chat:notice", payload: { message: "Session not found or expired" } });
+          return;
+        }
         const workspacePath = isolator.getUserWorkspace(userId);
         const ps = await sessionManager.createSession(userId, workspacePath, onPiEvent, piSessionId);
         activePiSessionId = ps.sessionId;
         sessionManager.markConnected(ps.sessionId);
         subscribeToSession(ps);
         attachStatusListener(ps.sessionId);
-        sendUiSnapshot();
-        sendHistorySnapshot();
         log.info("session rehydrated", { userId, piSessionId });
       } catch (err) {
         log.error(`session rehydrate failed: ${(err as Error).message}`, { userId, piSessionId });

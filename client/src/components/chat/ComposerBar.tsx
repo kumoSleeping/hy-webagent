@@ -315,6 +315,12 @@ export function ComposerBar({
 
   function applyPendingCaret(options?: { focus?: boolean }) {
     if (pendingCaretRef.current === null) return;
+    // Never reposition the cursor during IME composition or iOS dictation —
+    // let the browser manage caret placement entirely while the IME owns
+    // the textarea, otherwise the first dictated character lands at the
+    // wrong position (at the text end) while remaining characters arrive
+    // at the correct insertion point.
+    if (composingRef.current) return;
     const ta = taRef.current;
     if (!ta) return;
     const pos = Math.min(pendingCaretRef.current, ta.value.length);
@@ -1246,7 +1252,12 @@ export function ComposerBar({
             // event stream (desyncs DOM from model, breaks character order).
             // Let the browser manage the textarea directly during dictation.
             const it = (e.nativeEvent as InputEvent).inputType;
-            if (it == null) return;
+            if (it == null) {
+              // Clear any pending caret reposition — moving the cursor
+              // mid-dictation lands the first character at the wrong spot.
+              pendingCaretRef.current = null;
+              return;
+            }
             setText(e.target.value);
           }}
           onInput={() => {

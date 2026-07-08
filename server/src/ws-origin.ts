@@ -35,5 +35,14 @@ export function isOriginAllowed(origin: string | undefined): boolean {
 }
 
 export function isWebSocketOriginAllowed(request: IncomingMessage): boolean {
-  return isOriginAllowed(request.headers.origin);
+  const origin = request.headers.origin;
+  // Always allow same-origin WS connections (e.g. preview page served by this server)
+  if (origin) {
+    try {
+      const originUrl = new URL(origin);
+      const hostHeader = request.headers.host || "";
+      if (originUrl.host === hostHeader) return true;
+    } catch {}
+  }
+  return isOriginAllowed(origin);
 }
