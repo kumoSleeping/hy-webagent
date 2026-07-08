@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
 import { useSessionStore } from "./stores/sessionStore";
-import { parseSessionIdFromPath } from "./lib/chatRoutes";
+import { parseSessionIdFromPath, isNewChatPath } from "./lib/chatRoutes";
 import { LoginView } from "./components/login/LoginView";
 import { LogoutView } from "./components/logout/LogoutView";
 import { WorkspaceLayout } from "./components/workspace/WorkspaceLayout";
@@ -64,10 +64,11 @@ function MainApp() {
   // Block only on auth + workspace init. Session activate / Pi cold-open runs in the
   // background while the shell is visible (ChatPanel shows its own hydrating state).
   // At `/` we still gate until default session redirect finishes.
+  // /chat/new is a transient route for session creation — never gate there.
   const showLoading =
     isLoading ||
     (isLoggedIn && !sessionRoute.routeReady) ||
-    (isLoggedIn && sessionRoute.isSyncingSession && !urlSessionId);
+    (isLoggedIn && sessionRoute.isSyncingSession && !urlSessionId && !isNewChatPath(location.pathname));
 
   return (
     <>
