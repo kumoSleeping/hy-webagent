@@ -1112,26 +1112,25 @@ body {
   margin-right: 0.35rem;
 }
 
-/* "Working" indicator — replaces the old solid-red stop square. A small
-   equalizer wave stands in for the word "working" — motion alone says
-   "still going", no label needed. Neutral at rest (it's just status, not
-   yet an action); goes signature red only on hover/focus, the same moment
-   it becomes a "stop" button. */
+/* "Working" indicator — a small equalizer wave sitting at the
+   composer's top-left corner. Always shown in signature red so it reads
+   as an active session signal; the white wave bars animate while the
+   agent is working. Hover reveals the "stop" affordance (slightly
+   darker red). */
 .pi-composer-working {
   display: flex; align-items: center; justify-content: center;
   height: 1.625rem; padding: 0 0.6rem;
-  border-radius: 0; border: 1px solid var(--pi-line);
-  background: var(--pi-panel);
-  color: var(--pi-muted);
+  border-radius: 0; border: 1px solid var(--pi-theme);
+  background: var(--pi-theme);
+  color: var(--pi-theme-ink);
   box-shadow: var(--pi-shadow-badge);
   cursor: pointer; outline: none;
   transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
 }
 .pi-composer-working:hover,
 .pi-composer-working:focus-visible {
-  color: var(--pi-theme-ink);
-  background: var(--pi-theme);
-  border-color: var(--pi-theme);
+  background: #dc2626;
+  border-color: #dc2626;
 }
 .pi-composer-working-bars {
   display: flex; align-items: center; gap: 2px;

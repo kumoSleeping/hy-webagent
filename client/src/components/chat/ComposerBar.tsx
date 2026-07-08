@@ -1155,7 +1155,7 @@ export function ComposerBar({
               style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
               key={item.id}
               type="button"
-              className={`pi-composer-toolbar-btn${item.id === "new-chat" && !hasDraft ? " pi-composer-toolbar-btn--accent" : ""}`}
+              className={`pi-composer-toolbar-btn${item.id === "new-chat" && !hasDraft && !isStreaming ? " pi-composer-toolbar-btn--accent" : ""}`}
               data-active={item.panel ? panel === item.panel : false}
               data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === index}
               onPointerDown={item.id === "new-chat" ? undefined : handleToolbarPointerDown}

@@ -411,9 +411,42 @@ export function handleChatWs(
   }
 
   if (existing) {
-    sessionManager.markConnected(existing.sessionId);
-    subscribeToSession(existing);
-    attachStatusListener(existing.sessionId);
+    if (isViewOnly) {
+      // Guest/view-only: send snapshot but DO NOT steal event subscription
+      // (the owner WS still needs to receive agent events)
+      sendHistorySnapshot();
+      sendUiSnapshot();
+      // Independently subscribe to live agent events for streaming preview
+      const guestUnsub = existing.session.subscribe((evt) => {
+        if (ws.readyState !== ws.OPEN) {
+          guestUnsub();
+          return;
+        }
+        try {
+          switch (evt.type) {
+            case "message_update": {
+              const ame: any = evt.assistantMessageEvent;
+              if (ame?.type === "text_delta" && ame.delta) {
+                send({ type: "chat:text_delta", payload: { delta: ame.delta } });
+              }
+              break;
+            }
+            case "agent_start":
+              send({ type: "chat:agent_start", payload: {} });
+              break;
+            case "agent_end":
+              send({ type: "chat:agent_end", payload: {} });
+              sendHistorySnapshot();
+              break;
+          }
+        } catch {}
+      });
+      ws.on("close", () => guestUnsub());
+    } else {
+      sessionManager.markConnected(existing.sessionId);
+      subscribeToSession(existing);
+      attachStatusListener(existing.sessionId);
+    }
     // ui:request_snapshot (sent by client on ws.onopen) triggers the full
     // snapshot+history delivery — avoid a duplicate round trip here.
   } else if (piSessionId) {
