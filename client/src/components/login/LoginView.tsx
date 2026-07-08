@@ -25,9 +25,23 @@ export function LoginView() {
             HY-Webagent
           </h1>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
+          {/* Hidden username field so the browser password manager has a
+              complete credential pair to save. Without this the password
+              field alone won't trigger the "Save password?" prompt. */}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            defaultValue="api-user"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
           <input
             type="password"
+            name="api-key"
+            autoComplete="current-password"
             value={apiKey}
             onChange={(e) => { setApiKey(e.target.value); if (error) clearError(); }}
             onKeyDown={handleKeyDown}

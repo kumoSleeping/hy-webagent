@@ -461,7 +461,10 @@ export function handleChatWs(
             log.info("guest history served from disk", { piSessionId, count: messages.length });
             return;
           }
-          send({ type: "chat:notice", payload: { message: "Session not found or expired" } });
+          send({ type: "chat:error", payload: { message: "Session not found or expired. Start a new chat." } });
+          log.warn(`guest session not found on disk`, { piSessionId });
+          // Close after a tick so the error message reaches the client
+          setTimeout(() => { try { ws.close(); } catch {} }, 100);
           return;
         }
         const workspacePath = isolator.getUserWorkspace(userId);
@@ -473,7 +476,8 @@ export function handleChatWs(
         log.info("session rehydrated", { userId, piSessionId });
       } catch (err) {
         log.error(`session rehydrate failed: ${(err as Error).message}`, { userId, piSessionId });
-        throw err;
+        send({ type: "chat:error", payload: { message: `Session unavailable: ${(err as Error).message}. Start a new chat.` } });
+        setTimeout(() => { try { ws.close(); } catch {} }, 100);
       }
     })();
     void rehydratePromise.finally(() => {

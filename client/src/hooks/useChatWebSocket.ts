@@ -321,6 +321,8 @@ export function useChatWebSocket(): ChatWebSocketApi {
       if (useSessionStore.getState().activePiSessionId !== boundPiSessionId) return;
       useChatStore.getState().completeHydration(boundPiSessionId);
       finished = true;
+      // Reset reconnect backoff — transport is working and session is usable
+      reconnectAttempt = 0;
       if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
     }
 
@@ -366,7 +368,11 @@ export function useChatWebSocket(): ChatWebSocketApi {
 
       ws.onopen = () => {
         if (disposed || wsRef.current !== ws) return;
-        reconnectAttempt = 0;
+        // Do NOT reset reconnectAttempt here — a transport-level open does
+        // not guarantee the session is usable. Only reset on successful
+        // hydration (chat:history received). This ensures the page-reload
+        // escape hatch triggers after MAX_RECONNECT_ATTEMPTS consecutive
+        // failures, even when the transport opens each time.
         setConnectionState('connected');
         // Take a snapshot of the queue and clear it — queued messages will
         // be replayed once chat:history has loaded to avoid injecting stale
