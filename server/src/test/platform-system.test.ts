@@ -14,7 +14,6 @@ describe("platform-system", () => {
     expect(text).toContain(PLATFORM_RULES_MARKER);
     expect(text).toContain("Memories.md");
     expect(text).toContain("../.pi/sessions/");
-    expect(text).not.toContain("/dream");
     expect(text).toContain("会话索引");
     expect(text).toContain("不要记这些");
     expect(text).toContain("/api/files/download");

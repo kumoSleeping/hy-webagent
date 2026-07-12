@@ -1,7 +1,9 @@
 /**
- * kumoSleeping-jina-bar — Timer + Jina Stats + Subagent Billing + Goal Status
+ * kumoSleeping-jina-bar — Timer + Jina Stats + I2T model + Subagent Billing + Goal Status
  *
- * Single bar: timer | jina | subagent | goal title [x/y] | @kumoSleeping
+ * Single bar: timer | jina | I2T:{model} | subagent | goal title [x/y] | @kumoSleeping
+ *
+ * I2T:{model} = describe_image active, delegating to this vision model (set by image-viewer)
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -10,6 +12,11 @@ import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { resolveJinaApiKey } from "./_lib/jina-auth.ts";
 
 const SIGNATURE = "@kumoSleeping";
+
+/** Shortcut to read the current vision model name set by image-viewer. */
+function visionModelName(): string | undefined {
+  return (globalThis as Record<string, unknown>).__visionModelName as string | undefined;
+}
 
 function formatMs(ms: number): string {
   if (ms < 10000) return `${(ms / 1000).toFixed(1)}s`;
@@ -167,7 +174,9 @@ export default function (pi: ExtensionAPI) {
             ? `\u25C9 ${goal.title}${goal.total > 0 ? ` [${goal.done}/${goal.total}]` : ""}`
             : null;
 
-          const parts = [timer, jina, subStr, goalStr].filter(Boolean);
+          const vname = visionModelName();
+          const eyeStr = vname ? `I2T:${vname}` : null;
+          const parts = [timer, jina, eyeStr, subStr, goalStr].filter(Boolean);
           const left = dim(parts.join("  "));
           const sigColored = theme.fg("error", SIGNATURE);
           const sigWidth = visibleWidth(sigColored);

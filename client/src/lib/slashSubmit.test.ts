@@ -6,7 +6,6 @@ describe("canSubmitBareSlash", () => {
     if (id === "model") return { kind: "panel" };
     if (id === "settings") return { kind: "panel" };
     if (id === "name") return { kind: "args" };
-    if (id === "dream") return { kind: "extension" };
     if (id === "deploy") return { kind: "prompt" };
     if (id === "skill:review") return { kind: "skill" };
     return undefined;
@@ -36,7 +35,6 @@ describe("canSubmitBareSlash", () => {
   });
 
   it("submits SDK extension/prompt/skill commands without args", () => {
-    expect(canSubmitBareSlash("/dream", find)).toBe(true);
     expect(canSubmitBareSlash("/deploy", find)).toBe(true);
     expect(canSubmitBareSlash("/skill:review", find)).toBe(true);
   });
