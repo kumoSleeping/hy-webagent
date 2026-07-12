@@ -65,7 +65,7 @@ function makeWorkspaceDir(displayName: string): string {
 }
 
 function normalizeRole(role?: UserRole): UserRole {
-  return role === "admin" ? "admin" : "user";
+  return role === "admin" || role === "bot" ? role : "user";
 }
 
 function defaultBudgetUsd(role?: UserRole): number | null {
@@ -166,9 +166,11 @@ export class AuthSystem {
       }
     }
     if (!this.hasAdminUser() && this.users.size > 0) {
-      const first = this.users.values().next().value as UserAccount;
-      first.role = "admin";
-      changed = true;
+      const first = Array.from(this.users.values()).find((user) => normalizeRole(user.role) !== "bot");
+      if (first) {
+        first.role = "admin";
+        changed = true;
+      }
     }
     if (changed) this.persistAllUsers();
   }

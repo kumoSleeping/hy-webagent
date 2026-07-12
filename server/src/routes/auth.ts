@@ -36,6 +36,11 @@ export function createAuthRouter(authSystem: AuthSystem): Router {
         return;
       }
       const session = await authSystem.login(apiKey);
+      if (session.role === "bot") {
+        authSystem.logout(session.sessionId);
+        res.status(403).json({ error: "Bot accounts must use /api/bot/login" });
+        return;
+      }
       const user = authSystem.getUser(session.userId);
       if (!user) {
         res.status(500).json({ error: "User record missing after login" });

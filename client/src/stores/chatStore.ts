@@ -37,7 +37,7 @@ interface ChatState {
 
   /** Insert a user message at the SDK-persisted position (splits a live assistant turn when needed). */
   commitUserMessage: (raw: any) => void;
-  startAssistantMessage: () => string;
+  startAssistantMessage: (serverId?: string) => string;
   appendTextDelta: (msgId: string, delta: string) => void;
   appendThinkingDelta: (msgId: string, delta: string) => void;
   addToolCall: (msgId: string, tool: ToolCallRecord) => void;
@@ -45,6 +45,10 @@ interface ChatState {
   endToolCall: (msgId: string, toolCallId: string, isError: boolean, details?: unknown, outputFromEnd?: string) => void;
   finalizeRunningToolCalls: (msgId: string) => void;
   finishAssistantMessage: (msgId: string) => void;
+  /** Close one SDK assistant message without ending the surrounding agent run. */
+  finishAssistantTurn: (msgId: string) => void;
+  /** Close the surrounding agent run and clean up any empty event placeholders. */
+  finishAgentRun: () => void;
   setStreaming: (v: boolean) => void;
   clearMessages: () => void;
   /** Drop transcript and hydration when switching Pi sessions. */
@@ -117,8 +121,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearQueuedMessagesLocally: () => set({ queuedSteering: [], queuedFollowUp: [] }),
 
-  startAssistantMessage: () => {
+  startAssistantMessage: (serverId) => {
     const s = get();
+    if (serverId) {
+      const existing = s.messages.find((m) => m.id === serverId);
+      if (existing) {
+        set((prev) => ({
+          messages: prev.messages.map((m) => m.id === serverId ? { ...m, isStreaming: true } : m),
+          currentAssistantId: serverId,
+          isStreaming: true,
+        }));
+        return serverId;
+      }
+      const msg: ChatMessage = {
+        id: serverId, role: "assistant", content: "", timestamp: Date.now(),
+        toolCalls: [], blocks: [], isStreaming: true,
+      };
+      set((prev) => ({ messages: [...prev.messages, msg], isStreaming: true, currentAssistantId: serverId }));
+      return serverId;
+    }
     if (s.currentAssistantId) {
       const current = s.messages.find((m) => m.id === s.currentAssistantId);
       if (current?.isStreaming) return s.currentAssistantId;
@@ -257,6 +278,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((s) => ({
       messages: s.messages
         .map((m) => (m.id === msgId ? { ...m, isStreaming: false } : m))
+        .filter((m) => !isEmptyAssistantMessage(m)),
+      isStreaming: false,
+      currentAssistantId: null,
+    }));
+  },
+
+  finishAssistantTurn: (msgId) => {
+    set((s) => ({
+      messages: s.messages.map((m) => (m.id === msgId ? { ...m, isStreaming: false } : m)),
+      currentAssistantId: s.currentAssistantId === msgId ? null : s.currentAssistantId,
+      // The agent may now execute tools and start another assistant message.
+      isStreaming: true,
+    }));
+  },
+
+  finishAgentRun: () => {
+    const markDone = (tc: ToolCallRecord): ToolCallRecord =>
+      tc.status === "running" ? { ...tc, status: "done" as const } : tc;
+    set((s) => ({
+      messages: s.messages
+        .map((m) => ({
+          ...m,
+          isStreaming: false,
+          toolCalls: m.toolCalls?.map(markDone),
+          blocks: m.blocks?.map((b) => b.type === "tool" ? { type: "tool" as const, tool: markDone(b.tool) } : b),
+        }))
         .filter((m) => !isEmptyAssistantMessage(m)),
       isStreaming: false,
       currentAssistantId: null,
@@ -421,20 +468,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         isStreaming: false,
       };
 
-      // The agent SDK persists each LLM turn as its own assistant message
-      // (turn 1: explore, turn 2: explore more, turn 3: final answer), but
-      // it's one continuous reply to the user. Merge consecutive assistant
-      // turns into a single message so history replays exactly like the
-      // live stream did — same blocks, same order, same grouping/collapsing
-      // — instead of fragmenting into one bubble per turn.
-      const prev = converted.at(-1);
-      if (prev && prev.role === "assistant" && role === "assistant") {
-        prev.content += newMsg.content;
-        prev.blocks = [...(prev.blocks ?? []), ...(newMsg.blocks ?? [])];
-        if (newMsg.toolCalls?.length) prev.toolCalls = [...(prev.toolCalls ?? []), ...newMsg.toolCalls];
-      } else {
-        converted.push(newMsg);
-      }
+      // Preserve the SDK message boundary. A single agent run often contains
+      // several assistant messages separated by tool results. Merging those
+      // records leaks process narration into the final answer and makes a
+      // right-click export capture content from unrelated model turns.
+      converted.push(newMsg);
     }
     set({
       messages: converted,

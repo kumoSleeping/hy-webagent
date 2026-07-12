@@ -17,6 +17,7 @@ import { findSessionFilePath } from "../pi/session-files.js";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { config } from "../config.js";
+import type { BotRepository } from "../bot/repository.js";
 
 const log = createLogger("ws:chat");
 
@@ -78,7 +79,16 @@ export function handleChatWs(
   userId: string,
   piSessionId?: string,
   isViewOnly: boolean = false,
+  botRepository?: BotRepository,
 ) {
+  let activeAssistantMessageId: string | undefined;
+  let syntheticAssistantSequence = 0;
+  const toolOwnerMessageIds = new Map<string, string>();
+
+  function assistantMessageId(message: any): string {
+    return String(message?.id || activeAssistantMessageId || `live-assistant-${++syntheticAssistantSequence}`);
+  }
+
   function send(msg: WSMessage) {
     if (ws.readyState === ws.OPEN) {
       ws.send(JSON.stringify(msg));
@@ -109,21 +119,33 @@ export function handleChatWs(
 
   function onPiEvent(_uid: string, event: AgentSessionEvent) {
     switch (event.type) {
+      case "message_start": {
+        const evt: any = event;
+        if (evt.message?.role === "assistant") {
+          activeAssistantMessageId = assistantMessageId(evt.message);
+          send({ type: "chat:assistant_start", payload: { messageId: activeAssistantMessageId } });
+        }
+        break;
+      }
       case "message_update": {
         const ame: any = event.assistantMessageEvent;
+        const messageId = assistantMessageId((event as any).message);
+        activeAssistantMessageId = messageId;
         if (ame.type === "text_delta" && ame.delta) {
-          send({ type: "chat:text_delta", payload: { delta: ame.delta } });
+          send({ type: "chat:text_delta", payload: { messageId, delta: ame.delta } });
         }
         if (ame.type === "thinking_delta" && ame.delta) {
-          send({ type: "chat:thinking_delta", payload: { delta: ame.delta } });
+          send({ type: "chat:thinking_delta", payload: { messageId, delta: ame.delta } });
         }
         break;
       }
       case "tool_execution_start": {
         const evt: any = event;
+        const ownerMessageId = toolOwnerMessageIds.get(String(evt.toolCallId)) || activeAssistantMessageId;
         send({
           type: "chat:tool_start",
           payload: {
+            messageId: ownerMessageId,
             toolCallId: evt.toolCallId,
             toolName: evt.toolName,
             input: evt.args || {},
@@ -137,6 +159,7 @@ export function handleChatWs(
         send({
           type: "chat:tool_update",
           payload: {
+            messageId: toolOwnerMessageIds.get(String(evt.toolCallId)),
             toolCallId: evt.toolCallId,
             output: toolResultToText(evt.partialResult),
           },
@@ -148,6 +171,7 @@ export function handleChatWs(
         send({
           type: "chat:tool_end",
           payload: {
+            messageId: toolOwnerMessageIds.get(String(evt.toolCallId)),
             toolCallId: evt.toolCallId,
             isError: evt.isError,
             details: evt.result,
@@ -194,15 +218,28 @@ export function handleChatWs(
         const evt: any = event;
         if (evt.message?.role === "user") {
           send({ type: "chat:user_message", payload: { message: evt.message, phase: "end" } });
+        } else if (evt.message?.role === "assistant") {
+          const messageId = assistantMessageId(evt.message);
+          if (Array.isArray(evt.message.content)) {
+            for (const part of evt.message.content) {
+              if (part?.type === "toolCall" && part.id) {
+                toolOwnerMessageIds.set(String(part.id), messageId);
+              }
+            }
+          }
+          send({ type: "chat:assistant_end", payload: { messageId } });
+          if (activeAssistantMessageId === messageId) activeAssistantMessageId = undefined;
         }
         break;
       }
       case "agent_start":
         send({ type: "chat:agent_start", payload: {} });
+        if (getActiveSessionId()) botRepository?.updateSessionStatus(getActiveSessionId()!, "running");
         startLiveUiPush();
         break;
       case "agent_end":
         send({ type: "chat:agent_end", payload: {} });
+        if (getActiveSessionId()) botRepository?.updateSessionStatus(getActiveSessionId()!, "idle");
         stopLiveUiPush();
         sendFooterSnapshot();
         sendWidgetSnapshot();
@@ -417,6 +454,12 @@ export function handleChatWs(
       sendHistorySnapshot();
       sendUiSnapshot();
       // Independently subscribe to live agent events for streaming preview
+      let guestAssistantMessageId: string | undefined;
+      let guestSyntheticSequence = 0;
+      const guestToolOwners = new Map<string, string>();
+      const guestMessageId = (message: any) => String(
+        message?.id || guestAssistantMessageId || `guest-live-assistant-${++guestSyntheticSequence}`
+      );
       const guestUnsub = existing.session.subscribe((evt) => {
         if (ws.readyState !== ws.OPEN) {
           guestUnsub();
@@ -424,11 +467,70 @@ export function handleChatWs(
         }
         try {
           switch (evt.type) {
+            case "message_start": {
+              const message: any = (evt as any).message;
+              if (message?.role === "assistant") {
+                guestAssistantMessageId = guestMessageId(message);
+                send({ type: "chat:assistant_start", payload: { messageId: guestAssistantMessageId } });
+              }
+              break;
+            }
             case "message_update": {
               const ame: any = evt.assistantMessageEvent;
+              const messageId = guestMessageId((evt as any).message);
+              guestAssistantMessageId = messageId;
               if (ame?.type === "text_delta" && ame.delta) {
-                send({ type: "chat:text_delta", payload: { delta: ame.delta } });
+                send({ type: "chat:text_delta", payload: { messageId, delta: ame.delta } });
               }
+              if (ame?.type === "thinking_delta" && ame.delta) {
+                send({ type: "chat:thinking_delta", payload: { messageId, delta: ame.delta } });
+              }
+              break;
+            }
+            case "message_end": {
+              const message: any = (evt as any).message;
+              if (message?.role === "assistant") {
+                const messageId = guestMessageId(message);
+                if (Array.isArray(message.content)) {
+                  for (const part of message.content) {
+                    if (part?.type === "toolCall" && part.id) guestToolOwners.set(String(part.id), messageId);
+                  }
+                }
+                send({ type: "chat:assistant_end", payload: { messageId } });
+                if (guestAssistantMessageId === messageId) guestAssistantMessageId = undefined;
+              } else if (message?.role === "user") {
+                send({ type: "chat:user_message", payload: { message, phase: "end" } });
+              }
+              break;
+            }
+            case "tool_execution_start": {
+              const event: any = evt;
+              send({ type: "chat:tool_start", payload: {
+                messageId: guestToolOwners.get(String(event.toolCallId)) || guestAssistantMessageId,
+                toolCallId: event.toolCallId,
+                toolName: event.toolName,
+                input: event.args || {},
+              } });
+              break;
+            }
+            case "tool_execution_update": {
+              const event: any = evt;
+              send({ type: "chat:tool_update", payload: {
+                messageId: guestToolOwners.get(String(event.toolCallId)),
+                toolCallId: event.toolCallId,
+                output: toolResultToText(event.partialResult),
+              } });
+              break;
+            }
+            case "tool_execution_end": {
+              const event: any = evt;
+              send({ type: "chat:tool_end", payload: {
+                messageId: guestToolOwners.get(String(event.toolCallId)),
+                toolCallId: event.toolCallId,
+                isError: event.isError,
+                details: event.result,
+                output: toolResultToText(event.result),
+              } });
               break;
             }
             case "agent_start":

@@ -122,7 +122,7 @@ export function applyTurnUsage(params: {
 }
 
 export function isBudgetExceeded(user: {
-  role?: "user" | "admin";
+  role?: import("../types.js").UserRole;
   budgetUsd?: number | null;
   budgetUsedUsd?: number;
 }): boolean {

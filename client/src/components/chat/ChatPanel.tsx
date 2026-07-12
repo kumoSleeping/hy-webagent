@@ -9,7 +9,6 @@ import { useComposerFocusStore } from "../../stores/composerFocusStore";
 import { useMobileLayout } from "../../hooks/useMobileLayout";
 import { isElevatedPanel } from "../../lib/composerLayout";
 import { apiGet } from "../../lib/api";
-import { PlatformSignature } from "../common/PlatformSignature";
 import { MessageFeed } from "./MessageFeed";
 import { ComposerBar } from "./ComposerBar";
 import { StatusBar } from "./StatusBar";
@@ -25,9 +24,8 @@ import { openToolbarSlashPanel, resolveToolbarSlash } from "../../lib/toolbarSla
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { useNotificationStore } from "../../stores/notificationStore";
-import { useStartupPreferencesStore } from "../../stores/startupPreferencesStore";
-import { resolveCenteredStartup } from "../../lib/startupPreferences";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
+import { useGroupPreview } from "../bot/GroupPreviewContext";
 
 interface ModelInfo {
   provider: string;
@@ -57,27 +55,18 @@ interface ChatPanelProps {
   onEditorFocus?: () => void;
 }
 
-/** Tracks whether ANY session has ever completed hydration in this tab.
- *  Stays true across session switches so we can distinguish "first paint"
- *  from "switch to another session" — resetForSessionChange clears
- *  hydratedPiSessionId but this flag survives. */
-let hasEverHydrated = false;
-
 export function ChatPanel({
   chat,
   onNewChat, onFileClick, editorTabs, activeTabId, onTabClick, onTabClose, onContentChange, onViewModeChange,
   onEditorFocus,
 }: ChatPanelProps) {
   const isStreaming = useChatStore((s) => s.isStreaming);
-  const messages = useChatStore((s) => s.messages);
   const hydratedPiSessionId = useChatStore((s) => s.hydratedPiSessionId);
   const queuedSteering = useChatStore((s) => s.queuedSteering);
   const queuedFollowUp = useChatStore((s) => s.queuedFollowUp);
   const composerPanel = useComposerPanelStore((s) => s.panel);
   const treeMode = useComposerPanelStore((s) => s.treeMode);
   const isMobileLayout = useMobileLayout();
-  const welcomeEnabled = useStartupPreferencesStore((s) => s.welcomeEnabled);
-  const composerPosition = useStartupPreferencesStore((s) => s.composerPosition);
   const centerStageOpen = useCenterStageOpen(isMobileLayout);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   /** File preview uses the stack above composer. */
@@ -91,27 +80,9 @@ export function ChatPanel({
   // avoids the composer jumping from center to bottom while history loads.
   const isHydrating = Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId);
 
-  // Mark that at least one session has completed hydration — survives
-  // resetForSessionChange so we can tell "first paint" from "session switch".
-  if (hydratedPiSessionId && !hasEverHydrated) hasEverHydrated = true;
   const isGuestView = useAuthStore((s) => s.userId) === "__guest__";
   const isPreviewMode = useAuthStore((s) => s.isPreviewMode);
-  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
-  useEffect(() => {
-    setWelcomeDismissed(false);
-  }, [activePiSessionId]);
-  const isEmptySession = messages.length === 0;
-  const isStartupLayout =
-    !welcomeDismissed &&
-    isEmptySession &&
-    // During first-ever load (no session ever hydrated), apply startup layout
-    // immediately to avoid "top→bottom→center" flash. On session switches
-    // hasEverHydrated is true and we wait for the normal hydration check.
-    (hydratedPiSessionId === activePiSessionId || !hasEverHydrated);
-  const useCenteredStartup =
-    isStartupLayout &&
-    resolveCenteredStartup(composerPosition, isMobileLayout);
-  const showWelcomeSignature = isStartupLayout && welcomeEnabled && useCenteredStartup;
+  const groupPreview = useGroupPreview();
   const notify = useNotificationStore((s) => s.notify);
   const fetchSessions = useSessionStore((s) => s.fetchSessions);
   const activePanel = useSlashStore((s) => s.activePanel);
@@ -142,7 +113,7 @@ export function ChatPanel({
   useStatusBarSync();
 
   useEffect(() => {
-    if (!activePiSessionId) return;
+    if (!activePiSessionId || groupPreview) return;
     apiGet<ModelsResponse>("/api/models")
       .then((data) => {
         setModels(data.models || []);
@@ -160,7 +131,7 @@ export function ChatPanel({
         setDynamicCommands(data.dynamic || []);
       })
       .catch(console.error);
-  }, [activePiSessionId, setCommands, setDynamicCommands]);
+  }, [activePiSessionId, groupPreview, setCommands, setDynamicCommands]);
 
   function refreshModels() {
     if (!activePiSessionId) return;
@@ -177,10 +148,10 @@ export function ChatPanel({
   }
 
   useEffect(() => {
-    if (composerPanel !== "model" || !activePiSessionId) return;
+    if (groupPreview || composerPanel !== "model" || !activePiSessionId) return;
     refreshModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [composerPanel, activePiSessionId]);
+  }, [composerPanel, activePiSessionId, groupPreview]);
 
   useEffect(() => {
     if (activePanel === "session" && activePiSessionId) {
@@ -235,7 +206,6 @@ export function ChatPanel({
       notifySendFailure();
       return;
     }
-    setWelcomeDismissed(true);
     setTimeout(() => fetchSessions(), 800);
   }
 
@@ -478,16 +448,47 @@ export function ChatPanel({
     <SlashSessionTree sessionId={activePiSessionId} mode={treeMode} onExecute={handleExecute} />
   ) : null;
 
-  const modelContent: ReactNode = (
+  const modelContent: ReactNode = groupPreview ? (
+    <div className="pi-group-preview-restricted">
+      <strong>模型由群聊机器人管理</strong>
+      <span>此处保留模型信息入口，但群组预览中不能切换模型。</span>
+    </div>
+  ) : (
     <SlashModelSelector models={models} currentModel={currentModel} onExecute={handleExecute} onClose={closePanel} />
   );
 
+  const groupFilesContent: ReactNode = (
+    <div className="pi-group-preview-restricted">
+      <strong>文件功能仅供展示</strong>
+      <span>请在正常聊天中登录后查看和操作工作区文件。</span>
+    </div>
+  );
+
+  const groupAccountContent: ReactNode = groupPreview ? (
+    <div className="pi-account-panel">
+      <div className="pi-account-panel-row">
+        <span className="pi-account-panel-label">Group</span>
+        <span className="pi-account-panel-value">{groupPreview.channelDisplayName}</span>
+      </div>
+      <div className="pi-account-panel-row">
+        <span className="pi-account-panel-label">Bot</span>
+        <span className="pi-account-panel-value">@{groupPreview.botSlug} · {groupPreview.botDisplayName}</span>
+      </div>
+      <div className="pi-account-panel-row">
+        <span className="pi-account-panel-label">Mode</span>
+        <span className="pi-account-panel-value pi-account-panel-muted">只读群组预览</span>
+      </div>
+      <button type="button" className="pi-account-panel-logout" onClick={groupPreview.returnToChat}>
+        返回正常聊天
+      </button>
+    </div>
+  ) : null;
+
   return (
     <div
-      className={`pi-app-shell pi-app-shell--revealed${useCenteredStartup ? " pi-app-shell--welcome" : ""}${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
+      className={`pi-app-shell pi-app-shell--revealed${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
     >
-      {!useCenteredStartup && !isHydrating && <MessageFeed />}
-      {showWelcomeSignature && !isHydrating && <PlatformSignature />}
+      {!isHydrating && <MessageFeed />}
       {(composerPanel || centerStageOpen) && (
         <div
           className="pi-click-backdrop"
@@ -517,9 +518,9 @@ export function ChatPanel({
               }}
             />
           </div>
-          {!isPreviewMode && (
+          {(!isPreviewMode || groupPreview) && (
           <ComposerBar
-            disabled={isHydrating || isGuestView}
+            disabled={isHydrating || isGuestView || Boolean(groupPreview)}
             isStreaming={isStreaming}
             isMobileLayout={isMobileLayout}
             onSend={handleSend}
@@ -539,6 +540,13 @@ export function ChatPanel({
             onFileClick={onFileClick}
             commandsContent={commandsContent}
             modelContent={modelContent}
+            groupPreview={groupPreview ? {
+              notice: "请到群聊中输入消息",
+              onReturnToChat: groupPreview.returnToChat,
+              onSelectSession: groupPreview.selectSession,
+              filesContent: groupFilesContent,
+              accountContent: groupAccountContent,
+            } : undefined}
           />
           )}
         </div>

@@ -87,4 +87,38 @@ describe("chatStore transcript sync", () => {
     useChatStore.getState().finishAssistantMessage(assistantId);
     expect(useChatStore.getState().messages).toHaveLength(0);
   });
+
+  it("preserves SDK assistant boundaries around tool results in history", () => {
+    useChatStore.getState().loadHistory([
+      { id: "u1", role: "user", content: [{ type: "text", text: "查一下" }] },
+      { id: "a1", role: "assistant", content: [
+        { type: "text", text: "我先搜索。" },
+        { type: "toolCall", id: "tc1", name: "search", arguments: { q: "x" } },
+      ] },
+      { id: "tr1", role: "toolResult", toolCallId: "tc1", content: [{ type: "text", text: "result" }] },
+      { id: "a2", role: "assistant", content: [{ type: "text", text: "这是最终回答。" }] },
+    ]);
+
+    const messages = useChatStore.getState().messages;
+    expect(messages.map((message) => message.id)).toEqual(["u1", "a1", "a2"]);
+    expect(messages[1]?.content).toBe("我先搜索。");
+    expect(messages[1]?.toolCalls?.[0]?.output).toBe("result");
+    expect(messages[2]?.content).toBe("这是最终回答。");
+  });
+
+  it("keeps consecutive live assistant turns in separate bubbles", () => {
+    const first = useChatStore.getState().startAssistantMessage("a-process");
+    useChatStore.getState().appendTextDelta(first, "我先搜索。");
+    useChatStore.getState().finishAssistantTurn(first);
+
+    const final = useChatStore.getState().startAssistantMessage("a-final");
+    useChatStore.getState().appendTextDelta(final, "最终回答。");
+    useChatStore.getState().finishAssistantTurn(final);
+    useChatStore.getState().finishAgentRun();
+
+    const messages = useChatStore.getState().messages;
+    expect(messages.map((message) => message.id)).toEqual(["a-process", "a-final"]);
+    expect(messages.map((message) => message.content)).toEqual(["我先搜索。", "最终回答。"]);
+    expect(useChatStore.getState().isStreaming).toBe(false);
+  });
 });

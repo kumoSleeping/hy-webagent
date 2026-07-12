@@ -90,6 +90,21 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
+
+/* Browser-backed message export. This hidden route intentionally reuses the
+   exact .pi-markdown tree and design tokens used by normal and group-preview
+   conversations; the server screenshots only the white card below. */
+.pi-message-render-page {
+  width: 960px;
+  min-height: 100%;
+  padding: 32px;
+  background: var(--pi-bg);
+}
+.pi-message-render-card {
+  width: 896px;
+  max-width: none;
+}
+.pi-message-render-card .pi-code-copy { display: none; }
 * { box-sizing: border-box; }
 ::selection { background: rgba(239, 68, 68, 0.16); }
 
@@ -356,13 +371,6 @@ body {
   max-height: min(34rem, calc(100dvh - 9rem));
   overflow: hidden;
 }
-.pi-app-shell--welcome .pi-center-stage {
-  max-height: min(22rem, 34dvh);
-}
-.pi-app-shell--welcome .pi-center-stage--preview {
-  height: min(22rem, 34dvh);
-  max-height: min(22rem, 34dvh);
-}
 .pi-center-stage-header {
   display: flex;
   align-items: center;
@@ -620,15 +628,59 @@ body {
 }
 .pi-account-panel-logout {
   display: block;
+  width: 100%;
   margin-top: 0.1rem;
   padding: 0.42rem 0.55rem;
+  border: 0;
   border-top: 1px solid var(--pi-line-soft);
+  background: transparent;
   color: var(--pi-muted);
+  font: inherit;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
 }
 .pi-account-panel-logout:hover {
   color: var(--pi-text-body);
 }
+.pi-account-panel-groups {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  padding: 0.55rem;
+  border: 0;
+  border-top: 1px solid var(--pi-line-soft);
+  background: transparent;
+  color: var(--pi-text-body);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pi-group-browser { display: flex; min-height: 12rem; max-height: min(28rem, 65vh); flex-direction: column; }
+.pi-group-browser-head { height: 2.5rem; display: flex; align-items: center; gap: 0.55rem; padding: 0 0.55rem; border-bottom: 1px solid var(--pi-line-soft); }
+.pi-group-browser-head button,
+.pi-group-browser-remove { border: 0; background: transparent; color: var(--pi-muted); cursor: pointer; }
+.pi-group-browser-head .pi-group-browser-new { margin-left: auto; display: flex; align-items: center; gap: 0.25rem; color: var(--pi-text-body); }
+.pi-group-browser-form { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.65rem; border-bottom: 1px solid var(--pi-line-soft); }
+.pi-group-browser-form input { min-width: 0; flex: 1; border: 1px solid var(--pi-line); background: var(--pi-panel); color: var(--pi-text-body); padding: 0.5rem 0.6rem; outline: none; }
+.pi-group-browser-form input:focus { border-color: var(--pi-theme); }
+.pi-group-browser-form button { min-height: 2.1rem; border: 1px solid var(--pi-text-body); background: var(--pi-text-body); color: var(--pi-bg); padding: 0 0.75rem; cursor: pointer; }
+.pi-group-browser-form button:disabled { opacity: 0.45; cursor: default; }
+.pi-group-browser-error { margin: 0; padding: 0.55rem 0.65rem; color: #d34a4a; font-size: 0.78rem; }
+.pi-group-browser-config-hint { margin: 0; padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--pi-line-soft); color: var(--pi-muted); font-size: 0.72rem; line-height: 1.45; }
+.pi-group-browser-list { min-height: 0; overflow: auto; }
+.pi-group-browser-empty { padding: 1.4rem 0.65rem; color: var(--pi-muted); text-align: center; }
+.pi-group-browser-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--pi-line-soft); }
+.pi-group-browser-open { min-width: 0; flex: 1; display: flex; align-items: center; gap: 0.6rem; border: 0; background: transparent; color: var(--pi-text-body); padding: 0.65rem; text-align: left; cursor: pointer; }
+.pi-group-browser-open:hover { background: var(--pi-panel-subtle); }
+.pi-group-browser-open span { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.pi-group-browser-open strong,
+.pi-group-browser-open small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pi-group-browser-open small { color: var(--pi-muted); }
+.pi-group-browser-remove { width: 2.5rem; display: grid; place-items: center; }
+.pi-group-browser-remove:hover { color: #d34a4a; }
 
 .pi-account-panel-prefs {
   margin-top: 0.35rem;
@@ -1769,7 +1821,6 @@ button.pi-panel-row.pi-panel-row--selected {
   pointer-events: none;
   z-index: 5;
 }
-.pi-app-shell--welcome::before { display: none; }
 
 /* Full-viewport loading — auth gate, session bootstrap, route sync */
 .pi-loading-gate {
@@ -1880,22 +1931,6 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-bg);
   pointer-events: none;
   z-index: -2;
-}
-
-/* Welcome overrides must follow base shell positioning */
-.pi-app-shell--welcome {
-  justify-content: center;
-  align-items: center;
-}
-.pi-app-shell--welcome .pi-interactive-shell {
-  position: relative;
-  inset: auto;
-  bottom: auto;
-  flex-shrink: 0;
-}
-.pi-app-shell--welcome .pi-interactive-shell::before,
-.pi-app-shell--welcome .pi-interactive-shell::after {
-  display: none;
 }
 
 /* Composer scrim: opaque stack below, short gradient at the top edge where
@@ -2204,14 +2239,6 @@ button.pi-panel-row.pi-panel-row--selected {
   overflow-x: hidden;
   overflow-y: auto;
 }
-/* While welcome/centered, the composer sits mid-viewport — only ~half the
-   screen is free above it, so popups need a tighter cap than the
-   bottom-docked case to avoid spilling past the top of the screen. */
-.pi-app-shell--welcome .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
-  height: min(14rem, 28dvh);
-  max-height: min(14rem, 28dvh);
-}
-
 /* History list — line-number gutter + theme-color selection */
 .pi-hist-section {
   display: flex; align-items: center; gap: 0.5rem;
@@ -2281,10 +2308,6 @@ button.pi-panel-row.pi-panel-row--selected {
   display: flex; flex-direction: column;
   overflow: hidden;
 }
-.pi-app-shell--welcome .pi-file-preview {
-  height: min(22rem, 34dvh);
-}
-
 /* Full-viewport, invisible — click it anywhere to dismiss whatever
    popup/preview is open and return to the conversation. Sits above the
    message feed but below `.pi-interactive-shell` (z-index: 20), so the
@@ -2514,3 +2537,78 @@ button.pi-panel-row.pi-panel-row--selected {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.6; }
 }
+.pi-group-preview-restricted {
+  display: flex;
+  min-height: 7.5rem;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1rem;
+  color: var(--pi-text-body);
+}
+.pi-group-preview-restricted span {
+  color: var(--pi-muted);
+  line-height: 1.55;
+}
+.pi-group-preview-error {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: var(--pi-bg);
+  color: var(--pi-text-body);
+  text-align: center;
+}
+.pi-group-preview-error button {
+  border: 1px solid var(--pi-line);
+  padding: 0.55rem 0.8rem;
+  background: var(--pi-panel);
+  color: inherit;
+  cursor: pointer;
+}
+.pi-message-context-menu {
+  position: fixed;
+  z-index: 1200;
+  width: 176px;
+  padding: 5px;
+  background: color-mix(in srgb, var(--pi-bg-elevated, var(--pi-bg)) 96%, transparent);
+  border: 1px solid var(--pi-border);
+  border-radius: 7px;
+  box-shadow: 0 14px 42px rgba(0, 0, 0, .24);
+  backdrop-filter: blur(16px);
+}
+
+.pi-message-context-menu button {
+  width: 100%;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--pi-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pi-message-context-menu button:hover,
+.pi-message-context-menu button:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--pi-accent) 12%, transparent);
+  color: var(--pi-accent);
+}
+
+.pi-message-exporting {
+  align-self: center;
+  margin: 0 7px;
+  color: var(--pi-text-muted);
+  animation: pi-message-export-spin .8s linear infinite;
+}
+
+@keyframes pi-message-export-spin { to { transform: rotate(360deg); } }

@@ -2,7 +2,7 @@
 // PI Web Platform - Shared Types
 // ============================================================
 
-export type UserRole = "user" | "admin";
+export type UserRole = "user" | "admin" | "bot";
 
 /** User account stored in memory/file */
 export interface UserAccount {

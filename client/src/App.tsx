@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
 import { useSessionStore } from "./stores/sessionStore";
-import { parseSessionIdFromPath, isNewChatPath } from "./lib/chatRoutes";
+import { parseSessionIdFromPath, parseGroupPath, isNewChatPath } from "./lib/chatRoutes";
 import { LoginView } from "./components/login/LoginView";
 import { LogoutView } from "./components/logout/LogoutView";
 import { WorkspaceLayout } from "./components/workspace/WorkspaceLayout";
@@ -12,8 +12,14 @@ import { useChatSessionRoute } from "./hooks/useChatSessionRoute";
 import { useChatWebSocket } from "./hooks/useChatWebSocket";
 import { ChatWebSocketProvider } from "./context/chatWebSocketContext";
 import { useAccountProfileSync } from "./hooks/useAccountProfileSync";
+import { setGlobalLoaderActive } from "./lib/globalLoader";
+import { MessageRenderPage } from "./components/chat/MessageRenderPage";
+import { GroupPreviewApp } from "./components/bot/GroupPreviewApp";
 
 export default function App() {
+  const groupMatch = window.location.pathname.match(/^\/bot_([^/]+)\/channel_([^/]+)\/?$/);
+  const directGroupRoute = groupMatch ? null : parseGroupPath(window.location.pathname);
+  const isMessageRenderPath = window.location.pathname === "/__render/message";
   // 预览模式（路径 /preview/:piSessionId）
   const isPreviewPath = window.location.pathname.startsWith("/preview/");
   const previewPiSessionId = isPreviewPath
@@ -25,6 +31,11 @@ export default function App() {
   const guestPiSessionId = searchParams.get("piSessionId") ?? undefined;
 
   useEffect(() => {
+    if (groupMatch || directGroupRoute || isMessageRenderPath) {
+      document.documentElement.classList.remove("pi-auth-pending");
+      setGlobalLoaderActive(false);
+      return;
+    }
     // 预览模式（路径 /preview/:piSessionId）：优先级高于 query 参数访客模式
     if (isPreviewPath && previewPiSessionId) {
       useAuthStore.getState().setGuestMode(previewPiSessionId, true);
@@ -43,12 +54,24 @@ export default function App() {
   return (
     <>
       <NotificationStack />
+      {isMessageRenderPath ? (
+        <MessageRenderPage />
+      ) : directGroupRoute ? (
+        <BrowserRouter>
+          <GroupPreviewApp botSlug={directGroupRoute.botSlug} channelId={directGroupRoute.channelId} />
+        </BrowserRouter>
+      ) : groupMatch ? (
+        <BrowserRouter>
+          <GroupPreviewApp botSlug={decodeURIComponent(groupMatch[1]!)} channelId={decodeURIComponent(groupMatch[2]!)} />
+        </BrowserRouter>
+      ) : (
       <BrowserRouter>
         <Routes>
           <Route path="/logout" element={<LogoutView />} />
           <Route path="*" element={<MainApp />} />
         </Routes>
       </BrowserRouter>
+      )}
     </>
   );
 }

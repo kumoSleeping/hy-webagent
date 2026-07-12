@@ -52,8 +52,12 @@ function mobileBtnWidthPx(): number {
 export function useFittedToolbarItems(
   isMobileLayout: boolean,
   shellRef: RefObject<HTMLElement | null>,
+  itemOverride?: ToolbarItemDef[],
 ): ToolbarItemDef[] {
-  const baseItems = useMemo(() => toolbarItemsForLayout(isMobileLayout), [isMobileLayout]);
+  const baseItems = useMemo(
+    () => itemOverride ?? toolbarItemsForLayout(isMobileLayout),
+    [isMobileLayout, itemOverride],
+  );
 
   // On mobile, estimate the initial fitted set from the viewport so the first
   // paint does not render the full 7-item pool and overflow off-screen before

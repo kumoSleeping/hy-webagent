@@ -4,6 +4,7 @@ import {
   fitToolbarItemsToBand,
   isElevatedPanel,
   MOBILE_TOOLBAR_ITEMS,
+  GROUP_PREVIEW_TOOLBAR_ITEMS,
   panelToolbarIndex,
   restoreOneToolbarItem,
   toolbarItemsForLayout,
@@ -11,6 +12,16 @@ import {
 } from "./composerLayout";
 
 describe("composerLayout", () => {
+  it("limits group preview to the five read-only navigation surfaces", () => {
+    expect(GROUP_PREVIEW_TOOLBAR_ITEMS.map((item) => item.id)).toEqual([
+      "model",
+      "history",
+      "files",
+      "account",
+      "return-chat",
+    ]);
+  });
+
   it("uses the full toolbar pool on mobile", () => {
     expect(toolbarItemsForLayout(true).map((item) => item.id)).toEqual([
       "commands",

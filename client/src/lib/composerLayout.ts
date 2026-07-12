@@ -1,6 +1,6 @@
 import type { ComposerPanelKind } from "../stores/composerPanelStore";
 
-export type ToolbarItemId = "new-chat" | "commands" | "model" | "tree" | "history" | "files" | "account";
+export type ToolbarItemId = "new-chat" | "commands" | "model" | "tree" | "history" | "files" | "account" | "return-chat";
 
 export interface ToolbarItemDef {
   id: ToolbarItemId;
@@ -32,6 +32,15 @@ export const MOBILE_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "new-chat", panel: null, enterToActivate: true },
 ];
 
+/** Group pages keep the familiar composer chrome but expose only read-only surfaces. */
+export const GROUP_PREVIEW_TOOLBAR_ITEMS: ToolbarItemDef[] = [
+  { id: "model", panel: "model", enterToActivate: false },
+  { id: "history", panel: "history", enterToActivate: false },
+  { id: "files", panel: "files", enterToActivate: false },
+  { id: "account", panel: "account", enterToActivate: false },
+  { id: "return-chat", panel: null, enterToActivate: true },
+];
+
 /** Right-side band the toolbar may occupy — left remainder stays empty. */
 export const TOOLBAR_BAND_RATIO = 0.8;
 
@@ -46,7 +55,7 @@ export const TOOLBAR_TRIM_ORDER: ToolbarItemId[] = [
 ];
 
 /** Never dropped — commands stays; send lives in the input row below. */
-export const TOOLBAR_PROTECTED: ToolbarItemId[] = ["commands"];
+export const TOOLBAR_PROTECTED: ToolbarItemId[] = ["commands", "return-chat"];
 
 export function getRootFontPx(): number {
   if (typeof document === "undefined") return 16;

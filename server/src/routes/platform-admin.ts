@@ -6,6 +6,7 @@ import { listModelTemplates } from "../model-policy.js";
 import { listPlatformModels, parseModelFilterBody } from "../model-catalog.js";
 import type { WorkspaceIsolator } from "../pi/isolation.js";
 import type { PISessionManager } from "../pi/session-manager.js";
+import type { BotRepository } from "../bot/repository.js";
 
 function utcToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -38,7 +39,8 @@ export function createPlatformAdminRouter(
   authSystem: AuthSystem,
   usageRecorder: UsageRecorder,
   isolator: WorkspaceIsolator,
-  sessionManager: PISessionManager
+  sessionManager: PISessionManager,
+  bots: BotRepository
 ): Router {
   const router = Router();
   const guard = [authMiddleware(authSystem), requireAdminRole];
@@ -65,6 +67,7 @@ export function createPlatformAdminRouter(
         models: `${platformAdminBase}/models`,
         userModelFilter: `${platformAdminBase}/users/{userIdOrUsername}/model-filter`,
         syncCredentials: `${platformAdminBase}/users/{userIdOrUsername}/sync-credentials`,
+        bots: `${platformAdminBase}/bots`,
       },
       examples: {
         listUsers: `curl -s -H "Authorization: Bearer ${session.sessionId}" "${platformAdminBase}/users"`,
@@ -88,7 +91,82 @@ export function createPlatformAdminRouter(
   });
 
   router.get("/users", ...guard, (_req, res) => {
-    res.json({ users: authSystem.getAllUsers() });
+    res.json({ users: authSystem.getAllUsers().filter((user) => user.role !== "bot") });
+  });
+
+  router.get("/bots", ...guard, (_req, res) => {
+    res.json({ bots: bots.listAccounts().map((bot) => ({ ...bot, channels: bots.listChannels(bot.userId) })) });
+  });
+
+  router.post("/bots", ...guard, async (req, res) => {
+    try {
+      const slug = typeof req.body?.slug === "string" ? req.body.slug.trim().toLowerCase() : "";
+      const displayName = typeof req.body?.displayName === "string" ? req.body.displayName.trim() : "";
+      if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(slug)) {
+        res.status(400).json({ error: "slug must be 2-63 lowercase letters, numbers, or hyphens" });
+        return;
+      }
+      if (!displayName) {
+        res.status(400).json({ error: "displayName is required" });
+        return;
+      }
+      if (bots.findAccountBySlug(slug)) {
+        res.status(409).json({ error: `Bot already exists: ${slug}` });
+        return;
+      }
+      const { user, plainKey } = await authSystem.createUser(undefined, displayName, {
+        username: `bot-${slug}`,
+        role: "bot",
+        budgetUsd: typeof req.body?.budgetUsd === "number" ? req.body.budgetUsd : undefined,
+        modelTemplateId: typeof req.body?.modelTemplateId === "string" ? req.body.modelTemplateId : undefined,
+      });
+      const now = Date.now();
+      bots.createAccount({ userId: user.userId, slug, displayName, enabled: true, createdAt: now, updatedAt: now });
+      const workspacePath = await isolator.ensureUserWorkspace(user.userId);
+      await sessionManager.syncUserAgentCredentials(user.userId, workspacePath);
+      res.status(201).json({ bot: bots.findAccountByUserId(user.userId), apiKey: plainKey,
+        note: "Store this API key now. It is returned only on creation or rotation." });
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
+  router.patch("/bots/:slug", ...guard, (req, res) => {
+    try {
+      const bot = bots.findAccountBySlug(routeParam(req.params.slug));
+      if (!bot) {
+        res.status(404).json({ error: "Bot not found" });
+        return;
+      }
+      const patch: { displayName?: string; enabled?: boolean } = {};
+      if (typeof req.body?.displayName === "string" && req.body.displayName.trim()) patch.displayName = req.body.displayName.trim();
+      if (typeof req.body?.enabled === "boolean") patch.enabled = req.body.enabled;
+      const updated = bots.updateAccount(bot.userId, patch);
+      if (patch.displayName) authSystem.updateUser(bot.userId, { displayName: patch.displayName });
+      res.json({ bot: updated });
+    } catch (error) {
+      res.status(400).json({ error: (error as Error).message });
+    }
+  });
+
+  router.post("/bots/:slug/rotate-key", ...guard, async (req, res) => {
+    const bot = bots.findAccountBySlug(routeParam(req.params.slug));
+    if (!bot) {
+      res.status(404).json({ error: "Bot not found" });
+      return;
+    }
+    const result = await authSystem.rotateApiKey(bot.userId);
+    res.json({ bot, apiKey: result.plainKey,
+      note: "Replace the old key in the bot configuration. Existing bot sessions were revoked." });
+  });
+
+  router.get("/bots/:slug/channels", ...guard, (req, res) => {
+    const bot = bots.findAccountBySlug(routeParam(req.params.slug));
+    if (!bot) {
+      res.status(404).json({ error: "Bot not found" });
+      return;
+    }
+    res.json({ bot, channels: bots.listChannels(bot.userId) });
   });
 
   router.get("/users/:userId", ...guard, (req, res) => {

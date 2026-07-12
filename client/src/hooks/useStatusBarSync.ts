@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { apiGet } from "../lib/api";
 import { useSessionStore } from "../stores/sessionStore";
 import { useChatStore } from "../stores/chatStore";
+import { useAuthStore } from "../stores/authStore";
 import {
   normalizeWidgetSnapshot,
   useStatusBarStore,
@@ -39,13 +40,14 @@ export async function fetchSessionStatus(piSessionId: string): Promise<void> {
  */
 export function useStatusBarSync() {
   const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
+  const isGuestView = useAuthStore((s) => s.userId === "__guest__");
   const prevSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
     const prev = prevSessionRef.current;
     prevSessionRef.current = activePiSessionId;
 
-    if (!activePiSessionId) return;
+    if (!activePiSessionId || isGuestView) return;
 
     if (prev && prev !== activePiSessionId) {
       useStatusBarStore.getState().clear();
@@ -54,5 +56,5 @@ export function useStatusBarSync() {
     fetchSessionStatus(activePiSessionId).catch((err) =>
       console.warn("status bar sync failed:", err)
     );
-  }, [activePiSessionId]);
+  }, [activePiSessionId, isGuestView]);
 }

@@ -15,7 +15,8 @@ import { TokenTracker } from "./pi/token-tracker.js";
 import { config } from "./config.js";
 import { handleChatWs } from "./ws/chat.js";
 import { createFilesRouter } from "./routes/files.js";
-import { proxyRenderRequest } from "./routes/render-proxy.js";
+import { BrowserMessageRenderer } from "./render/browser-message-renderer.js";
+import { createMessageRenderHandler } from "./routes/message-render.js";
 import { createPlatformAdminRouter } from "./routes/platform-admin.js";
 import path from "node:path";
 import { findSessionFilePath } from "./pi/session-files.js";
@@ -31,6 +32,8 @@ import { attachRequestId, errorHandler } from "./middleware/error-handler.js";
 import { apiRateLimiter } from "./middleware/rate-limit.js";
 import { isWebSocketOriginAllowed, isOriginAllowed } from "./ws-origin.js";
 import { attachClientStatic } from "./client-static.js";
+import { BotRepository } from "./bot/repository.js";
+import { createBotRouter, createPublicBotRouter, createSavedGroupRouter } from "./routes/bot.js";
 
 const log = createLogger("server");
 const app = express();
@@ -80,6 +83,8 @@ authSystem.onUserModelTemplateChanged(async (userId) => {
 
 const tokenTracker = new TokenTracker();
 const usageRecorder = new UsageRecorder();
+const botRepository = new BotRepository(config.databasePath);
+const messageRenderer = new BrowserMessageRenderer(`http://127.0.0.1:${config.port}`);
 
 // --- Auth Routes ---
 app.use("/api", createAuthRouter(authSystem));
@@ -90,7 +95,10 @@ app.get("/api/admin/help", (req, res) => {
   res.json(getAdminApiCatalog(baseUrl));
 });
 app.use("/api/admin", adminAuthMiddleware(authSystem), createAdminRouter(authSystem, usageRecorder, sessionManager, isolator));
-app.use("/api/platform/admin", createPlatformAdminRouter(authSystem, usageRecorder, isolator, sessionManager));
+app.use("/api/platform/admin", createPlatformAdminRouter(authSystem, usageRecorder, isolator, sessionManager, botRepository));
+app.use("/api/bot", createBotRouter(authSystem, botRepository, isolator, sessionManager));
+app.use("/api/public/bots", createPublicBotRouter(botRepository, sessionManager));
+app.use("/api/groups", createSavedGroupRouter(authSystem, botRepository, isolator));
 
 // --- Workspace Init (lightweight, no session creation) ---
 app.post("/api/workspace/init", authMiddleware(authSystem), async (req: any, res) => {
@@ -122,6 +130,7 @@ app.post("/api/workspace/init", authMiddleware(authSystem), async (req: any, res
         modelsUrl: `${platformAdminBase}/models`,
         userModelFilterUrl: `${platformAdminBase}/users/{userIdOrUsername}/model-filter`,
         syncCredentialsUrl: `${platformAdminBase}/users/{userIdOrUsername}/sync-credentials`,
+        botsUrl: `${platformAdminBase}/bots`,
         contextUrl: `${platformAdminBase}/context`,
         authHeader: `Authorization: Bearer ${sessionId}`,
         exampleAliceUsageToday: `${platformAdminBase}/usage/alice?from=${today}&to=${today}`,
@@ -416,21 +425,33 @@ app.get("/api/sessions", authMiddleware(authSystem), async (req: any, res) => {
 // --- File Routes ---
 app.use("/api", createFilesRouter(authSystem, isolator));
 
-// --- Render Proxy (转发到 Python 渲染微服务) ---
+// --- Browser-backed render API (same React/CSS tree as the web conversation) ---
 // 认证用户渲染端点
-app.post("/api/render", authMiddleware(authSystem), (req: any, res) => {
-  proxyRenderRequest("/api/render", req, res);
-});
-app.post("/api/render/b64", authMiddleware(authSystem), (req: any, res) => {
-  proxyRenderRequest("/api/render/b64", req, res);
-});
+app.post("/api/render", authMiddleware(authSystem), createMessageRenderHandler(messageRenderer, false));
+app.post(
+  "/api/render/b64",
+  (req: any, res, next) => {
+    // The colocated Entari plugin calls this endpoint through 127.0.0.1 and
+    // cannot reuse a browser login session. Trust only the actual TCP peer —
+    // never X-Forwarded-For — so remote callers still require authentication.
+    const peer = req.socket?.remoteAddress;
+    const host = String(req.headers.host ?? "").toLowerCase();
+    const isDirectLoopback =
+      (peer === "127.0.0.1" || peer === "::1" || peer === "::ffff:127.0.0.1") &&
+      (host.startsWith("127.0.0.1:") || host.startsWith("localhost:")) &&
+      !req.headers["cf-connecting-ip"] &&
+      !req.headers["x-forwarded-for"];
+    if (isDirectLoopback) {
+      next();
+      return;
+    }
+    authMiddleware(authSystem)(req, res, next);
+  },
+  createMessageRenderHandler(messageRenderer, true),
+);
 // 公开渲染端点（访客只读 — 速率限制更严格）
-app.post("/api/public/render", apiRateLimiter, (req: any, res) => {
-  proxyRenderRequest("/api/render", req, res);
-});
-app.post("/api/public/render/b64", apiRateLimiter, (req: any, res) => {
-  proxyRenderRequest("/api/render/b64", req, res);
-});
+app.post("/api/public/render", apiRateLimiter, createMessageRenderHandler(messageRenderer, false));
+app.post("/api/public/render/b64", apiRateLimiter, createMessageRenderHandler(messageRenderer, true));
 
 // --- Health ---
 app.get("/health", (_req, res) =>
@@ -524,7 +545,7 @@ wss.on("connection", (ws, req) => {
   const piSessionId = (req as any).piSessionId;
   const isViewOnly = (ws as any).isViewOnly === true;
   if (url.pathname === "/ws/chat") {
-    handleChatWs(ws, sessionManager, tokenTracker, usageRecorder, authSystem, isolator, userId, piSessionId, isViewOnly);
+    handleChatWs(ws, sessionManager, tokenTracker, usageRecorder, authSystem, isolator, userId, piSessionId, isViewOnly, botRepository);
   }
 });
 
@@ -533,7 +554,7 @@ server.listen(config.port, "0.0.0.0", async () => {
   await loadPlatformSystemMd();
   // 确保至少有一个 admin 用户
   const users = authSystem.getAllUsers();
-  if (users.length === 0) {
+  if (!authSystem.hasAdminUser()) {
     const bootstrapKey = generateApiKey();
     const { plainKey } = await authSystem.createUser(bootstrapKey, "Admin", {
       role: "admin",

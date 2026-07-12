@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bot Group Operations"
+  short_description: "Manage bot accounts, keys, channels, and sessions"
+  default_prompt: "Use $bot-group-ops to manage platform bot accounts and group workspaces."

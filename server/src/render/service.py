@@ -40,7 +40,11 @@ from pydantic import BaseModel
 import uvicorn
 from loguru import logger
 
-from card_renderer import get_card_renderer
+try:
+    from card_renderer import get_card_renderer
+except (ImportError, ModuleNotFoundError) as error:
+    logger.warning("browser renderer unavailable ({}); using Pillow fallback", error)
+    from simple_renderer import get_simple_renderer as get_card_renderer
 
 app = FastAPI(title="pi-render", version="1.0.0")
 

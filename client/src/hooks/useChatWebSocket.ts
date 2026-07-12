@@ -73,18 +73,28 @@ function dispatchWsMessage(
       }
       break;
     }
+    case "chat:assistant_start": {
+      const messageId = typeof msg.payload?.messageId === "string" ? msg.payload.messageId : undefined;
+      store().startAssistantMessage(messageId);
+      break;
+    }
     case "chat:text_delta": {
-      const aid = store().ensureStreamingAssistant();
+      const messageId = typeof msg.payload?.messageId === "string" ? msg.payload.messageId : undefined;
+      const aid = messageId ? store().startAssistantMessage(messageId) : store().ensureStreamingAssistant();
       store().appendTextDelta(aid, msg.payload.delta);
       break;
     }
     case "chat:thinking_delta": {
-      const aid = store().ensureStreamingAssistant();
+      const messageId = typeof msg.payload?.messageId === "string" ? msg.payload.messageId : undefined;
+      const aid = messageId ? store().startAssistantMessage(messageId) : store().ensureStreamingAssistant();
       store().appendThinkingDelta(aid, msg.payload.delta);
       break;
     }
     case "chat:tool_start": {
-      const aid = store().ensureStreamingAssistant();
+      const requestedId = typeof msg.payload?.messageId === "string" ? msg.payload.messageId : undefined;
+      const aid = requestedId && store().messages.some((m) => m.id === requestedId)
+        ? requestedId
+        : store().ensureStreamingAssistant();
       store().addToolCall(aid, {
         toolCallId: msg.payload.toolCallId,
         toolName: msg.payload.toolName,
@@ -94,12 +104,16 @@ function dispatchWsMessage(
       break;
     }
     case "chat:tool_update": {
-      const aid = store().currentAssistantId ?? store().ensureStreamingAssistant();
+      const aid = store().messages.find((m) => m.toolCalls?.some((tool) => tool.toolCallId === msg.payload.toolCallId))?.id
+        ?? store().currentAssistantId
+        ?? store().ensureStreamingAssistant();
       store().updateToolCall(aid, msg.payload.toolCallId, msg.payload.output);
       break;
     }
     case "chat:tool_end": {
-      const aid = store().currentAssistantId ?? store().ensureStreamingAssistant();
+      const aid = store().messages.find((m) => m.toolCalls?.some((tool) => tool.toolCallId === msg.payload.toolCallId))?.id
+        ?? store().currentAssistantId
+        ?? store().ensureStreamingAssistant();
       store().endToolCall(
         aid,
         msg.payload.toolCallId,
@@ -109,20 +123,18 @@ function dispatchWsMessage(
       );
       break;
     }
+    case "chat:assistant_end": {
+      const messageId = typeof msg.payload?.messageId === "string"
+        ? msg.payload.messageId
+        : store().currentAssistantId;
+      if (messageId) store().finishAssistantTurn(messageId);
+      break;
+    }
     case "chat:agent_start":
       store().ensureStreamingAssistant();
       break;
     case "chat:agent_end": {
-      const aid =
-        store().currentAssistantId ??
-        store().messages.find((m) => m.isStreaming)?.id ??
-        null;
-      if (aid) {
-        store().finalizeRunningToolCalls(aid);
-        store().finishAssistantMessage(aid);
-      } else {
-        store().setStreaming(false);
-      }
+      store().finishAgentRun();
       break;
     }
     case "chat:notice":

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chatPath, parseSessionIdFromPath } from "./chatRoutes";
+import { chatPath, groupPath, parseGroupPath, parseSessionIdFromPath } from "./chatRoutes";
 
 describe("chatRoutes", () => {
   it("builds and parses session paths", () => {
@@ -13,5 +13,12 @@ describe("chatRoutes", () => {
     expect(parseSessionIdFromPath("/")).toBeNull();
     expect(parseSessionIdFromPath("/chat")).toBeNull();
     expect(parseSessionIdFromPath("/api/sessions")).toBeNull();
+  });
+
+  it("builds bot-qualified group paths without colliding with normal chat routes", () => {
+    expect(groupPath("kgy", "666808414")).toBe("/kgy/666808414");
+    expect(parseGroupPath("/kgy/666808414")).toEqual({ botSlug: "kgy", channelId: "666808414" });
+    expect(parseGroupPath("/chat/anything")).toBeNull();
+    expect(parseGroupPath("/preview/anything")).toBeNull();
   });
 });

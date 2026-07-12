@@ -91,6 +91,8 @@ export class UsageRecorder {
   }
 
   private readDaily(userId: string, date: string, displayName: string): DailyUsageFile {
+    const buffered = this.writeBuffer.get(`${userId}:${date}`);
+    if (buffered) return buffered;
     const filePath = this.dailyPath(userId, date);
     try {
       const raw = JSON.parse(fs.readFileSync(filePath, "utf-8")) as DailyUsageFile;
@@ -205,6 +207,8 @@ export class UsageRecorder {
   }
 
   getDaily(userId: string, date: string): DailyUsageFile | null {
+    const buffered = this.writeBuffer.get(`${userId}:${date}`);
+    if (buffered) return normalizeDailyFile(buffered);
     const filePath = this.dailyPath(userId, date);
     try {
       return normalizeDailyFile(JSON.parse(fs.readFileSync(filePath, "utf-8")) as DailyUsageFile);

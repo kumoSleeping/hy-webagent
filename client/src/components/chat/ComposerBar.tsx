@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound } from "lucide-react";
+import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useConnectionState } from "../../context/useChatConnection";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
@@ -35,6 +35,7 @@ import {
   panelToolbarIndex,
   toolbarBtnWidthPx,
   type ToolbarItemDef,
+  GROUP_PREVIEW_TOOLBAR_ITEMS,
 } from "../../lib/composerLayout";
 import {
   insertCompressedMarker,
@@ -71,6 +72,15 @@ interface ComposerBarProps {
   commandsContent?: ReactNode;
   /** Model picker — direct toolbar toggle, same popup as history/files. */
   modelContent?: ReactNode;
+  /** Read-only group mode keeps the normal composer layout but limits it to
+   * history and informational panels. */
+  groupPreview?: {
+    notice: string;
+    onReturnToChat: () => void;
+    onSelectSession: (sessionId: string) => void;
+    filesContent: ReactNode;
+    accountContent: ReactNode;
+  };
   isMobileLayout?: boolean;
 }
 
@@ -103,6 +113,8 @@ function toolbarIcon(item: ToolbarItemDef) {
       return <UserRound strokeWidth={2} aria-hidden="true" />;
     case "new-chat":
       return <SquarePen strokeWidth={2} aria-hidden="true" />;
+    case "return-chat":
+      return <MessagesSquare strokeWidth={2} aria-hidden="true" />;
   }
 }
 
@@ -122,6 +134,8 @@ function toolbarTitle(item: ToolbarItemDef): string {
       return "Account & budget";
     case "new-chat":
       return "New chat (Enter)";
+    case "return-chat":
+      return "返回正常聊天";
   }
 }
 
@@ -141,6 +155,8 @@ function toolbarAriaLabel(item: ToolbarItemDef): string {
       return "Toggle account panel";
     case "new-chat":
       return "New chat";
+    case "return-chat":
+      return "返回正常聊天";
   }
 }
 
@@ -174,12 +190,17 @@ export function ComposerBar({
   onFileClick,
   commandsContent,
   modelContent,
+  groupPreview,
   isMobileLayout = false,
 }: ComposerBarProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const connectionState = useConnectionState();
   const isConnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
-  const toolbarItems = useFittedToolbarItems(isMobileLayout, shellRef);
+  const toolbarItems = useFittedToolbarItems(
+    isMobileLayout,
+    shellRef,
+    groupPreview ? GROUP_PREVIEW_TOOLBAR_ITEMS : undefined,
+  );
   const btnWidthPx = useMemo(() => {
     const raw = toolbarBtnWidthPx();
     return Math.min(raw, MOBILE_TOOLBAR_BTN_MAX_PX);
@@ -239,6 +260,10 @@ export function ComposerBar({
   async function handleSessionClick(piSessionId: string) {
     closePanel();
     blurComposerInput();
+    if (groupPreview) {
+      groupPreview.onSelectSession(piSessionId);
+      return;
+    }
     await activateSession(piSessionId);
   }
 
@@ -278,6 +303,11 @@ export function ComposerBar({
   }
 
   function handleToolbarItemClick(item: ToolbarItemDef) {
+    if (item.id === "return-chat") {
+      closePanel();
+      groupPreview?.onReturnToChat();
+      return;
+    }
     if (item.id === "new-chat") {
       handleNewChatClick();
       return;
@@ -297,7 +327,7 @@ export function ComposerBar({
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
     if (panelKind === "history") {
-      void useSessionStore.getState().fetchSessions();
+      if (!groupPreview) void useSessionStore.getState().fetchSessions();
     }
     togglePanel(panelKind);
     blurComposerInput();
@@ -493,6 +523,7 @@ export function ComposerBar({
 
   // Global "/" opens slash menu when composer is empty (even without focus).
   useEffect(() => {
+    if (groupPreview) return;
     function onGlobalKeyDown(e: globalThis.KeyboardEvent) {
       if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
       if (text.length > 0) return;
@@ -515,7 +546,7 @@ export function ComposerBar({
 
     document.addEventListener("keydown", onGlobalKeyDown);
     return () => document.removeEventListener("keydown", onGlobalKeyDown);
-  }, [text, setPanel]);
+  }, [text, setPanel, groupPreview]);
 
   // Composer-wide keyboard navigation. ←/→ always switch *which* toolbar
   // button (commands/tree/history/files/new-chat) is focused, live-
@@ -593,7 +624,8 @@ export function ComposerBar({
         if (toolbarKeyboardFocus && toolbarItems[toolbarIndex]?.enterToActivate) {
           e.preventDefault();
           e.stopPropagation();
-          handleNewChatClick();
+          const item = toolbarItems[toolbarIndex];
+          if (item) handleToolbarItemClick(item);
           return;
         }
 
@@ -1071,6 +1103,7 @@ export function ComposerBar({
           </div>
         );
       case "files":
+        if (groupPreview) return groupPreview.filesContent;
         if (!isMobileLayout && previewOpen) return null;
         return (
           <div className="flex flex-1 min-h-0 flex-col px-1 py-0.5">
@@ -1078,7 +1111,7 @@ export function ComposerBar({
           </div>
         );
       case "account":
-        return <AccountPanel />;
+        return groupPreview ? groupPreview.accountContent : <AccountPanel />;
       default:
         return null;
     }
@@ -1118,9 +1151,10 @@ export function ComposerBar({
         <button
           type="button"
           className="pi-composer-working pi-composer-working--shell"
-          onClick={(e) => { e.stopPropagation(); onAbort?.(); }}
-          title="Stop"
-          aria-label="Stop — click to interrupt"
+          onClick={(e) => { e.stopPropagation(); if (!groupPreview) onAbort?.(); }}
+          disabled={Boolean(groupPreview)}
+          title={groupPreview ? "机器人正在群聊中处理" : "Stop"}
+          aria-label={groupPreview ? "机器人正在群聊中处理" : "Stop — click to interrupt"}
         >
           <span className="pi-composer-working-bars" aria-hidden="true">
             <span /><span /><span /><span />
@@ -1170,7 +1204,7 @@ export function ComposerBar({
         </div>
       </div>
 
-      {filesOverlay && (
+      {filesOverlay && !groupPreview && (
         <div className="pi-composer-files-overlay" onClick={(e) => e.stopPropagation()}>
           <FileTree onFileClick={onFileClick} />
         </div>
@@ -1237,7 +1271,9 @@ export function ComposerBar({
           rows={MIN_ROWS}
           disabled={disabled || isConnecting}
           placeholder={
-            isConnecting
+            groupPreview
+              ? groupPreview.notice
+              : isConnecting
               ? "连接中…"
               : attachmentsProcessing()
                 ? "Preparing attachments..."

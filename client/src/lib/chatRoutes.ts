@@ -3,6 +3,16 @@ export function chatPath(sessionId: string): string {
   return `/chat/${encodeURIComponent(sessionId)}`;
 }
 
+export function groupPath(botSlug: string, channelId: string): string {
+  return `/${encodeURIComponent(botSlug)}/${encodeURIComponent(channelId)}`;
+}
+
+export function parseGroupPath(pathname: string): { botSlug: string; channelId: string } | null {
+  const match = pathname.match(/^\/([^/]+)\/([^/]+)\/?$/);
+  if (!match || ["chat", "preview", "logout", "api"].includes(match[1].toLowerCase())) return null;
+  return { botSlug: decodeURIComponent(match[1]), channelId: decodeURIComponent(match[2]) };
+}
+
 /** Extract session id from a pathname like `/chat/:sessionId`. */
 export function parseSessionIdFromPath(pathname: string): string | null {
   const chatMatch = pathname.match(/^\/chat\/([^/]+)$/);
