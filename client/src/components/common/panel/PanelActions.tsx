@@ -9,7 +9,7 @@ export function PanelActions({ children }: PanelActionsProps) {
   return <div className="pi-panel-actions">{children}</div>;
 }
 
-type PanelButtonVariant = "primary" | "ghost";
+type PanelButtonVariant = "primary" | "ghost" | "theme";
 
 interface PanelButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: PanelButtonVariant;

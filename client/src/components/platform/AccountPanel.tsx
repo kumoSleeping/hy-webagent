@@ -154,7 +154,7 @@ export function AccountPanel() {
             <MessagesSquare size={14} aria-hidden="true" />
             群聊进度
           </button>
-          <Link to="/logout" className="pi-panel-btn pi-panel-btn--primary" style={{ textDecoration: "none" }}>
+          <Link to="/logout" className="pi-panel-btn pi-panel-btn--theme" style={{ textDecoration: "none" }}>
             Log out
           </Link>
         </div>

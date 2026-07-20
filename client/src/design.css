@@ -1588,6 +1588,15 @@ button.pi-panel-row.pi-panel-row--selected {
   background: #1c1c1e;
   border-color: #1c1c1e;
 }
+.pi-panel-btn--theme {
+  background: var(--pi-theme);
+  border-color: var(--pi-theme);
+  color: var(--pi-theme-ink);
+}
+.pi-panel-btn--theme:hover {
+  background: color-mix(in srgb, var(--pi-theme) 88%, #000);
+  border-color: color-mix(in srgb, var(--pi-theme) 88%, #000);
+}
 .pi-composer-cmd-empty {
   padding: 0.45rem 0.55rem;
   font-size: var(--pi-panel-font);
