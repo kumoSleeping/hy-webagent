@@ -37,6 +37,8 @@ interface ChatState {
 
   /** Insert a user message at the SDK-persisted position (splits a live assistant turn when needed). */
   commitUserMessage: (raw: any) => void;
+  /** Show the user's turn immediately (with images) before the server echoes it. */
+  appendOptimisticUserMessage: (content: string, images?: ChatImageAttachment[]) => void;
   startAssistantMessage: (serverId?: string) => string;
   appendTextDelta: (msgId: string, delta: string) => void;
   appendThinkingDelta: (msgId: string, delta: string) => void;
@@ -85,11 +87,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!msg) return;
     set((s) => {
       if (s.messages.some((m) => m.id === msg.id)) return s;
-      // Content-based fallback: if a different-ID message with identical
-      // text + role was already committed (e.g. during a reconnect race
-      // between chat:history and chat:user_message with mismatched IDs),
-      // treat it as the same turn and skip.
-      if (s.messages.some((m) => m.role === msg.role && m.content === msg.content)) return s;
+
+      // Prefer replacing an optimistic local bubble (same text / image count).
+      const optimisticIdx = s.messages.findIndex(
+        (m) =>
+          m.id.startsWith("local-") &&
+          m.role === "user" &&
+          m.content === msg.content &&
+          (m.images?.length ?? 0) === (msg.images?.length ?? 0)
+      );
+      if (optimisticIdx !== -1) {
+        const messages = [...s.messages];
+        messages[optimisticIdx] = msg;
+        return { messages };
+      }
+
+      // Content-based fallback for reconnect races — but do not drop a
+      // server image message just because an earlier empty-text user turn exists.
+      const sameTextIdx = s.messages.findIndex(
+        (m) =>
+          m.role === msg.role &&
+          m.content === msg.content &&
+          (m.images?.length ?? 0) === (msg.images?.length ?? 0)
+      );
+      if (sameTextIdx !== -1) return s;
 
       const streamingIdx = s.messages.findIndex((m) => m.isStreaming);
       if (streamingIdx !== -1) {
@@ -102,6 +123,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messages,
           currentAssistantId: null,
         };
+      }
+      return { messages: [...s.messages, msg] };
+    });
+  },
+
+  appendOptimisticUserMessage: (content, images) => {
+    const msg: ChatMessage = {
+      id: `local-${nextId()}`,
+      role: "user",
+      content: stripFileAttachmentTags(content),
+      timestamp: Date.now(),
+      images: images?.length ? images : undefined,
+    };
+    if (!msg.content.trim() && !msg.images?.length) return;
+    set((s) => {
+      if (
+        s.messages.some(
+          (m) =>
+            m.role === "user" &&
+            m.content === msg.content &&
+            (m.images?.length ?? 0) === (msg.images?.length ?? 0)
+        )
+      ) {
+        return s;
       }
       return { messages: [...s.messages, msg] };
     });

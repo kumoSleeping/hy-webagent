@@ -18,6 +18,8 @@ export interface CompressImageOptions {
   maxBytes?: number;
   maxWidth?: number;
   maxHeight?: number;
+  /** 0–100 preparation progress (decode / encode). */
+  onProgress?: (percent: number) => void;
 }
 
 function loadImageFromFile(file: File): Promise<HTMLImageElement> {
@@ -80,8 +82,11 @@ export async function compressImageFile(
   const maxBytes = options?.maxBytes ?? DEFAULT_MAX_BYTES;
   const maxWidth = options?.maxWidth ?? DEFAULT_MAX_WIDTH;
   const maxHeight = options?.maxHeight ?? DEFAULT_MAX_HEIGHT;
+  const onProgress = options?.onProgress;
+  onProgress?.(8);
 
   const img = await loadImageFromFile(file);
+  onProgress?.(28);
   const originalWidth = img.naturalWidth;
   const originalHeight = img.naturalHeight;
   if (!originalWidth || !originalHeight) return null;
@@ -97,11 +102,13 @@ export async function compressImageFile(
     maxHeight
   );
 
+  let pass = 0;
   while (true) {
     canvas.width = currentWidth;
     canvas.height = currentHeight;
     ctx.clearRect(0, 0, currentWidth, currentHeight);
     ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
+    onProgress?.(Math.min(88, 35 + pass * 12));
 
     for (const quality of JPEG_QUALITIES) {
       const blob = await canvasToBlob(canvas, "image/jpeg", quality);
@@ -112,6 +119,7 @@ export async function compressImageFile(
           currentHeight !== originalHeight ||
           blob.size < file.size ||
           file.type !== "image/jpeg";
+        onProgress?.(100);
         return {
           mediaType: "image/jpeg",
           data,
@@ -127,6 +135,7 @@ export async function compressImageFile(
     const pngBlob = await canvasToBlob(canvas, "image/png");
     if (pngBlob.size <= maxBytes) {
       const data = await blobToBase64(pngBlob);
+      onProgress?.(100);
       return {
         mediaType: "image/png",
         data,
@@ -145,6 +154,7 @@ export async function compressImageFile(
     if (nextWidth === currentWidth && nextHeight === currentHeight) break;
     currentWidth = nextWidth;
     currentHeight = nextHeight;
+    pass += 1;
   }
 
   return null;

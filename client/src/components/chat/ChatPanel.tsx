@@ -22,6 +22,7 @@ import { SlashExportDialog } from "../slash/SlashExportDialog";
 import { SlashToast } from "../slash/SlashToast";
 import { isSilentCommand } from "../../lib/silentCommands";
 import { openToolbarSlashPanel, resolveToolbarSlash } from "../../lib/toolbarSlashCommands";
+import { stripFileAttachmentTags } from "../../lib/prepareAttachments";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { useNotificationStore } from "../../stores/notificationStore";
@@ -207,6 +208,10 @@ export function ChatPanel({
       notifySendFailure();
       return;
     }
+    useChatStore.getState().appendOptimisticUserMessage(
+      stripFileAttachmentTags(promptText),
+      images?.map((img) => ({ mediaType: img.mediaType, data: img.data }))
+    );
     setTimeout(() => fetchSessions(), 800);
   }
 

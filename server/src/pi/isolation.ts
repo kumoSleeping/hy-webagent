@@ -16,6 +16,9 @@ const LEGACY_PACKAGE_MARKERS = ["pi-subagents-h", "packages/pi-subagents-h"];
 /** Subfolder under each user workspace where the agent cwd and Files panel root live. */
 export const USER_PROJECTS_DIR = "projects";
 
+/** Chat image uploads (relative to projects/). */
+export const USER_PICTURES_DIR = "Pictures";
+
 /** Strip redundant `projects/` prefixes — models often emit paths like `projects/foo.pdf`. */
 export function normalizeProjectsRelativePath(filePath: string): string {
   let p = filePath.trim().replace(/\\/g, "/").replace(/^\/+/, "");
@@ -443,6 +446,7 @@ export class WorkspaceIsolator {
     await fs.mkdir(path.join(userDir, ".pi", "skills"), { recursive: true });
     await fs.mkdir(exportsDir, { recursive: true });
     await fs.mkdir(path.join(userDir, USER_PROJECTS_DIR), { recursive: true });
+    await fs.mkdir(path.join(userDir, USER_PROJECTS_DIR, USER_PICTURES_DIR), { recursive: true });
 
     const settingsPath = path.join(userDir, ".pi", "settings.json");
     try {

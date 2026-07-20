@@ -94,6 +94,8 @@ interface PendingAttachment {
   file: File;
   previewUrl?: string;
   status: "processing" | "ready" | "error";
+  /** 0–100 while status is processing (compress / prepare). */
+  progress?: number;
   prepared?: PreparedAttachmentItem;
   error?: string;
 }
@@ -757,17 +759,29 @@ export function ComposerBar({
 
   async function processAttachmentEntry(entry: PendingAttachment) {
     try {
-      const prepared = await prepareSingleAttachment(entry.file);
+      const prepared = await prepareSingleAttachment(entry.file, {
+        onProgress: (percent) => {
+          setPendingAttachments((prev) =>
+            prev.map((item) =>
+              item.id === entry.id && item.status === "processing"
+                ? { ...item, progress: percent }
+                : item
+            )
+          );
+        },
+      });
       setPendingAttachments((prev) =>
         prev.map((item) =>
-          item.id === entry.id ? { ...item, status: "ready", prepared, error: undefined } : item
+          item.id === entry.id
+            ? { ...item, status: "ready", progress: 100, prepared, error: undefined }
+            : item
         )
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to prepare attachment";
       setPendingAttachments((prev) =>
         prev.map((item) =>
-          item.id === entry.id ? { ...item, status: "error", error: message } : item
+          item.id === entry.id ? { ...item, status: "error", progress: 0, error: message } : item
         )
       );
       useNotificationStore.getState().notify(message, "info");
@@ -789,7 +803,8 @@ export function ComposerBar({
       id: `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       file,
       previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
-      status: "processing",
+      status: "processing" as const,
+      progress: 0,
     }));
     setPendingAttachments((prev) => [...prev, ...entries]);
     entries.forEach((entry) => {
@@ -1214,10 +1229,25 @@ export function ComposerBar({
                   </span>
                 )}
                 {item.status === "processing" && (
-                  <div className="pi-composer-attachment-overlay" aria-hidden="true">
-                    <span className="pi-composer-attachment-spinner" />
+                  <div
+                    className="pi-composer-attachment-progress"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(item.progress ?? 0)}
+                    aria-label={`Preparing ${item.file.name}`}
+                  >
+                    <span
+                      className="pi-composer-attachment-progress-fill"
+                      style={{ width: `${Math.max(6, Math.min(100, item.progress ?? 0))}%` }}
+                    />
                   </div>
                 )}
+                {item.status === "ready" && item.prepared?.fileName?.startsWith("Pictures/") ? (
+                  <span className="pi-composer-attachment-dest" title={item.prepared.fileName}>
+                    Pictures
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   className="pi-composer-attachment-remove"

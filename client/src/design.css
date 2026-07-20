@@ -1031,13 +1031,12 @@ body {
 }
 
 .pi-composer-attachment[data-status="processing"] {
-  border-color: var(--pi-line);
+  border-color: color-mix(in srgb, var(--pi-theme) 35%, var(--pi-line));
 }
 
 .pi-composer-attachment[data-status="processing"] .pi-composer-attachment-thumb,
 .pi-composer-attachment[data-status="processing"] .pi-composer-attachment-file {
-  opacity: 0.42;
-  filter: grayscale(0.15);
+  opacity: 0.72;
 }
 
 .pi-composer-attachment[data-status="ready"] {
@@ -1048,23 +1047,36 @@ body {
   border-color: var(--pi-theme);
 }
 
-.pi-composer-attachment-overlay {
+.pi-composer-attachment-progress {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.58);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--pi-line) 70%, transparent);
   pointer-events: none;
+  overflow: hidden;
 }
 
-.pi-composer-attachment-spinner {
-  width: 1.05rem;
-  height: 1.05rem;
-  border: 2px solid var(--pi-line);
-  border-top-color: var(--pi-theme);
-  border-radius: 999px;
-  animation: pi-loading-spin 700ms linear infinite;
+.pi-composer-attachment-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--pi-theme);
+  transition: width 120ms ease-out;
+}
+
+.pi-composer-attachment-dest {
+  position: absolute;
+  left: 0.2rem;
+  bottom: 0.2rem;
+  padding: 0.05rem 0.25rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pi-theme-ink);
+  background: color-mix(in srgb, var(--pi-theme) 88%, #000);
+  pointer-events: none;
 }
 
 .pi-composer-attachment-thumb {

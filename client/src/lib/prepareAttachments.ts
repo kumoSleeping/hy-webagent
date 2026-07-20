@@ -2,6 +2,9 @@ import { compressImageFile, formatDimensionNote } from "./compressImage";
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
+/** Workspace-relative folder (under projects/) for chat image uploads. */
+export const CHAT_PICTURES_DIR = "Pictures";
+
 export interface PromptImage {
   mediaType: string;
   data: string;
@@ -138,25 +141,45 @@ export function normalizePastedFile(file: File, index: number): File {
   return new File([file], name, { type: file.type, lastModified: file.lastModified });
 }
 
-export async function prepareSingleAttachment(file: File): Promise<PreparedAttachmentItem> {
+/** Unique path under Pictures/ for a chat upload (matches server persist layout). */
+export function chatPictureFileName(originalName: string): string {
+  const base = originalName.replace(/\\/g, "/").split("/").pop() || "image.png";
+  const safe = base.replace(/[^\w.\-()+ ]+/g, "_").replace(/^\.+/, "") || "image.png";
+  const dot = safe.lastIndexOf(".");
+  const stem = (dot > 0 ? safe.slice(0, dot) : safe).slice(0, 80) || "image";
+  const ext = dot > 0 ? safe.slice(dot) : ".jpg";
+  const stamp = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  return `${CHAT_PICTURES_DIR}/${stem}-${stamp}${ext}`;
+}
+
+export async function prepareSingleAttachment(
+  file: File,
+  options?: { onProgress?: (percent: number) => void }
+): Promise<PreparedAttachmentItem> {
   if (file.size === 0) {
     throw new Error(`${file.name}: file is empty`);
   }
 
   if (isImageFile(file)) {
-    const compressed = await compressImageFile(file, { maxBytes: MAX_UPLOAD_BYTES });
+    options?.onProgress?.(5);
+    const storedName = chatPictureFileName(file.name);
+    const compressed = await compressImageFile(file, {
+      maxBytes: MAX_UPLOAD_BYTES,
+      onProgress: options?.onProgress,
+    });
     if (!compressed) {
       return {
-        fileName: file.name,
-        textAppend: `<file name="${file.name}">[Image omitted: could not be compressed below 10 MB.]</file>\n`,
+        fileName: storedName,
+        textAppend: `<file name="${storedName}">[Image omitted: could not be compressed below 10 MB.]</file>\n`,
       };
     }
     const note = formatDimensionNote(compressed);
+    options?.onProgress?.(100);
     return {
-      fileName: file.name,
+      fileName: storedName,
       textAppend: note
-        ? `<file name="${file.name}">${note}</file>\n`
-        : `<file name="${file.name}"></file>\n`,
+        ? `<file name="${storedName}">${note}</file>\n`
+        : `<file name="${storedName}"></file>\n`,
       image: { mediaType: compressed.mediaType, data: compressed.data },
     };
   }
@@ -168,7 +191,9 @@ export async function prepareSingleAttachment(file: File): Promise<PreparedAttac
     throw new Error(`${file.name} exceeds 10 MB limit`);
   }
 
+  options?.onProgress?.(40);
   const content = await file.text();
+  options?.onProgress?.(100);
   return {
     fileName: file.name,
     textAppend: `<file name="${file.name}">\n${content}\n</file>\n`,
