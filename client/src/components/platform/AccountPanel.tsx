@@ -101,7 +101,7 @@ function GroupBrowser({ onBack }: { onBack: () => void }) {
       {!loading && groups.length > 0 ? (
         <p className="pi-group-browser-config-hint">列表保存在 Workspace 的 saved-groups.json，可由你或 AI 直接编辑。</p>
       ) : null}
-      {groups.map((group, index) => (
+      {groups.map((group) => (
         <PanelListRow
           key={`${group.botSlug}:${group.channelId}`}
           leading={<MessagesSquare size={14} strokeWidth={2} />}
