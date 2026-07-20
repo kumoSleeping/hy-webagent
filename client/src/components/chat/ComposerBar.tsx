@@ -66,7 +66,7 @@ interface ComposerBarProps {
   onEditQueued?: (source: "steering" | "followUp", index: number) => void;
   onSlash?: (command: string) => void;
   onNewChat: () => void;
-  onFileClick: (entry: FileEntry) => void;
+  onFileClick: (entry: FileEntry) => void | Promise<void>;
   /** Rendered UI for the currently active slash command (model selector,
    * settings, etc.) — shown in place of the command list once a command
    * has been picked. Lives in the same right-aligned popup as history/files. */

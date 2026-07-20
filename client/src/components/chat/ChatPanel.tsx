@@ -46,7 +46,7 @@ interface ModelsResponse {
 interface ChatPanelProps {
   chat: ChatWebSocketApi;
   onNewChat: () => void;
-  onFileClick: (entry: FileEntry) => void;
+  onFileClick: (entry: FileEntry) => void | Promise<void>;
   editorTabs: EditorTab[];
   activeTabId: string | null;
   onTabClick: (tabId: string) => void;

@@ -6,7 +6,7 @@ import { PanelFilterBar } from "../common/PanelFilterBar";
 import type { FileEntry } from "../../types";
 
 interface FileTreeProps {
-  onFileClick?: (entry: FileEntry) => void;
+  onFileClick?: (entry: FileEntry) => void | Promise<void>;
 }
 
 interface TreeNode extends FileEntry {
@@ -53,6 +53,8 @@ export function FileTree({ onFileClick }: FileTreeProps) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
   const [cursorPath, setCursorPath] = useState<string | null>(null);
+  /** File path currently being fetched for preview — show a spinner after the name. */
+  const [openingPath, setOpeningPath] = useState<string | null>(null);
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const toolbarKeyboardFocus = useComposerPanelStore((s) => s.toolbarKeyboardFocus);
   const setToolbarKeyboardFocus = useComposerPanelStore((s) => s.setToolbarKeyboardFocus);
@@ -154,11 +156,20 @@ export function FileTree({ onFileClick }: FileTreeProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flatVisible, cursorPath, toolbarKeyboardFocus]);
 
-  function activateNode(node: TreeNode) {
+  async function activateNode(node: TreeNode) {
     setCursorPath(node.path);
     setToolbarKeyboardFocus(false);
-    if (node.type === "directory") void toggleExpand(node);
-    else onFileClick?.(node);
+    if (node.type === "directory") {
+      await toggleExpand(node);
+      return;
+    }
+    if (openingPath === node.path) return;
+    setOpeningPath(node.path);
+    try {
+      await onFileClick?.(node);
+    } finally {
+      setOpeningPath((prev) => (prev === node.path ? null : prev));
+    }
   }
 
   function renderNode(node: TreeNode, depth: number) {
@@ -178,7 +189,7 @@ export function FileTree({ onFileClick }: FileTreeProps) {
           }}
           role="button"
           tabIndex={-1}
-          onClick={() => activateNode(node)}
+          onClick={() => { void activateNode(node); }}
           className={`pi-panel-row flex items-center gap-1 px-2 py-0.5 text-base cursor-pointer transition-colors${
             isCursor ? " pi-panel-row--selected" : ""
           }`}
@@ -187,7 +198,7 @@ export function FileTree({ onFileClick }: FileTreeProps) {
           <span className="w-3.5 shrink-0 flex items-center justify-center">
             {isDir ? (
               node.loading ? <Loader2 size={14} className="animate-spin text-[var(--pi-muted)]" /> :
-              <span onClick={(e) => { e.stopPropagation(); toggleExpand(node); }}>
+              <span onClick={(e) => { e.stopPropagation(); void toggleExpand(node); }}>
                 {showChildren ? <ChevronDown size={14} className="text-[var(--pi-muted)]" /> : <ChevronRight size={14} className="text-[var(--pi-muted)]" />}
               </span>
             ) : null}
@@ -200,7 +211,14 @@ export function FileTree({ onFileClick }: FileTreeProps) {
             <File size={14} className="text-[var(--pi-muted)] shrink-0" />
           )}
 
-          <span className="truncate">{node.name}</span>
+          <span className="truncate min-w-0">{node.name}</span>
+          {!isDir && openingPath === node.path ? (
+            <Loader2
+              size={12}
+              className="shrink-0 animate-spin text-[var(--pi-theme)]"
+              aria-label="Loading file"
+            />
+          ) : null}
         </div>
 
         {showChildren && node.children?.map((child) => renderNode(child, depth + 1))}
