@@ -104,11 +104,10 @@ function GroupBrowser({ onBack }: { onBack: () => void }) {
       {groups.map((group, index) => (
         <PanelListRow
           key={`${group.botSlug}:${group.channelId}`}
-          leading={String(index + 1).padStart(2, "0")}
-          leadingKind="index"
+          leading={<MessagesSquare size={14} strokeWidth={2} />}
+          leadingKind="icon"
           title={group.displayName || `群聊 ${group.channelId}`}
           detail={`/${group.botSlug}/${group.channelId} · ${group.botDisplayName}`}
-          stacked
           onClick={() => window.location.assign(group.viewUrl)}
         />
       ))}

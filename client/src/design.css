@@ -1440,9 +1440,6 @@ button.pi-panel-row.pi-panel-row--selected {
   outline: none;
   color: var(--pi-text);
 }
-.pi-panel-list-row--stacked {
-  align-items: flex-start;
-}
 .pi-panel-list-row:disabled {
   opacity: 0.5;
   cursor: default;
@@ -1494,11 +1491,6 @@ button.pi-panel-row.pi-panel-row--selected {
   align-items: baseline;
   gap: 0.5rem;
 }
-.pi-panel-list-row--stacked .pi-panel-list-text {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.05rem;
-}
 .pi-panel-list-title {
   flex-shrink: 0;
   font-size: var(--pi-panel-font);
@@ -1508,10 +1500,6 @@ button.pi-panel-row.pi-panel-row--selected {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pi-panel-list-row--stacked .pi-panel-list-title {
-  flex-shrink: 1;
-  font-weight: 400;
-}
 .pi-panel-list-detail {
   flex: 1;
   min-width: 0;
@@ -1520,13 +1508,6 @@ button.pi-panel-row.pi-panel-row--selected {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.pi-panel-list-row--stacked .pi-panel-list-detail {
-  flex: none;
-  font-size: var(--pi-panel-font-meta);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-family: var(--pi-font-mono);
 }
 
 /* Form fields inside panel body */

@@ -4,14 +4,12 @@ export type PanelListLeading = "icon" | "index" | "check" | "none";
 
 interface PanelListRowProps {
   title: ReactNode;
-  /** Secondary line or trailing text (description / meta). */
+  /** Secondary trailing text (description / meta), inline with title. */
   detail?: ReactNode;
   /** icon | index | check slot on the left. */
   leading?: ReactNode;
   leadingKind?: PanelListLeading;
   selected?: boolean;
-  /** When true, title stacks above detail (model picker). Default: inline title + detail. */
-  stacked?: boolean;
   disabled?: boolean;
   onClick?: () => void;
   onMouseEnter?: () => void;
@@ -22,14 +20,13 @@ interface PanelListRowProps {
   className?: string;
 }
 
-/** Unified list row: leading + title + detail. Used by commands / model / history / settings choices. */
+/** Unified list row: leading + title + detail (command-style inline). */
 export function PanelListRow({
   title,
   detail,
   leading,
   leadingKind = leading != null ? "icon" : "none",
   selected = false,
-  stacked = false,
   disabled = false,
   onClick,
   onMouseEnter,
@@ -42,7 +39,6 @@ export function PanelListRow({
   const classNames = [
     "pi-panel-row",
     "pi-panel-list-row",
-    stacked ? "pi-panel-list-row--stacked" : "",
     selected ? "pi-panel-row--selected" : "",
     !onClick ? "pi-panel-list-row--static" : "",
     className,

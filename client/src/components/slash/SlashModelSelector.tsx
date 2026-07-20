@@ -65,7 +65,6 @@ export function SlashModelSelector({
             leadingKind="icon"
             title={model.name ?? model.id}
             detail={`${model.provider ?? "default"} / ${model.id}`}
-            stacked
             selected={isActive || current}
             onClick={() =>
               onExecute("model.set", { provider: model.provider || "anthropic", modelId: model.id })

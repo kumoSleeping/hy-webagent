@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check, Cpu } from "lucide-react";
 import { PanelActions, PanelBody, PanelButton, PanelListRow } from "../common/panel";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -356,7 +356,6 @@ export function ChatPanel({
         leadingKind="index"
         title={key}
         detail={typeof value === "object" ? JSON.stringify(value) : String(value)}
-        stacked
       />
     ));
   }
@@ -422,11 +421,10 @@ export function ChatPanel({
           return (
             <PanelListRow
               key={id}
-              leading={checked ? <Check size={12} strokeWidth={2.5} /> : null}
-              leadingKind="check"
+              leading={checked ? <Check size={14} strokeWidth={2.5} /> : <Cpu size={14} strokeWidth={2} />}
+              leadingKind="icon"
               title={model.name ?? model.id}
               detail={model.provider}
-              stacked
               selected={checked}
               onClick={() => toggleScoped(id)}
             />
