@@ -37,10 +37,51 @@ echo "==> git pull"
 git pull origin main
 echo "==> install deps"
 npm run install:all
+echo "==> ensure host npm:pi-subagents"
+mkdir -p /root/.pi/agent/npm
+if [[ ! -d /root/.pi/agent/npm/node_modules/pi-subagents ]]; then
+  if command -v pi >/dev/null 2>&1; then
+    (cd /root && PI_AGENT_DIR=/root/.pi/agent pi install npm:pi-subagents) || true
+  fi
+fi
+if [[ ! -d /root/.pi/agent/npm/node_modules/pi-subagents ]]; then
+  cd /root/.pi/agent/npm
+  if [[ ! -f package.json ]]; then
+    printf '%s\n' '{"name":"pi-extensions","private":true,"dependencies":{"pi-subagents":"^0.35.1"}}' > package.json
+  fi
+  npm install pi-subagents@^0.35.1
+  cd ${APP_ROOT}
+fi
+ls /root/.pi/agent/npm/node_modules/pi-subagents/package.json
 echo "==> build server"
-cd server && npm run build
+cd ${APP_ROOT}/server && npm run build
 echo "==> build client"
-cd ../client && npm run build
+cd ${APP_ROOT}/client && npm run build
+echo "==> migrate user agent packages (npm:pi-subagents)"
+node <<'NODE'
+const fs = require("fs");
+const path = require("path");
+const root = "/opt/hy-webagent/workspaces";
+const marker = "pi-subagents-h";
+const want = "npm:pi-subagents";
+for (const name of fs.readdirSync(root)) {
+  const settingsPath = path.join(root, name, ".pi", "agent", "settings.json");
+  if (!fs.existsSync(settingsPath)) continue;
+  let settings;
+  try { settings = JSON.parse(fs.readFileSync(settingsPath, "utf8")); } catch { continue; }
+  const packages = Array.isArray(settings.packages) ? settings.packages.filter((p) => !String(p).includes(marker)) : [];
+  if (!packages.includes(want)) packages.push(want);
+  settings.packages = packages;
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  // seed npm tree from host
+  const src = "/root/.pi/agent/npm";
+  const dest = path.join(root, name, ".pi", "agent", "npm");
+  if (fs.existsSync(path.join(src, "node_modules", "pi-subagents"))) {
+    fs.cpSync(src, dest, { recursive: true, force: true });
+  }
+  console.log("updated", name);
+}
+NODE
 echo "==> restart ${SERVICE}"
 systemctl restart ${SERVICE}
 sleep 2

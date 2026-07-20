@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { SlashContext, SlashResponse } from "./types.js";
+import { normalizeThinkingLevel, THINKING_LEVELS } from "../pi/thinking-level.js";
 
 function getUserSession(ctx: SlashContext) {
   const ps = ctx.activeSessionId
@@ -12,14 +13,9 @@ function getUserSession(ctx: SlashContext) {
   return ps;
 }
 
-const validThinkingLevels = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-];
+function thinkingLevelHelp(): string {
+  return `${THINKING_LEVELS.join(", ")} (Max → xhigh)`;
+}
 
 export async function setSetting(
   ctx: SlashContext,
@@ -38,23 +34,27 @@ export async function setSetting(
   try {
     switch (key) {
       case "thinkingLevel": {
-        if (typeof value !== "string" || !validThinkingLevels.includes(value)) {
+        const level =
+          typeof value === "string" ? normalizeThinkingLevel(value) : null;
+        if (!level) {
           return {
             ok: false,
-            message: `Invalid thinkingLevel. Allowed: ${validThinkingLevels.join(", ")}`,
+            message: `Invalid thinkingLevel. Allowed: ${thinkingLevelHelp()}`,
           };
         }
-        session.setThinkingLevel(value as any);
+        session.setThinkingLevel(level as any);
         break;
       }
       case "defaultThinkingLevel": {
-        if (typeof value !== "string" || !validThinkingLevels.includes(value)) {
+        const level =
+          typeof value === "string" ? normalizeThinkingLevel(value) : null;
+        if (!level) {
           return {
             ok: false,
-            message: `Invalid defaultThinkingLevel. Allowed: ${validThinkingLevels.join(", ")}`,
+            message: `Invalid defaultThinkingLevel. Allowed: ${thinkingLevelHelp()}`,
           };
         }
-        settings.setDefaultThinkingLevel(value as any);
+        settings.setDefaultThinkingLevel(level as any);
         break;
       }
       case "steeringMode": {

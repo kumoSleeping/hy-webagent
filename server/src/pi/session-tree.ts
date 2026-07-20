@@ -1,4 +1,5 @@
 import type { SessionEntry, SessionManager } from "@earendil-works/pi-coding-agent";
+import { formatThinkingLevel } from "./thinking-level.js";
 
 /** Raw tree node returned by the pi SDK's SessionManager.getTree(). */
 type SdkTreeNode = ReturnType<SessionManager["getTree"]>[number];
@@ -235,7 +236,7 @@ function mapBookkeepingPreview(entry: SessionEntry): { role: ClientTreeNode["rol
     case "model_change":
       return { role: "custom", preview: `[model: ${entry.modelId}]` };
     case "thinking_level_change":
-      return { role: "custom", preview: `[thinking: ${entry.thinkingLevel}]` };
+      return { role: "custom", preview: `[thinking: ${formatThinkingLevel(entry.thinkingLevel)}]` };
     case "custom":
       return { role: "custom", preview: `[custom: ${entry.customType}]` };
     case "label":

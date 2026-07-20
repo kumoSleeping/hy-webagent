@@ -9,7 +9,3 @@ export function defaultPiExtensionsRoot(): string {
 export function bundledExtensionsDir(root: string): string {
   return path.join(root, "extensions");
 }
-
-export function bundledSubagentsPackageDir(root: string): string {
-  return path.join(root, "packages", "pi-subagents-h");
-}

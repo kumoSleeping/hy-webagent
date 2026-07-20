@@ -2,6 +2,7 @@ import type { AgentSession } from "@earendil-works/pi-coding-agent";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { formatThinkingLevel } from "./thinking-level.js";
 import { sanitizeStatusText } from "./web-ui-context.js";
 
 function formatTokens(count: number): string {
@@ -118,8 +119,7 @@ export function computeFooterSnapshot(
   let modelRight = modelName;
   if (state.model?.reasoning) {
     const thinkingLevel = state.thinkingLevel || "off";
-    modelRight =
-      thinkingLevel === "off" ? `${modelName} • thinking off` : `${modelName} • ${thinkingLevel}`;
+    modelRight = `${modelName} • ${formatThinkingLevel(thinkingLevel)}`;
   }
 
   const providers = new Set(session.modelRegistry.getAvailable().map((m) => m.provider));

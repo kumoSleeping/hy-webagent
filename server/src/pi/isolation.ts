@@ -6,10 +6,12 @@ import { config } from "../config.js";
 import type { AuthSystem } from "../auth.js";
 import { checkSensitivePath } from "./agent-sandbox.js";
 import { resolveModelPolicy } from "../model-policy.js";
-import {
-  bundledExtensionsDir,
-  bundledSubagentsPackageDir,
-} from "../pi-extensions-path.js";
+import { bundledExtensionsDir } from "../pi-extensions-path.js";
+
+/** Platform-managed PI packages — same sources as a modern local `~/.pi/agent/settings.json`. */
+export const PLATFORM_NPM_PACKAGES = ["npm:pi-subagents"] as const;
+
+const LEGACY_PACKAGE_MARKERS = ["pi-subagents-h", "packages/pi-subagents-h"];
 
 /** Subfolder under each user workspace where the agent cwd and Files panel root live. */
 export const USER_PROJECTS_DIR = "projects";
@@ -263,15 +265,16 @@ export async function syncAgentExtensionsFromGlobal(
   await syncExtensionTree(sourceDir, path.join(agentDir, "extensions"));
 }
 
-/** Ensure settings.json lists bundled pi-subagents-h (PI package, not under extensions/). */
-export async function mergeBundledPackagesIntoSettings(settingsPath: string): Promise<void> {
-  const pkgDir = path.resolve(bundledSubagentsPackageDir(config.piExtensionsRoot));
-  try {
-    await fs.access(pkgDir);
-  } catch {
-    return;
-  }
+function isLegacySubagentsPackage(entry: string): boolean {
+  const normalized = entry.replace(/\\/g, "/");
+  return LEGACY_PACKAGE_MARKERS.some((m) => normalized.includes(m));
+}
 
+/**
+ * Ensure settings.json uses `npm:pi-subagents` (official package) and drops
+ * legacy path-based `pi-subagents-h` entries.
+ */
+export async function mergeBundledPackagesIntoSettings(settingsPath: string): Promise<void> {
   let settings: Record<string, unknown> = {};
   try {
     settings = JSON.parse(await fs.readFile(settingsPath, "utf-8")) as Record<string, unknown>;
@@ -279,14 +282,74 @@ export async function mergeBundledPackagesIntoSettings(settingsPath: string): Pr
     // new or invalid — rewrite below
   }
 
-  const packages = Array.isArray(settings.packages)
-    ? [...(settings.packages as string[])]
+  const existing = Array.isArray(settings.packages)
+    ? (settings.packages as string[])
     : [];
-  if (!packages.includes(pkgDir)) {
-    packages.push(pkgDir);
+  const packages = existing.filter((p) => !isLegacySubagentsPackage(p));
+  for (const spec of PLATFORM_NPM_PACKAGES) {
+    if (!packages.includes(spec)) packages.push(spec);
   }
   settings.packages = packages;
   await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2));
+}
+
+/**
+ * Copy host-managed npm PI packages into the user agent dir so `npm:…` settings
+ * resolve without each workspace installing from the network.
+ * Source: `~/.pi/agent/npm` (same layout as local PI CLI).
+ */
+export async function seedManagedNpmPackages(agentDir: string): Promise<void> {
+  const globalNpm = path.join(globalAgentDir(), "npm");
+  try {
+    await fs.access(path.join(globalNpm, "node_modules", "pi-subagents"));
+  } catch {
+    return;
+  }
+
+  const userNpm = path.join(agentDir, "npm");
+  await fs.mkdir(path.join(userNpm, "node_modules"), { recursive: true, mode: 0o700 });
+
+  // Keep a minimal package.json so PI's package manager recognizes the npm root.
+  const pkgJsonPath = path.join(userNpm, "package.json");
+  try {
+    await fs.access(pkgJsonPath);
+  } catch {
+    await fs.writeFile(
+      pkgJsonPath,
+      JSON.stringify(
+        {
+          name: "pi-extensions",
+          private: true,
+          dependencies: { "pi-subagents": "*" },
+        },
+        null,
+        2
+      )
+    );
+  }
+
+  const names = await fs.readdir(path.join(globalNpm, "node_modules"));
+  for (const name of names) {
+    if (name.startsWith(".")) continue;
+    // Skip nested @scope dirs that are only peer scaffolding unless needed;
+    // copy top-level deps (pi-subagents, jiti, yaml, …).
+    if (name.startsWith("@")) {
+      // Copy scoped packages selectively — pi-subagents peers are provided by the server runtime.
+      continue;
+    }
+    const src = path.join(globalNpm, "node_modules", name);
+    const dest = path.join(userNpm, "node_modules", name);
+    await fs.cp(src, dest, { recursive: true, force: true });
+  }
+
+  try {
+    await fs.copyFile(
+      path.join(globalNpm, ".gitignore"),
+      path.join(userNpm, ".gitignore")
+    );
+  } catch {
+    // optional
+  }
 }
 
 export interface EnsureUserAgentDirOptions {
@@ -322,6 +385,7 @@ export async function ensureUserAgentDir(
     await mergeProviderFromGlobalAuth(agentAuthPath, path.join(globalDir, "auth.json"), providerId);
   }
   await syncBundledAgentExtensions(agentDir);
+  await seedManagedNpmPackages(agentDir);
 
   const settingsPath = path.join(agentDir, "settings.json");
   try {

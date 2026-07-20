@@ -287,13 +287,14 @@ describe("syncAgentExtensionsFromGlobal", () => {
       const agentDir = await ensureUserAgentDir(path.join(root, "workspace"));
 
       await expect(
-        fs.readFile(path.join(agentDir, "extensions", "goal-h.ts"), "utf-8")
-      ).resolves.toContain("goal-manager-lite");
+        fs.readFile(path.join(agentDir, "extensions", "kumoSleeping-jina-bar.ts"), "utf-8")
+      ).resolves.toContain("kumoSleeping-jina-bar");
 
       const settings = JSON.parse(
         await fs.readFile(path.join(agentDir, "settings.json"), "utf-8")
       ) as { packages?: string[] };
-      expect(settings.packages?.some((p) => p.endsWith("pi-subagents-h"))).toBe(true);
+      expect(settings.packages).toContain("npm:pi-subagents");
+      expect(settings.packages?.some((p) => String(p).includes("pi-subagents-h"))).toBe(false);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -307,8 +308,8 @@ describe("syncBundledAgentExtensions", () => {
       const agentDir = path.join(root, ".pi", "agent");
       await syncBundledAgentExtensions(agentDir);
       await expect(
-        fs.readFile(path.join(agentDir, "extensions", "goal-h.ts"), "utf-8")
-      ).resolves.toContain("goal_manager");
+        fs.readFile(path.join(agentDir, "extensions", "kumoSleeping-jina-bar.ts"), "utf-8")
+      ).resolves.toContain("kumoSleeping-jina-bar");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -326,8 +327,8 @@ describe("syncBundledAgentExtensions", () => {
 
       await expect(fs.access(path.join(agentDir, "extensions", "btw-h"))).rejects.toThrow();
       await expect(
-        fs.readFile(path.join(agentDir, "extensions", "goal-h.ts"), "utf-8")
-      ).resolves.toContain("goal_manager");
+        fs.readFile(path.join(agentDir, "extensions", "kumoSleeping-jina-bar.ts"), "utf-8")
+      ).resolves.toContain("kumoSleeping-jina-bar");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -335,18 +336,28 @@ describe("syncBundledAgentExtensions", () => {
 });
 
 describe("mergeBundledPackagesIntoSettings", () => {
-  it("adds pi-subagents-h package path", async () => {
+  it("adds npm:pi-subagents and strips legacy pi-subagents-h paths", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-pkg-"));
     try {
       const settingsPath = path.join(root, "settings.json");
-      await fs.writeFile(settingsPath, JSON.stringify({ defaultModel: "x" }, null, 2));
+      await fs.writeFile(
+        settingsPath,
+        JSON.stringify(
+          {
+            defaultModel: "x",
+            packages: ["/opt/hy-webagent/pi-extensions/packages/pi-subagents-h"],
+          },
+          null,
+          2
+        )
+      );
       await mergeBundledPackagesIntoSettings(settingsPath);
       const settings = JSON.parse(await fs.readFile(settingsPath, "utf-8")) as {
         defaultModel?: string;
         packages?: string[];
       };
       expect(settings.defaultModel).toBe("x");
-      expect(settings.packages?.some((p) => p.endsWith("pi-subagents-h"))).toBe(true);
+      expect(settings.packages).toEqual(["npm:pi-subagents"]);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

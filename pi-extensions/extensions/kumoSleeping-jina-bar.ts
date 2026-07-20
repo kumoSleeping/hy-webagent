@@ -1,7 +1,7 @@
 /**
- * kumoSleeping-jina-bar — Timer + Jina Stats + I2T model + Subagent Billing + Goal Status
+ * kumoSleeping-jina-bar — Timer + Jina Stats + I2T model + Subagent Billing
  *
- * Single bar: timer | jina | I2T:{model} | subagent | goal title [x/y] | @kumoSleeping
+ * Single bar: timer | jina | I2T:{model} | subagent | @kumoSleeping
  *
  * I2T:{model} = describe_image active, delegating to this vision model (set by image-viewer)
  */
@@ -51,7 +51,7 @@ function jinaTokens(): number {
   return ((globalThis as Record<string, unknown>).__jinaTokens as number) || 0;
 }
 
-// ── subagent cost persistence (shared with pi-subagents-h via globalThis) ──
+// ── subagent cost persistence (shared with npm:pi-subagents via globalThis) ──
 
 interface SubagentStats {
   tokens: number;
@@ -88,32 +88,9 @@ function subagentStats(): SubagentStats {
   };
 }
 
-// ── goal.md 解析 (与 goal-h 共享格式) ────────────────────
-interface GoalStatus { title: string; done: number; total: number; active: boolean }
-
-function readGoal(p: string | null): GoalStatus | null {
-  if (!p) return null;
-  try {
-    if (!existsSync(p)) return null;
-    const text = readFileSync(p, "utf-8").trim();
-    if (!text) return null;
-    const lines = text.split("\n");
-    const title = lines[0]?.replace(/^#\s+/, "").trim() || "";
-    let done = 0, failed = 0;
-    for (const line of lines) {
-      if (/^##\s/.test(line)) continue;
-      const m = line.match(/^\s*\[(x| )\]/i);
-      if (m) { if (m[1] === "x") done++; else failed++; }
-    }
-    const total = done + failed || lines.filter((l) => /^##\s/.test(l)).length;
-    return { title: title || "Untitled", done, total, active: true };
-  } catch { return null; }
-}
-
 export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     const sessionFile = ctx.sessionManager.getSessionFile();
-    const goalPath: string | null = sessionFile ? sessionFile.replace(/\.jsonl$/, "-goal.md") : null;
 
     // Session-specific cost file so sessions don't cross-contaminate
     const subagentCostFile = sessionFile
@@ -154,7 +131,7 @@ export default function (pi: ExtensionAPI) {
               ? `Jina:${jinaBalance}`
               : null;
 
-          // subagent billing (from pi-subagents-h)
+          // subagent billing (from npm:pi-subagents)
           const sub = subagentStats();
           let subStr: string | null = null;
           if (sub.tokens > 0 || sub.running > 0) {
@@ -168,15 +145,9 @@ export default function (pi: ExtensionAPI) {
             }
           }
 
-          // goal 状态内联 (session 隔离)
-          const goal = readGoal(goalPath);
-          const goalStr = goal && goal.active
-            ? `\u25C9 ${goal.title}${goal.total > 0 ? ` [${goal.done}/${goal.total}]` : ""}`
-            : null;
-
           const vname = visionModelName();
           const eyeStr = vname ? `I2T:${vname}` : null;
-          const parts = [timer, jina, eyeStr, subStr, goalStr].filter(Boolean);
+          const parts = [timer, jina, eyeStr, subStr].filter(Boolean);
           const left = dim(parts.join("  "));
           const sigColored = theme.fg("error", SIGNATURE);
           const sigWidth = visibleWidth(sigColored);

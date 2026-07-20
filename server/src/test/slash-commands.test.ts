@@ -123,6 +123,16 @@ describe("slash command router", () => {
     expect(result.message).toContain("Invalid thinkingLevel");
   });
 
+  it("settings.set accepts Max as alias for xhigh", async () => {
+    const result = await dispatch(
+      { userId, workspacePath, activeSessionId, sessionManager },
+      { command: "settings.set", args: { key: "thinkingLevel", value: "max" } }
+    );
+    expect(result.ok).toBe(true);
+    const session = (sessionManager.getSession as any).mock.results.at(-1).value.session;
+    expect(session.setThinkingLevel).toHaveBeenCalledWith("xhigh");
+  });
+
   it("session.name requires name", async () => {
     const result = await dispatch(
       { userId, workspacePath, activeSessionId, sessionManager },
