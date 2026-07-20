@@ -151,3 +151,4 @@ First-time bootstrap (empty VM): `scripts/deploy-server.sh` on the server.
 - Do not commit unless the user asked to push/deploy.
 - Do not store passwords in the repository.
 - After deploy, report: commit hash, health check, service status, notable processes.
+- After deploy (and other long tasks), also send a Bark push — see [bark-notify](../bark-notify/SKILL.md).
