@@ -1,0 +1,15 @@
+---
+description: After meaningful code changes, commit/push and deploy to production without asking.
+alwaysApply: true
+---
+
+# Auto deploy (hy-webagent)
+
+When finishing a task that changes this repo in a deployable way:
+
+1. Commit (follow repo commit style).
+2. `git push origin main`.
+3. Run `./scripts/remote-update.sh` (uses `~/.config/hy-webagent/deploy.env`).
+4. Confirm health / service status in the reply.
+
+Do **not** ask “要不要部署” — deploy by default unless the user explicitly says not to, or the change is docs-only / local-scratch / clearly not for production.
