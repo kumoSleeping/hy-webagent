@@ -79,11 +79,11 @@ export function CenterStage({
           ? "Preview"
           : primaryWidgetLabel(aboveEditor);
 
-  // File preview keeps editor chrome; everything else uses the shared large-panel header.
+  // File preview must keep `--preview` (fixed height for Monaco) + headless chrome.
   if (mode === "preview") {
     return (
       <div
-        className="pi-center-stage pi-center-stage--large pi-center-stage--headless"
+        className="pi-center-stage pi-center-stage--preview pi-center-stage--headless"
         onClick={(e) => e.stopPropagation()}
       >
         <EditorPanel
@@ -100,9 +100,11 @@ export function CenterStage({
     );
   }
 
+  // Large panels (tree / dialog / extension): shared header; tree reuses preview height.
+  const tall = mode === "tree";
   return (
     <div
-      className="pi-center-stage pi-center-stage--large"
+      className={`pi-center-stage${tall ? " pi-center-stage--preview" : ""}`}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="pi-center-stage-header">

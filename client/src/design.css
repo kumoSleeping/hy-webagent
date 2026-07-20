@@ -271,8 +271,7 @@ body {
   border: none;
   box-shadow: none;
 }
-.pi-composer-dock--open .pi-center-stage--preview,
-.pi-composer-dock--open .pi-center-stage--large {
+.pi-composer-dock--open .pi-center-stage--preview {
   background: var(--pi-panel);
 }
 .pi-composer-dock--open .pi-composer-shell {
@@ -367,21 +366,10 @@ body {
 }
 /* File preview — fixed height so Monaco gets a real layout box (flex:1
    alone collapses when the parent has only max-height, not height). */
-.pi-center-stage--preview,
-.pi-center-stage--large {
+.pi-center-stage--preview {
   height: min(34rem, calc(100dvh - 9rem));
   max-height: min(34rem, calc(100dvh - 9rem));
   overflow: hidden;
-}
-.pi-composer-dock--open .pi-center-stage--large {
-  border-bottom: none;
-  box-shadow: none;
-}
-.pi-composer-dock--preview .pi-center-stage--large {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: auto;
-  max-height: none;
 }
 .pi-center-stage-header {
   display: flex;
