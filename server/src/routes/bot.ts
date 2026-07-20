@@ -3,6 +3,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { AuthSystem } from "../auth.js";
 import type { BotRepository } from "../bot/repository.js";
+import {
+  ensureBotUploadCredential,
+  resolveBotUserIdByUploadToken,
+  storeBotUpload,
+} from "../bot/uploads.js";
 import type { WorkspaceIsolator } from "../pi/isolation.js";
 import type { PISessionManager } from "../pi/session-manager.js";
 import { authMiddleware } from "./auth.js";
@@ -90,6 +95,7 @@ export function createBotRouter(
         bots.upsertChannel({ botUserId, channelId, displayName: null, platform: null, metadata: null });
       }
       const workspace = await isolator.ensureUserWorkspace(botUserId);
+      await ensureBotUploadCredential(botUserId, workspace);
       const session = await sessionManager.createSession(botUserId, workspace, () => {});
       const now = Date.now();
       bots.createSession({
@@ -125,12 +131,83 @@ export function createBotRouter(
         return;
       }
       const workspace = await isolator.ensureUserWorkspace(botUserId);
+      await ensureBotUploadCredential(botUserId, workspace);
       const session = await sessionManager.createSession(botUserId, workspace, () => {}, record.piSessionId);
       res.json({ sessionId: session.sessionId, status: record.status });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
   });
+
+  /**
+   * Bot file upload — stores outside the agent workspace and returns a public URL.
+   * Auth: bot session, or X-Bot-Upload-Token from workspace `.pi/upload.json`.
+   */
+  router.post(
+    "/upload",
+    async (req, res, next) => {
+      const headerToken = String(req.headers["x-bot-upload-token"] ?? "").trim();
+      const bodyToken = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+      const token = headerToken || bodyToken;
+      if (token) {
+        const botUserId = await resolveBotUserIdByUploadToken(token);
+        if (!botUserId) {
+          res.status(401).json({ error: "Invalid upload token" });
+          return;
+        }
+        (req as any).botUploadUserId = botUserId;
+        next();
+        return;
+      }
+      authMiddleware(authSystem)(req, res, () => requireBot(req, res, next));
+    },
+    async (req, res) => {
+      try {
+        const botUserId =
+          ((req as any).botUploadUserId as string | undefined) ??
+          ((req as any).userSession?.userId as string | undefined);
+        if (!botUserId) {
+          res.status(401).json({ error: "Unauthorized" });
+          return;
+        }
+
+        const filename = text(req.body?.filename, 240);
+        const contentB64 = typeof req.body?.content_base64 === "string" ? req.body.content_base64 : "";
+        const mimeType = typeof req.body?.mime_type === "string" ? req.body.mime_type : undefined;
+        if (!filename || !contentB64) {
+          res.status(400).json({ error: "filename and content_base64 are required" });
+          return;
+        }
+        let content: Buffer;
+        try {
+          content = Buffer.from(contentB64, "base64");
+        } catch {
+          res.status(400).json({ error: "invalid content_base64" });
+          return;
+        }
+        if (!content.length) {
+          res.status(400).json({ error: "empty upload content" });
+          return;
+        }
+
+        const stored = await storeBotUpload({ botUserId, filename, content, mimeType });
+        const host = req.get("host") ?? "localhost";
+        const proto = req.protocol || "http";
+        const url = `${proto}://${host}${stored.publicPath}`;
+        res.status(201).json({
+          ok: true,
+          id: stored.id,
+          filename: stored.filename,
+          mimeType: stored.mimeType,
+          size: stored.size,
+          publicPath: stored.publicPath,
+          url,
+        });
+      } catch (error) {
+        res.status(400).json({ error: (error as Error).message });
+      }
+    },
+  );
 
   router.post("/messages/link", ...guard, (req, res) => {
     const botUserId = (req as any).userSession.userId as string;

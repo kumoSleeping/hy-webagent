@@ -28,6 +28,7 @@ import {
   ADMIN_SKILLS_DIR,
   createPlatformResourceLoader,
   buildResourceLoaderOptionsForSession,
+  assertBotRulesLoaded,
   loadPlatformSystemMd,
 } from "./platform-system.js";
 import { persistChatAttachments } from "./chat-attachments.js";
@@ -112,7 +113,8 @@ export class PISessionManager {
       allow: null,
       providers: null,
     }),
-    maxConcurrentUsers = 4
+    maxConcurrentUsers = 4,
+    private isBotUser: (userId: string) => boolean = () => false,
   ) {
     this.maxConcurrentUsers = maxConcurrentUsers;
   }
@@ -436,8 +438,10 @@ export class PISessionManager {
 
     const agentCwd = agentCwdFromWorkspace(workspacePath);
     const sessionManager = SessionManager.create(workspacePath, sessionDir);
+    const includeBotRules = this.isBotUser(userId);
     const resourceLoader = await createPlatformResourceLoader(agentCwd, agentDir, {
       includeAdminSkills: this.includeAdminSkillsFor(userId),
+      includeBotRules,
       workspacePath,
       enableSandbox: !this.includeAdminSkillsFor(userId),
     });
@@ -448,6 +452,7 @@ export class PISessionManager {
       resourceLoader,
     });
     assertPlatformRulesLoaded(session.systemPrompt);
+    if (includeBotRules) assertBotRulesLoaded(session.systemPrompt);
 
     const userSession = await this.registerUserSession(
       userId,
@@ -526,8 +531,10 @@ export class PISessionManager {
 
     const agentCwd = agentCwdFromWorkspace(workspacePath);
     const sessionManager = SessionManager.open(sessionPath, sessionDir, workspacePath);
+    const includeBotRules = this.isBotUser(userId);
     const resourceLoader = await createPlatformResourceLoader(agentCwd, agentDir, {
       includeAdminSkills: this.includeAdminSkillsFor(userId),
+      includeBotRules,
       workspacePath,
       enableSandbox: !this.includeAdminSkillsFor(userId),
     });
@@ -538,6 +545,7 @@ export class PISessionManager {
       resourceLoader,
     });
     assertPlatformRulesLoaded(session.systemPrompt);
+    if (includeBotRules) assertBotRulesLoaded(session.systemPrompt);
 
     const userSession = await this.registerUserSession(
       userId,
@@ -617,6 +625,7 @@ export class PISessionManager {
 
   private createRuntimeFactory(ps: UserPISession): CreateAgentSessionRuntimeFactory {
     const enableSandbox = !this.includeAdminSkillsFor(ps.userId);
+    const includeBotRules = this.isBotUser(ps.userId);
     return async (options) => {
       const services = await createAgentSessionServices({
         cwd: options.cwd,
@@ -624,7 +633,8 @@ export class PISessionManager {
         resourceLoaderOptions: buildResourceLoaderOptionsForSession(
           ps.workspacePath,
           ps.agentCwd,
-          enableSandbox
+          enableSandbox,
+          includeBotRules,
         ),
       });
       const result = await createAgentSessionFromServices({

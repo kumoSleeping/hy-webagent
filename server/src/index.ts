@@ -15,13 +15,13 @@ import { TokenTracker } from "./pi/token-tracker.js";
 import { config } from "./config.js";
 import { handleChatWs } from "./ws/chat.js";
 import { createFilesRouter } from "./routes/files.js";
-import { BrowserMessageRenderer } from "./render/browser-message-renderer.js";
+import { BrowserMessageRenderer, resolveCardDistDir } from "./render/browser-message-renderer.js";
 import { createMessageRenderHandler } from "./routes/message-render.js";
 import { createPlatformAdminRouter } from "./routes/platform-admin.js";
 import path from "node:path";
 import { findSessionFilePath } from "./pi/session-files.js";
 import fs from "node:fs/promises";
-import { loadPlatformSystemMd } from "./pi/platform-system.js";
+import { loadPlatformSystemMd, loadPlatformBotSystemMd } from "./pi/platform-system.js";
 import logger, { createLogger } from "./logger.js";
 import { getAdminApiCatalog } from "./admin/catalog.js";
 import { titleFromUserMessage } from "./attachment-display.js";
@@ -34,6 +34,7 @@ import { isWebSocketOriginAllowed, isOriginAllowed } from "./ws-origin.js";
 import { attachClientStatic } from "./client-static.js";
 import { BotRepository } from "./bot/repository.js";
 import { createBotRouter, createPublicBotRouter, createSavedGroupRouter } from "./routes/bot.js";
+import { loadBotUpload } from "./bot/uploads.js";
 
 const log = createLogger("server");
 const app = express();
@@ -52,7 +53,14 @@ app.use(cors({
     callback(null, false);
   },
 }));
-app.use(express.json({ limit: "1mb" }));
+// Bot uploads carry base64 payloads up to ~20MB; parse that route with a higher cap.
+app.use((req, res, next) => {
+  if (req.method === "POST" && req.path === "/api/bot/upload") {
+    express.json({ limit: "25mb" })(req, res, next);
+    return;
+  }
+  express.json({ limit: "1mb" })(req, res, next);
+});
 app.use(compression());
 app.use("/api", (req, res, next) => {
   if (req.path === "/auth/login" || req.path === "/auth/me" || req.path === "/auth/logout") {
@@ -70,7 +78,9 @@ const sessionManager = new PISessionManager(
   (userId) => {
     const user = authSystem.getUser(userId);
     return resolveModelPolicy(user, authSystem.isAdmin(userId));
-  }
+  },
+  config.maxConcurrentUsers,
+  (userId) => authSystem.getUser(userId)?.role === "bot",
 );
 authSystem.onUserRoleChanged(async (userId) => {
   if (authSystem.isAdmin(userId)) {
@@ -85,6 +95,15 @@ const tokenTracker = new TokenTracker();
 const usageRecorder = new UsageRecorder();
 const botRepository = new BotRepository(config.databasePath);
 const messageRenderer = new BrowserMessageRenderer(`http://127.0.0.1:${config.port}`);
+
+// HYW card-ui static assets (Playwright render target for download + bot).
+app.use("/__render/card", express.static(resolveCardDistDir(), {
+  index: "index.html",
+  fallthrough: false,
+  setHeaders: (res) => {
+    res.setHeader("Cache-Control", "no-cache");
+  },
+}));
 
 // --- Auth Routes ---
 app.use("/api", createAuthRouter(authSystem));
@@ -425,7 +444,7 @@ app.get("/api/sessions", authMiddleware(authSystem), async (req: any, res) => {
 // --- File Routes ---
 app.use("/api", createFilesRouter(authSystem, isolator));
 
-// --- Browser-backed render API (same React/CSS tree as the web conversation) ---
+// --- Browser-backed render API (HYW card-ui: 560px × zoom 1.5) ---
 // 认证用户渲染端点
 app.post("/api/render", authMiddleware(authSystem), createMessageRenderHandler(messageRenderer, false));
 app.post(
@@ -452,6 +471,25 @@ app.post(
 // 公开渲染端点（访客只读 — 速率限制更严格）
 app.post("/api/public/render", apiRateLimiter, createMessageRenderHandler(messageRenderer, false));
 app.post("/api/public/render/b64", apiRateLimiter, createMessageRenderHandler(messageRenderer, true));
+
+// Public bot upload downloads (tokenized ids; no workspace path exposure).
+app.get("/api/public/uploads/:id/:filename", apiRateLimiter, async (req, res) => {
+  try {
+    const loaded = await loadBotUpload(String(req.params.id));
+    if (!loaded) {
+      res.status(404).json({ error: "Upload not found" });
+      return;
+    }
+    res.setHeader("Content-Type", loaded.meta.mimeType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encodeURIComponent(loaded.meta.filename)}`,
+    );
+    res.send(loaded.buffer);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
 
 // --- Health ---
 app.get("/health", (_req, res) =>
@@ -552,6 +590,7 @@ wss.on("connection", (ws, req) => {
 // --- 启动 ---
 server.listen(config.port, "0.0.0.0", async () => {
   await loadPlatformSystemMd();
+  await loadPlatformBotSystemMd();
   // 确保至少有一个 admin 用户
   const users = authSystem.getAllUsers();
   if (!authSystem.hasAdminUser()) {
