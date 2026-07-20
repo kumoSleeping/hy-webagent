@@ -22,6 +22,7 @@ import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { FileTree } from "../files/FileTree";
 import { PanelFilterBar } from "../common/PanelFilterBar";
+import { PanelBody, PanelListRow } from "../common/panel";
 import { AccountPanel } from "../platform/AccountPanel";
 import { useImeComposition } from "../../hooks/useImeComposition";
 import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
@@ -215,7 +216,7 @@ export function ComposerBar({
    * generalized since history has no dedicated store). */
   const [historySelectedIndex, setHistorySelectedIndex] = useState(0);
   const [historyQuery, setHistoryQuery] = useState("");
-  const historyRowRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const historyRowRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1022,57 +1023,53 @@ export function ComposerBar({
   }
 
   const commandListContent = (
-    <div className="pi-composer-cmd-list">
-      {filtered.length === 0 ? (
-        <div className="pi-composer-cmd-empty">No matching commands</div>
-      ) : (
-        filtered.map((cmd, index) => (
-          <SlashCommandListItem
-            key={cmd.id}
-            command={cmd}
-            systemCommands={systemCommands}
-            selected={
-              showCommandList && index === selectedIndex && (commandListFocus || !toolbarKeyboardFocus)
-            }
-            itemRef={(el) => { itemRefs.current[index] = el; }}
-            onMouseDown={(e) => e.preventDefault()}
-            onActivate={() => activateCommand(cmd)}
-          />
-        ))
-      )}
-    </div>
+    <PanelBody
+      variant="list"
+      empty={filtered.length === 0 ? "No matching commands" : undefined}
+    >
+      {filtered.map((cmd, index) => (
+        <SlashCommandListItem
+          key={cmd.id}
+          command={cmd}
+          systemCommands={systemCommands}
+          selected={
+            showCommandList && index === selectedIndex && (commandListFocus || !toolbarKeyboardFocus)
+          }
+          itemRef={(el) => { itemRefs.current[index] = el; }}
+          onMouseDown={(e) => e.preventDefault()}
+          onActivate={() => activateCommand(cmd)}
+        />
+      ))}
+    </PanelBody>
   );
 
   const historyContent = (
-    <>
-      {filteredHistorySessions.length === 0 ? (
-        <div className="pi-hist-empty">
-          {visibleSessions.length === 0 ? "No sessions yet" : "No matching sessions"}
-        </div>
-      ) : (
-        filteredHistorySessions.map((s, i) => {
-          const isCursor = panel === "history" && !toolbarKeyboardFocus && i === historySelectedIndex;
-          return (
-            <div
-              key={s.id}
-              ref={(el) => { historyRowRefs.current[i] = el; }}
-              className={`pi-panel-row pi-hist-row${isCursor ? " pi-panel-row--selected" : ""}`}
-              onMouseEnter={() => setHistorySelectedIndex(i)}
-            >
-              <button
-                type="button"
-                onClick={() => handleSessionClick(s.id)}
-                title={formatUserMessagePreview(s.title)}
-                className="pi-hist-row-main"
-              >
-                <span className="pi-hist-idx">{String(i + 1).padStart(2, "0")}</span>
-                <span className="pi-hist-label">{formatUserMessagePreview(s.title)}</span>
-              </button>
-            </div>
-          );
-        })
-      )}
-    </>
+    <PanelBody
+      variant="list"
+      filter={<PanelFilterBar value={historyQuery} onChange={setHistoryQuery} />}
+      empty={
+        filteredHistorySessions.length === 0
+          ? (visibleSessions.length === 0 ? "No sessions yet" : "No matching sessions")
+          : undefined
+      }
+    >
+      {filteredHistorySessions.map((s, i) => {
+        const isCursor = panel === "history" && !toolbarKeyboardFocus && i === historySelectedIndex;
+        return (
+          <PanelListRow
+            key={s.id}
+            itemRef={(el) => { historyRowRefs.current[i] = el; }}
+            leading={String(i + 1).padStart(2, "0")}
+            leadingKind="index"
+            title={formatUserMessagePreview(s.title)}
+            selected={isCursor}
+            titleAttr={formatUserMessagePreview(s.title)}
+            onClick={() => handleSessionClick(s.id)}
+            onMouseEnter={() => setHistorySelectedIndex(i)}
+          />
+        );
+      })}
+    </PanelBody>
   );
 
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
@@ -1086,29 +1083,18 @@ export function ComposerBar({
     if (!panel) return null;
     switch (panel) {
       case "commands":
-        return showCommandList ? (
-          <div className="flex flex-1 min-h-0 flex-col">
-            <div className="flex flex-1 min-h-0 overflow-auto pi-scrollbar pi-composer-panel-body">{commandListContent}</div>
-          </div>
-        ) : (
-          commandsContent
-        );
+        return showCommandList ? commandListContent : commandsContent;
       case "model":
         return modelContent;
       case "history":
-        return (
-          <div className="pi-composer-panel-stack py-0.5">
-            <PanelFilterBar value={historyQuery} onChange={setHistoryQuery} />
-            <div className="pi-composer-panel-scroll pi-scrollbar pb-1">{historyContent}</div>
-          </div>
-        );
+        return historyContent;
       case "files":
         if (groupPreview) return groupPreview.filesContent;
         if (!isMobileLayout && previewOpen) return null;
         return (
-          <div className="flex flex-1 min-h-0 flex-col px-1 py-0.5">
+          <PanelBody variant="list">
             <FileTree onFileClick={onFileClick} />
-          </div>
+          </PanelBody>
         );
       case "account":
         return groupPreview ? groupPreview.accountContent : <AccountPanel />;

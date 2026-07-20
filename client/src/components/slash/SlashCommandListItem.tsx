@@ -1,6 +1,7 @@
 import type { MouseEvent } from "react";
 import { slashCommandIcon } from "../../lib/slashCommandIcon";
 import type { SlashCommand } from "../../stores/slashStore";
+import { PanelListRow } from "../common/panel";
 
 interface SlashCommandListItemProps {
   command: SlashCommand;
@@ -19,20 +20,15 @@ export function SlashCommandListItem({
   onMouseDown,
 }: SlashCommandListItemProps) {
   return (
-    <button
-      ref={itemRef}
-      type="button"
-      onMouseDown={onMouseDown}
+    <PanelListRow
+      leading={slashCommandIcon(command)}
+      leadingKind="icon"
+      title={command.label}
+      detail={command.description}
+      selected={selected}
       onClick={onActivate}
-      className={`pi-panel-row pi-composer-cmd-row w-full flex items-center text-left transition-colors cursor-pointer outline-none border-none bg-transparent${
-        selected ? " pi-panel-row--selected" : ""
-      }`}
-    >
-      <span className="pi-composer-cmd-icon" aria-hidden="true">
-        {slashCommandIcon(command)}
-      </span>
-      <span className="pi-composer-cmd-name">{command.label}</span>
-      <span className="pi-composer-cmd-desc">{command.description}</span>
-    </button>
+      onMouseDown={onMouseDown}
+      itemRef={itemRef}
+    />
   );
 }

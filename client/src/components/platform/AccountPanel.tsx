@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, MessagesSquare, Plus } from "lucide-react";
+import { ArrowLeft, MessagesSquare, Plus, UserRound } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { fetchAccountProfile } from "../../hooks/useAccountProfileSync";
 import { apiGet, apiPost } from "../../lib/api";
@@ -11,6 +11,7 @@ import {
   formatUsd,
   isBudgetExhausted,
 } from "../../lib/budgetDisplay";
+import { PanelBody, PanelListRow } from "../common/panel";
 
 interface SavedGroup {
   botSlug: string;
@@ -62,48 +63,56 @@ function GroupBrowser({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="pi-group-browser">
-      <div className="pi-group-browser-head">
-        <button type="button" onClick={onBack} aria-label="返回用户信息"><ArrowLeft size={15} /></button>
-        <strong>查看群聊中的工作进度</strong>
-        <button type="button" className="pi-group-browser-new" onClick={() => setShowCreate((value) => !value)}>
-          <Plus size={14} />
-          新建
-        </button>
-      </div>
-      {showCreate && <form className="pi-group-browser-form" onSubmit={saveGroup}>
-        <input
-          value={botSlug}
-          onChange={(event) => setBotSlug(event.target.value)}
-          placeholder="Bot"
-          aria-label="Bot 名称"
+    <PanelBody
+      variant="list"
+      loading={loading}
+      filter={
+        <div className="pi-group-browser-head">
+          <button type="button" onClick={onBack} aria-label="返回用户信息"><ArrowLeft size={15} /></button>
+          <strong>查看群聊中的工作进度</strong>
+          <button type="button" className="pi-group-browser-new" onClick={() => setShowCreate((value) => !value)}>
+            <Plus size={14} />
+            新建
+          </button>
+        </div>
+      }
+      empty={!loading && groups.length === 0 && !showCreate ? "还没有保存群聊" : undefined}
+    >
+      {showCreate && (
+        <form className="pi-group-browser-form" onSubmit={saveGroup}>
+          <input
+            value={botSlug}
+            onChange={(event) => setBotSlug(event.target.value)}
+            placeholder="Bot"
+            aria-label="Bot 名称"
+          />
+          <input
+            value={channelId}
+            onChange={(event) => setChannelId(event.target.value)}
+            placeholder="群号"
+            aria-label="群号"
+          />
+          <button type="submit" disabled={!botSlug.trim() || !channelId.trim() || saving}>
+            {saving ? "保存中" : "保存"}
+          </button>
+        </form>
+      )}
+      {error ? <div className="pi-panel-empty">{error}</div> : null}
+      {!loading && groups.length > 0 ? (
+        <p className="pi-group-browser-config-hint">列表保存在 Workspace 的 saved-groups.json，可由你或 AI 直接编辑。</p>
+      ) : null}
+      {groups.map((group, index) => (
+        <PanelListRow
+          key={`${group.botSlug}:${group.channelId}`}
+          leading={String(index + 1).padStart(2, "0")}
+          leadingKind="index"
+          title={group.displayName || `群聊 ${group.channelId}`}
+          detail={`/${group.botSlug}/${group.channelId} · ${group.botDisplayName}`}
+          stacked
+          onClick={() => window.location.assign(group.viewUrl)}
         />
-        <input
-          value={channelId}
-          onChange={(event) => setChannelId(event.target.value)}
-          placeholder="群号"
-          aria-label="群号"
-        />
-        <button type="submit" disabled={!botSlug.trim() || !channelId.trim() || saving}>{saving ? "保存中" : "保存"}</button>
-      </form>}
-      {error && <p className="pi-group-browser-error">{error}</p>}
-      <p className="pi-group-browser-config-hint">列表保存在 Workspace 的 saved-groups.json，可由你或 AI 直接编辑。</p>
-      <div className="pi-group-browser-list pi-scrollbar">
-        {loading && <p className="pi-group-browser-empty">正在读取…</p>}
-        {!loading && groups.length === 0 && <p className="pi-group-browser-empty">还没有保存群聊</p>}
-        {groups.map((group) => (
-          <div className="pi-group-browser-row" key={`${group.botSlug}:${group.channelId}`}>
-            <button type="button" className="pi-group-browser-open" onClick={() => window.location.assign(group.viewUrl)}>
-              <MessagesSquare size={16} />
-              <span>
-                <strong>{group.displayName || `群聊 ${group.channelId}`}</strong>
-                <small>/{group.botSlug}/{group.channelId} · {group.botDisplayName}</small>
-              </span>
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
+      ))}
+    </PanelBody>
   );
 }
 
@@ -136,50 +145,41 @@ export function AccountPanel() {
   if (showGroups) return <GroupBrowser onBack={() => setShowGroups(false)} />;
 
   return (
-    <div className="pi-account-panel">
-      <div className="pi-account-panel-row">
-        <span className="pi-account-panel-label">Account</span>
-        <span className="pi-account-panel-value">
-          @{handle}
-          {role === "admin" && <span className="pi-account-panel-muted"> · admin</span>}
-        </span>
-      </div>
-
-      <div className={`pi-account-panel-row${warn || exhausted ? " pi-account-panel-row--warn" : ""}`}>
-        <span className="pi-account-panel-label">Budget</span>
-        <span className="pi-account-panel-value">{formatBudgetLine(budgetView)}</span>
-      </div>
-
-      {!budgetUnlimited && budgetUsd !== null && ratio !== null && (
-        <div className="pi-account-panel-meter" aria-hidden="true">
-          <div
-            className={`pi-account-panel-meter-fill${warn || exhausted ? " pi-account-panel-meter-fill--warn" : ""}`}
-            style={{ width: `${Math.max(2, Math.round(ratio * 100))}%` }}
-          />
+    <PanelBody
+      variant="list"
+      loading={todayLoading && todayUsd === null}
+      footer={
+        <div className="pi-panel-actions" style={{ width: "100%", justifyContent: "space-between" }}>
+          <button type="button" className="pi-panel-btn pi-panel-btn--ghost" onClick={() => setShowGroups(true)}>
+            <MessagesSquare size={14} aria-hidden="true" />
+            群聊进度
+          </button>
+          <Link to="/logout" className="pi-panel-btn pi-panel-btn--primary" style={{ textDecoration: "none" }}>
+            Log out
+          </Link>
         </div>
-      )}
-
+      }
+    >
+      <PanelListRow
+        leading={<UserRound size={14} strokeWidth={2} />}
+        leadingKind="icon"
+        title={`@${handle}`}
+        detail={role === "admin" ? "admin" : "account"}
+      />
+      <PanelListRow
+        leading="01"
+        leadingKind="index"
+        title={formatBudgetLine(budgetView)}
+        detail={warn || exhausted ? "Budget · warn" : "Budget"}
+      />
       {todayUsd !== null && (
-        <div className="pi-account-panel-row">
-          <span className="pi-account-panel-label">Today</span>
-          <span className="pi-account-panel-value">{formatUsd(todayUsd)}</span>
-        </div>
+        <PanelListRow
+          leading="02"
+          leadingKind="index"
+          title={formatUsd(todayUsd)}
+          detail="Today"
+        />
       )}
-      {todayLoading && todayUsd === null && (
-        <div className="pi-account-panel-row">
-          <span className="pi-account-panel-label">Today</span>
-          <span className="pi-account-panel-value pi-account-panel-muted">…</span>
-        </div>
-      )}
-
-      <button type="button" className="pi-account-panel-groups" onClick={() => setShowGroups(true)}>
-        <MessagesSquare size={15} />
-        查看群聊中的工作进度
-      </button>
-
-      <Link to="/logout" className="pi-account-panel-logout">
-        Log out
-      </Link>
-    </div>
+    </PanelBody>
   );
 }

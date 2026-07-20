@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
+import { PanelActions, PanelBody, PanelButton, PanelListRow } from "../common/panel";
 import { useChatStore } from "../../stores/chatStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useAuthStore } from "../../stores/authStore";
@@ -341,15 +342,17 @@ export function ChatPanel({
 
   function renderStats(data: unknown) {
     if (!data || typeof data !== "object") {
-      return <p className="px-2 py-3 text-xs text-[var(--pi-muted)] font-mono">No stats available</p>;
+      return undefined;
     }
-    return Object.entries(data).map(([key, value]) => (
-      <div key={key} className="flex items-center justify-between gap-2 border-b border-[var(--pi-line)] py-1.5">
-        <span className="text-[0.66rem] uppercase tracking-wider text-[var(--pi-muted)]">{key}</span>
-        <span className="text-[0.84rem] font-mono text-[var(--pi-text)] truncate">
-          {typeof value === "object" ? JSON.stringify(value) : String(value)}
-        </span>
-      </div>
+    return Object.entries(data).map(([key, value], index) => (
+      <PanelListRow
+        key={key}
+        leading={String(index + 1).padStart(2, "0")}
+        leadingKind="index"
+        title={key}
+        detail={typeof value === "object" ? JSON.stringify(value) : String(value)}
+        stacked
+      />
     ));
   }
 
@@ -381,62 +384,50 @@ export function ChatPanel({
       />
     );
   } else if (activePanel === "session") {
+    const stats = lastResult && (lastResult as any).data
+      ? renderStats((lastResult as any).data)
+      : undefined;
     commandsContent = (
-      <div className="flex flex-1 min-h-0 flex-col">
-        <div className="flex-1 min-h-0 overflow-auto pi-scrollbar p-2.5">
-          {lastResult && (lastResult as any).data ? renderStats((lastResult as any).data) : null}
-        </div>
-      </div>
+      <PanelBody
+        variant="list"
+        loading={!lastResult}
+        empty={!stats ? "No stats available" : undefined}
+      >
+        {stats}
+      </PanelBody>
     );
   } else if (activePanel === "scoped-models") {
     commandsContent = (
-      <div className="flex flex-1 min-h-0 flex-col">
-        <div className="flex-1 min-h-0 overflow-auto pi-scrollbar p-1.5 space-y-1">
-          {models.map((model) => {
-            const id = `${model.provider}/${model.id}`;
-            const checked = scopedIds.includes(id);
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => toggleScoped(id)}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-left border transition-colors cursor-pointer outline-none ${
-                  checked
-                    ? "border-[var(--pi-theme)] bg-[var(--pi-accent-soft)]"
-                    : "border-transparent bg-[var(--pi-panel-subtle)] hover:border-[var(--pi-line)]"
-                }`}
-              >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center border border-[var(--pi-line)] bg-white text-[var(--pi-text)]">
-                  {checked && <Check size={12} />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="pi-composer-panel-item-name truncate">{model.name ?? model.id}</div>
-                  <div className="text-sm uppercase tracking-wider text-[var(--pi-muted)] font-mono">
-                    {model.provider}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        <div className="shrink-0 flex items-center justify-end p-2.5 gap-1.5">
-            <button
-              type="button"
-              onClick={closePanel}
-              className="flex h-9 items-center px-3 text-sm uppercase tracking-wider text-[var(--pi-muted)] border border-[var(--pi-line)] bg-white hover:border-[var(--pi-theme)] hover:text-[var(--pi-theme)] cursor-pointer outline-none"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={saveScoped}
-              className="flex h-9 items-center gap-1.5 bg-[var(--pi-text)] px-3 text-sm uppercase tracking-wider text-white transition-all hover:bg-[#1c1c1e] cursor-pointer outline-none"
-            >
-              <Check size={14} />
+      <PanelBody
+        variant="list"
+        empty={models.length === 0 ? "No models available" : undefined}
+        footer={
+          <PanelActions>
+            <PanelButton variant="ghost" onClick={closePanel}>Cancel</PanelButton>
+            <PanelButton variant="primary" onClick={saveScoped}>
+              <Check size={12} aria-hidden="true" />
               Save
-            </button>
-        </div>
-      </div>
+            </PanelButton>
+          </PanelActions>
+        }
+      >
+        {models.map((model) => {
+          const id = `${model.provider}/${model.id}`;
+          const checked = scopedIds.includes(id);
+          return (
+            <PanelListRow
+              key={id}
+              leading={checked ? <Check size={12} strokeWidth={2.5} /> : null}
+              leadingKind="check"
+              title={model.name ?? model.id}
+              detail={model.provider}
+              stacked
+              selected={checked}
+              onClick={() => toggleScoped(id)}
+            />
+          );
+        })}
+      </PanelBody>
     );
   } else if (activePanel === "export") {
     commandsContent = <SlashExportDialog onExecute={handleExecute} onClose={closePanel} />;
@@ -465,23 +456,25 @@ export function ChatPanel({
   );
 
   const groupAccountContent: ReactNode = groupPreview ? (
-    <div className="pi-account-panel">
-      <div className="pi-account-panel-row">
-        <span className="pi-account-panel-label">Group</span>
-        <span className="pi-account-panel-value">{groupPreview.channelDisplayName}</span>
-      </div>
-      <div className="pi-account-panel-row">
-        <span className="pi-account-panel-label">Bot</span>
-        <span className="pi-account-panel-value">@{groupPreview.botSlug} · {groupPreview.botDisplayName}</span>
-      </div>
-      <div className="pi-account-panel-row">
-        <span className="pi-account-panel-label">Mode</span>
-        <span className="pi-account-panel-value pi-account-panel-muted">只读群组预览</span>
-      </div>
-      <button type="button" className="pi-account-panel-logout" onClick={groupPreview.returnToChat}>
-        返回正常聊天
-      </button>
-    </div>
+    <PanelBody
+      variant="list"
+      footer={
+        <PanelActions>
+          <PanelButton variant="primary" onClick={groupPreview.returnToChat}>
+            返回正常聊天
+          </PanelButton>
+        </PanelActions>
+      }
+    >
+      <PanelListRow leading="01" leadingKind="index" title={groupPreview.channelDisplayName} detail="Group" />
+      <PanelListRow
+        leading="02"
+        leadingKind="index"
+        title={`@${groupPreview.botSlug} · ${groupPreview.botDisplayName}`}
+        detail="Bot"
+      />
+      <PanelListRow leading="03" leadingKind="index" title="只读群组预览" detail="Mode" />
+    </PanelBody>
   ) : null;
 
   return (

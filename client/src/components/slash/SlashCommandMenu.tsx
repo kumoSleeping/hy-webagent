@@ -1,4 +1,5 @@
 import type { SlashCommand } from "../../stores/slashStore";
+import { PanelBody } from "../common/panel";
 import { SlashCommandListItem } from "./SlashCommandListItem";
 
 interface SlashCommandMenuProps {
@@ -16,11 +17,12 @@ export function SlashCommandMenu({
   onExecute,
 }: SlashCommandMenuProps) {
   return (
-    <div className="pi-glass absolute left-0 right-0 bottom-full mb-2 max-h-64 overflow-auto pi-scrollbar z-50">
-      {commands.length === 0 ? (
-        <div className="px-3 py-2 text-xs text-[var(--pi-muted)]">No matching commands</div>
-      ) : (
-        commands.map((cmd, index) => (
+    <div className="pi-glass absolute left-0 right-0 bottom-full mb-2 max-h-64 overflow-hidden z-50">
+      <PanelBody
+        variant="list"
+        empty={commands.length === 0 ? "No matching commands" : undefined}
+      >
+        {commands.map((cmd, index) => (
           <SlashCommandListItem
             key={cmd.id}
             command={cmd}
@@ -28,8 +30,8 @@ export function SlashCommandMenu({
             selected={index === selectedIndex}
             onActivate={() => onExecute(cmd)}
           />
-        ))
-      )}
+        ))}
+      </PanelBody>
     </div>
   );
 }

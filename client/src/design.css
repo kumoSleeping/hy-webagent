@@ -271,7 +271,8 @@ body {
   border: none;
   box-shadow: none;
 }
-.pi-composer-dock--open .pi-center-stage--preview {
+.pi-composer-dock--open .pi-center-stage--preview,
+.pi-composer-dock--open .pi-center-stage--large {
   background: var(--pi-panel);
 }
 .pi-composer-dock--open .pi-composer-shell {
@@ -366,10 +367,21 @@ body {
 }
 /* File preview — fixed height so Monaco gets a real layout box (flex:1
    alone collapses when the parent has only max-height, not height). */
-.pi-center-stage--preview {
+.pi-center-stage--preview,
+.pi-center-stage--large {
   height: min(34rem, calc(100dvh - 9rem));
   max-height: min(34rem, calc(100dvh - 9rem));
   overflow: hidden;
+}
+.pi-composer-dock--open .pi-center-stage--large {
+  border-bottom: none;
+  box-shadow: none;
+}
+.pi-composer-dock--preview .pi-center-stage--large {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
 }
 .pi-center-stage-header {
   display: flex;
@@ -1344,6 +1356,7 @@ body {
 .pi-panel-row--selected .pi-composer-cmd-name,
 .pi-panel-row--selected .pi-composer-panel-item-name,
 .pi-panel-row--selected .pi-hist-label,
+.pi-panel-row--selected .pi-panel-list-title,
 .pi-panel-row--selected > span.truncate,
 .pi-panel-row--selected button.min-w-0.flex-1,
 button.pi-panel-row.pi-panel-row--selected {
@@ -1354,9 +1367,238 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-panel-row--selected .pi-composer-cmd-meta,
 .pi-panel-row--selected .pi-composer-cmd-meta--accent,
 .pi-panel-row--selected .pi-composer-panel-item-meta,
-.pi-panel-row--selected .pi-hist-idx {
+.pi-panel-row--selected .pi-hist-idx,
+.pi-panel-row--selected .pi-panel-list-detail,
+.pi-panel-row--selected .pi-panel-list-leading {
   color: var(--pi-muted);
   font-weight: 400;
+}
+.pi-panel-row--selected .pi-panel-list-leading--icon {
+  color: var(--pi-theme);
+}
+
+/* Unified panel body (small composer popup + large center stage) */
+.pi-panel-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-size: var(--pi-panel-font);
+}
+.pi-panel-body-filter {
+  flex-shrink: 0;
+}
+.pi-panel-body-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.pi-panel-body--list .pi-panel-body-scroll {
+  padding: 0.35rem;
+  gap: 0;
+}
+.pi-panel-body--form .pi-panel-body-scroll {
+  padding: 0.65rem 0.75rem;
+  gap: 0.35rem;
+}
+.pi-panel-loading,
+.pi-panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1rem 0.55rem;
+  font-size: var(--pi-panel-font);
+  color: var(--pi-muted);
+}
+.pi-panel-empty {
+  justify-content: flex-start;
+  padding: 0.45rem 0.55rem;
+}
+
+/* Unified list row: leading + title + detail */
+.pi-panel-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.38rem 0.55rem;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  color: var(--pi-text);
+}
+.pi-panel-list-row--stacked {
+  align-items: flex-start;
+}
+.pi-panel-list-row:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.pi-panel-list-row--static {
+  cursor: default;
+}
+.pi-panel-list-row--static:hover {
+  background: transparent;
+}
+.pi-panel-list-leading {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pi-muted);
+}
+.pi-panel-list-leading--icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.pi-panel-list-leading--icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+}
+.pi-panel-list-leading--index {
+  width: 1.35rem;
+  justify-content: flex-end;
+  font-size: var(--pi-panel-font-meta);
+  font-variant-numeric: tabular-nums;
+}
+.pi-panel-list-leading--check {
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+  color: var(--pi-text);
+}
+.pi-panel-row--selected .pi-panel-list-leading--check {
+  border-color: var(--pi-theme);
+  background: var(--pi-accent-soft);
+  color: var(--pi-theme);
+}
+.pi-panel-list-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.pi-panel-list-row--stacked .pi-panel-list-text {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.05rem;
+}
+.pi-panel-list-title {
+  flex-shrink: 0;
+  font-size: var(--pi-panel-font);
+  font-weight: 500;
+  color: var(--pi-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-panel-list-row--stacked .pi-panel-list-title {
+  flex-shrink: 1;
+  font-weight: 400;
+}
+.pi-panel-list-detail {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--pi-panel-font-desc);
+  color: var(--pi-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pi-panel-list-row--stacked .pi-panel-list-detail {
+  flex: none;
+  font-size: var(--pi-panel-font-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--pi-font-mono);
+}
+
+/* Form fields inside panel body */
+.pi-panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.pi-panel-field-label {
+  font-size: var(--pi-panel-font-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pi-muted);
+}
+.pi-panel-input {
+  width: 100%;
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+  padding: 0.45rem 0.6rem;
+  font-size: var(--pi-panel-font);
+  color: var(--pi-text);
+  outline: none;
+}
+.pi-panel-input:focus {
+  border-color: var(--pi-theme);
+}
+
+.pi-panel-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.5rem 0.65rem;
+  border-top: 1px solid var(--pi-line);
+  background: var(--pi-panel);
+}
+.pi-panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+.pi-panel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  font-size: var(--pi-panel-font-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--pi-line);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 120ms, background 120ms, color 120ms;
+}
+.pi-panel-btn--ghost {
+  background: var(--pi-panel);
+  color: var(--pi-muted);
+}
+.pi-panel-btn--ghost:hover {
+  border-color: var(--pi-theme);
+  color: var(--pi-theme);
+}
+.pi-panel-btn--primary {
+  background: var(--pi-text);
+  border-color: var(--pi-text);
+  color: #fff;
+}
+.pi-panel-btn--primary:hover {
+  background: #1c1c1e;
+  border-color: #1c1c1e;
 }
 .pi-composer-cmd-empty {
   padding: 0.45rem 0.55rem;

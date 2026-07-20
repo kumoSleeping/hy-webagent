@@ -26,7 +26,7 @@ interface CenterStageProps {
   treeMode?: TreePanelMode;
 }
 
-/** Center panel above composer — file preview, conversation tree, extension widgets, extension dialogs. */
+/** Large panel shell above composer — same chrome for tree / dialog / extension. */
 export function CenterStage({
   onRespondExtensionUi,
   editorTabs,
@@ -38,6 +38,7 @@ export function CenterStage({
   onEditorFocus,
   onClose,
   treeContent,
+  treeMode = "tree",
 }: CenterStageProps) {
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const composerPanel = useComposerPanelStore((s) => s.panel);
@@ -72,14 +73,17 @@ export function CenterStage({
   const label =
     mode === "dialog"
       ? activeDialog?.title || "Confirm"
-      : primaryWidgetLabel(aboveEditor);
+      : mode === "tree"
+        ? (treeMode === "fork" ? "Fork" : "Tree")
+        : mode === "preview"
+          ? "Preview"
+          : primaryWidgetLabel(aboveEditor);
 
-  const isTallPanel = mode === "preview" || mode === "tree";
-
+  // File preview keeps editor chrome; everything else uses the shared large-panel header.
   if (mode === "preview") {
     return (
       <div
-        className="pi-center-stage pi-center-stage--preview pi-center-stage--headless"
+        className="pi-center-stage pi-center-stage--large pi-center-stage--headless"
         onClick={(e) => e.stopPropagation()}
       >
         <EditorPanel
@@ -96,20 +100,9 @@ export function CenterStage({
     );
   }
 
-  if (mode === "tree") {
-    return (
-      <div
-        className="pi-center-stage pi-center-stage--preview pi-center-stage--headless"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="pi-center-stage-body">{treeContent}</div>
-      </div>
-    );
-  }
-
   return (
     <div
-      className={`pi-center-stage ${isTallPanel ? "pi-center-stage--preview" : ""}`}
+      className="pi-center-stage pi-center-stage--large"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="pi-center-stage-header">
@@ -120,6 +113,7 @@ export function CenterStage({
       </div>
       <div className="pi-center-stage-body">
         {mode === "dialog" && <ExtensionDialogHost onRespond={onRespondExtensionUi} />}
+        {mode === "tree" && treeContent}
         {mode === "extension" && (
           <div className="pi-center-stage-scroll">
             <ExtensionWidgetBody aboveEditor={aboveEditor} />

@@ -1,5 +1,7 @@
 import { useMemo } from "react";
+import { Cpu } from "lucide-react";
 import { useKeyboardListNav } from "../../hooks/useKeyboardListNav";
+import { PanelBody, PanelListRow } from "../common/panel";
 
 export interface SlashModel {
   id: string;
@@ -47,35 +49,32 @@ export function SlashModelSelector({
   });
 
   return (
-    <div className="flex flex-1 min-h-0 w-full flex-col">
-      <div className="pi-composer-panel-body pi-scrollbar flex flex-col gap-0.5">
-        {models.map((model, index) => {
-          const { isActive } = getHighlight(index);
-          const mouse = getMouseHandlers(index);
-          return (
-            <button
-              key={model.id}
-              ref={(el) => setItemRef(index, el)}
-              type="button"
-              onClick={() =>
-                onExecute("model.set", { provider: model.provider || "anthropic", modelId: model.id })
-              }
-              onMouseEnter={mouse.onMouseEnter}
-              onMouseLeave={mouse.onMouseLeave}
-              className={`pi-panel-row pi-composer-panel-item w-full border-none bg-transparent${
-                isActive ? " pi-panel-row--selected" : ""
-              }`}
-            >
-              <div className="pi-composer-panel-item-name">
-                {model.name ?? model.id}
-              </div>
-              <div className="pi-composer-panel-item-meta">
-                {model.provider ?? "default"} / {model.id}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <PanelBody
+      variant="list"
+      empty={models.length === 0 ? "No models available" : undefined}
+    >
+      {models.map((model, index) => {
+        const { isActive } = getHighlight(index);
+        const mouse = getMouseHandlers(index);
+        const current = isCurrentModel(model, currentModel);
+        return (
+          <PanelListRow
+            key={`${model.provider ?? "default"}/${model.id}`}
+            itemRef={(el) => setItemRef(index, el)}
+            leading={<Cpu size={14} strokeWidth={2} />}
+            leadingKind="icon"
+            title={model.name ?? model.id}
+            detail={`${model.provider ?? "default"} / ${model.id}`}
+            stacked
+            selected={isActive || current}
+            onClick={() =>
+              onExecute("model.set", { provider: model.provider || "anthropic", modelId: model.id })
+            }
+            onMouseEnter={mouse.onMouseEnter}
+            onMouseLeave={mouse.onMouseLeave}
+          />
+        );
+      })}
+    </PanelBody>
   );
 }
