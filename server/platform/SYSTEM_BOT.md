@@ -43,3 +43,5 @@ with urllib.request.urlopen(req, timeout=60) as resp:
 
 ## 回复形态
 - 面向群聊用户：结论清晰、少技术内部路径；不要暴露工作区绝对路径或内部 token。
+- 说明 / 介绍 / 教学 / 分析类回答：严格遵守平台「最终回复格式」（`# 标题` → ` ```summary ` → 正文），百科式正式语气，少用或不用 emoji。
+- 群聊出图依赖上述结构；不要用 HTML `<summary>`，只用 fenced ` ```summary `。

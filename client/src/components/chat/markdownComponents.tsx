@@ -25,6 +25,20 @@ function extractText(node: ReactNode): string {
   return "";
 }
 
+function CornerBadge({ label }: { label: string }) {
+  return <div className="pi-corner-badge">{label}</div>;
+}
+
+function SummaryCard({ children }: { children?: ReactNode }) {
+  const text = extractText(children).trim();
+  return (
+    <div className="pi-md-card pi-md-card--summary">
+      <CornerBadge label="Summary" />
+      <div className="pi-md-summary-body">{text}</div>
+    </div>
+  );
+}
+
 function PreBlock({ children }: { children?: ReactNode }) {
   const preRef = useRef<HTMLPreElement>(null);
   let language = "text";
@@ -35,13 +49,24 @@ function PreBlock({ children }: { children?: ReactNode }) {
     if (match) language = match[1];
   }
 
+  if (language.toLowerCase() === "summary") {
+    return <SummaryCard>{children}</SummaryCard>;
+  }
+
+  const label = language && language !== "text"
+    ? language.charAt(0).toUpperCase() + language.slice(1)
+    : "Code";
+
   return (
-    <div className="pi-md-pre">
-      <div className="pi-md-pre-bar">
-        <span className="pi-md-pre-lang">{language}</span>
-        <CodeCopyButton getText={() => preRef.current?.textContent ?? extractText(children)} />
+    <div className="pi-md-card pi-md-card--code">
+      <CornerBadge label={label} />
+      <div className="pi-md-pre">
+        <div className="pi-md-pre-bar">
+          <span className="pi-md-pre-lang">{language}</span>
+          <CodeCopyButton getText={() => preRef.current?.textContent ?? extractText(children)} />
+        </div>
+        <pre ref={preRef}>{children}</pre>
       </div>
-      <pre ref={preRef}>{children}</pre>
     </div>
   );
 }
@@ -50,8 +75,11 @@ export const markdownComponents: Components = {
   hr: () => <div className="pi-md-hr" role="separator" />,
   pre: ({ children }) => <PreBlock>{children}</PreBlock>,
   table: ({ children }) => (
-    <div className="pi-md-table-wrap">
-      <table>{children}</table>
+    <div className="pi-md-card pi-md-card--table">
+      <CornerBadge label="Table" />
+      <div className="pi-md-table-wrap">
+        <table>{children}</table>
+      </div>
     </div>
   ),
   a: ({ href, children }) => {

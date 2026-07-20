@@ -20,6 +20,9 @@ describe("platform-system", () => {
     expect(text).toContain("会话索引");
     expect(text).toContain("不要记这些");
     expect(text).toContain("/api/files/download");
+    expect(text).toContain("```summary");
+    expect(text).toContain("百科式");
+    expect(text).toContain("emoji");
     expect(text).not.toMatch(/cwd\s*为/i);
     expect(text).not.toContain("projects/");
   });
@@ -32,6 +35,7 @@ describe("platform-system", () => {
     expect(text).toContain("uploadUrl");
     expect(text).toContain("upload.json");
     expect(text).toContain("X-Bot-Upload-Token");
+    expect(text).toContain("```summary");
   });
 
   it("append sections include platform rules and security layer", async () => {

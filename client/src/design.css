@@ -1626,9 +1626,22 @@ button.pi-panel-row.pi-panel-row--selected {
   margin-top: 0.4rem;
   margin-bottom: 0.4rem;
 }
-.pi-markdown ul { list-style-type: disc; }
+/* Theme square bullets (ref: HYW card-ui) */
+.pi-markdown ul { list-style: none; padding-left: 1.35rem; }
+.pi-markdown ul > li { position: relative; }
+.pi-markdown ul > li::before {
+  content: "";
+  position: absolute;
+  left: -1.05rem;
+  top: 0.55em;
+  width: 0.42rem;
+  height: 0.42rem;
+  background: var(--pi-theme);
+}
 .pi-markdown ol { list-style-type: decimal; }
-.pi-markdown ul ul { list-style-type: circle; }
+.pi-markdown ul ul > li::before {
+  background: color-mix(in srgb, var(--pi-theme) 55%, var(--pi-muted));
+}
 
 /* GFM task lists */
 .pi-markdown .contains-task-list { list-style: none; padding-left: 0; }
@@ -1697,6 +1710,51 @@ button.pi-panel-row.pi-panel-row--selected {
   border-top: 1px solid var(--pi-theme);
 }
 
+/* ============================================================
+ * HYW-style cards — Summary / Code / Table (corner badge)
+ * Matches entari_plugin_hyw card-ui section cards.
+ * ========================================================== */
+.pi-markdown .pi-md-card {
+  position: relative;
+  margin: 1.1rem 0;
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow);
+}
+.pi-markdown .pi-md-card > .pi-corner-badge {
+  /* sit on the card corner like HYW absolute -top/-left badge */
+  top: -10px;
+  left: -10px;
+}
+.pi-markdown .pi-md-card--summary {
+  padding: 1.65rem 1.15rem 1rem;
+}
+.pi-markdown .pi-md-summary-body {
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.65;
+  color: var(--pi-text-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.pi-markdown .pi-md-card--code {
+  padding-top: 0.85rem;
+}
+.pi-markdown .pi-md-card--code .pi-md-pre {
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--pi-line-soft);
+  background: var(--pi-panel);
+}
+.pi-markdown .pi-md-card--table {
+  padding-top: 0.55rem;
+  overflow: visible;
+}
+.pi-markdown .pi-md-card--table .pi-md-table-wrap {
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--pi-line-soft);
+}
+
 /* Fenced code blocks */
 .pi-markdown .pi-md-pre {
   width: 100%;
@@ -1721,6 +1779,14 @@ button.pi-panel-row.pi-panel-row--selected {
   letter-spacing: 0.5px;
   color: var(--pi-muted);
 }
+/* Language is already shown on the corner badge — keep bar for copy only. */
+.pi-markdown .pi-md-card--code .pi-md-pre-bar {
+  justify-content: flex-end;
+  border-bottom: none;
+  padding-bottom: 0;
+  background: transparent;
+}
+.pi-markdown .pi-md-card--code .pi-md-pre-lang { display: none; }
 .pi-markdown .pi-md-pre-lang { text-transform: lowercase; }
 .pi-markdown .pi-md-pre pre {
   margin: 0;
@@ -1756,18 +1822,24 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-markdown th, .pi-markdown td {
   border-bottom: 1px solid var(--pi-line);
-  padding: 0.55rem 0.75rem;
+  border-right: 1px solid var(--pi-line-soft);
+  padding: 0.7rem 0.9rem;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
+.pi-markdown th:last-child,
+.pi-markdown td:last-child { border-right: none; }
 .pi-markdown th {
-  background: var(--pi-panel-subtle);
+  background: var(--pi-panel);
   font-weight: 800;
   color: var(--pi-text);
   text-transform: uppercase;
-  font-size: 0.72rem;
-  letter-spacing: 0.35px;
-  border-bottom-width: 2px;
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--pi-line);
+}
+.pi-markdown tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--pi-panel-subtle) 55%, transparent);
 }
 .pi-markdown tr:last-child td { border-bottom: none; }
 
