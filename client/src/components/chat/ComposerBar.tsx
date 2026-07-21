@@ -228,6 +228,8 @@ export function ComposerBar({
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const argsLockRef = useRef<string | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
+  /** iOS Safari often resets selection to 0 after a controlled value write. */
+  const typingCaretRef = useRef<number | null>(null);
   const focusTick = useComposerFocusStore((s) => s.focusTick);
   const requestFocus = useComposerFocusStore((s) => s.requestFocus);
   const pendingText = useComposerFocusStore((s) => s.pendingText);
@@ -382,6 +384,18 @@ export function ComposerBar({
   useLayoutEffect(() => {
     if (pendingCaretRef.current !== null) {
       applyPendingCaret();
+      return;
+    }
+    // Restore caret after React's controlled value update — iOS Safari may
+    // reset it to 0, which leaves the first glyph stuck behind the cursor.
+    if (composingRef.current) return;
+    if (typingCaretRef.current === null) return;
+    const ta = taRef.current;
+    if (!ta || ta !== document.activeElement) return;
+    const pos = Math.min(typingCaretRef.current, ta.value.length);
+    typingCaretRef.current = null;
+    if (ta.selectionStart !== pos || ta.selectionEnd !== pos) {
+      ta.setSelectionRange(pos, pos);
     }
   }, [text, focusTick]);
 
@@ -455,6 +469,11 @@ export function ComposerBar({
   const resizeComposerInput = useCallback(() => {
     const ta = taRef.current;
     if (!ta) return;
+    // Capture selection before geometry mutation — iOS Safari often resets
+    // the caret to 0 when height flips through "auto".
+    const selStart = ta.selectionStart;
+    const selEnd = ta.selectionEnd;
+    const hadFocus = document.activeElement === ta;
     ta.style.height = "auto";
     const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 24;
     const padTop = parseFloat(getComputedStyle(ta).paddingTop) || 0;
@@ -463,12 +482,18 @@ export function ComposerBar({
     ta.style.height = Math.min(ta.scrollHeight, maxH) + "px";
     ta.style.overflowX = "hidden";
     ta.style.overflowY = ta.scrollHeight > maxH + 1 ? "auto" : "hidden";
+    if (hadFocus && !composingRef.current && selStart != null && selEnd != null) {
+      const len = ta.value.length;
+      ta.setSelectionRange(Math.min(selStart, len), Math.min(selEnd, len));
+    }
   }, []);
 
-  // Auto-resize: grow with content up to MAX_ROWS, then scroll internally.
-  // Keep resizing during IME composition — system dictation grows scrollHeight
-  // while composing; skipping left the box stuck at one line.
+  // Do NOT call height:"auto" on every keystroke — that layout thrash on iOS
+  // Safari resets the caret to 0 (first char ends up behind the cursor).
+  // Typing grows via onInput + rAF; only force-measure when the box is cleared
+  // (send / draft wipe), since onInput does not fire for programmatic setText("").
   useLayoutEffect(() => {
+    if (text !== "") return;
     resizeComposerInput();
   }, [text, resizeComposerInput]);
 
@@ -518,6 +543,7 @@ export function ComposerBar({
       useComposerFocusStore.setState({ pendingText: null });
       useExtensionUiStore.getState().setComposerDraft(null);
       focusComposerAtEnd(draft);
+      requestAnimationFrame(resizeComposerInput);
       return;
     }
     focusComposerAtEnd();
@@ -1308,8 +1334,10 @@ export function ComposerBar({
               // Clear any pending caret reposition — moving the cursor
               // mid-dictation lands the first character at the wrong spot.
               pendingCaretRef.current = null;
+              typingCaretRef.current = null;
               return;
             }
+            typingCaretRef.current = e.target.selectionStart;
             setText(e.target.value);
           }}
           onInput={() => {

@@ -15,14 +15,23 @@ function arraysEqual(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
-/** Orphan assistant bubble — created when agent_start raced ahead of tool/text events. */
-function isEmptyAssistantMessage(m: ChatMessage): boolean {
-  if (m.role !== "assistant" || m.isStreaming) return false;
+function isBlankAssistantPayload(m: ChatMessage): boolean {
   if (m.images?.length) return false;
   if (m.content.trim()) return false;
   if (m.blocks?.length) return false;
   if (m.toolCalls?.length) return false;
   return true;
+}
+
+/** Orphan assistant bubble — created when agent_start raced ahead of tool/text events. */
+function isEmptyAssistantMessage(m: ChatMessage): boolean {
+  if (m.role !== "assistant" || m.isStreaming) return false;
+  return isBlankAssistantPayload(m);
+}
+
+/** Empty streaming bubble from agent_start / ensureStreamingAssistant — before a real messageId arrives. */
+function isEmptyStreamingPlaceholder(m: ChatMessage): boolean {
+  return m.role === "assistant" && !!m.isStreaming && isBlankAssistantPayload(m);
 }
 
 interface ChatState {
@@ -173,6 +182,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (existing) {
         set((prev) => ({
           messages: prev.messages.map((m) => m.id === serverId ? { ...m, isStreaming: true } : m),
+          currentAssistantId: serverId,
+          isStreaming: true,
+        }));
+        return serverId;
+      }
+      // agent_start / ensureStreamingAssistant may have already created an empty
+      // local streaming bubble. Promote that placeholder to the real messageId
+      // instead of appending a second assistant — otherwise the UI shows two
+      // Thinking blocks and the empty one spins forever.
+      const placeholder = s.messages.find(isEmptyStreamingPlaceholder);
+      if (placeholder) {
+        set((prev) => ({
+          messages: prev.messages.map((m) =>
+            m.id === placeholder.id ? { ...m, id: serverId } : m
+          ),
           currentAssistantId: serverId,
           isStreaming: true,
         }));

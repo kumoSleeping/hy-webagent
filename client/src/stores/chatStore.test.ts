@@ -82,6 +82,23 @@ describe("chatStore transcript sync", () => {
     expect(useChatStore.getState().messages[0]?.blocks).toHaveLength(1);
   });
 
+  it("startAssistantMessage(serverId) adopts the empty agent_start placeholder instead of appending", () => {
+    const localId = useChatStore.getState().ensureStreamingAssistant();
+    expect(useChatStore.getState().messages).toHaveLength(1);
+    expect(useChatStore.getState().messages[0]?.id).toBe(localId);
+
+    const serverId = useChatStore.getState().startAssistantMessage("a-server-1");
+    expect(serverId).toBe("a-server-1");
+    expect(useChatStore.getState().messages).toHaveLength(1);
+    expect(useChatStore.getState().messages[0]?.id).toBe("a-server-1");
+    expect(useChatStore.getState().currentAssistantId).toBe("a-server-1");
+
+    useChatStore.getState().appendThinkingDelta("a-server-1", "hmm");
+    expect(useChatStore.getState().messages[0]?.blocks).toEqual([
+      { type: "thinking", text: "hmm" },
+    ]);
+  });
+
   it("finishAssistantMessage drops empty assistant orphans", () => {
     const assistantId = useChatStore.getState().startAssistantMessage();
     useChatStore.getState().finishAssistantMessage(assistantId);
