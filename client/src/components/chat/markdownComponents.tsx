@@ -76,9 +76,7 @@ export const markdownComponents: Components = {
   pre: ({ children }) => <PreBlock>{children}</PreBlock>,
   table: ({ children }) => (
     <div className="pi-md-card pi-md-card--table">
-      <div className="pi-md-table-chrome" aria-hidden="true">
-        <span className="pi-md-table-label">Table</span>
-      </div>
+      <CornerBadge label="Table" />
       <div className="pi-md-table-wrap">
         <table>{children}</table>
       </div>
