@@ -1977,14 +1977,41 @@ button.pi-panel-row.pi-panel-row--selected {
   border-top: 1px solid var(--pi-line-soft);
   background: var(--pi-panel);
 }
+/* Table card: label lives in a real chrome bar — not a corner badge
+ * overlapping the first cells. Frame + left theme rail make the block
+ * read as a table before you even look at the grid. */
 .pi-markdown .pi-md-card--table {
-  padding-top: 0.55rem;
-  overflow: visible;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--pi-line);
+  border-left: 3px solid var(--pi-theme);
+  box-shadow: var(--pi-shadow);
+}
+.pi-markdown .pi-md-table-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+}
+.pi-markdown .pi-md-table-label {
+  display: inline-flex;
+  align-items: center;
+  height: 1.35rem;
+  padding: 0 0.45rem;
+  background: var(--pi-theme);
+  color: var(--pi-theme-ink);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
 }
 .pi-markdown .pi-md-card--table .pi-md-table-wrap {
   margin: 0;
   border: none;
-  border-top: 1px solid var(--pi-line-soft);
+  background: var(--pi-panel);
 }
 
 /* Fenced code blocks */
@@ -2062,7 +2089,7 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-markdown th:last-child,
 .pi-markdown td:last-child { border-right: none; }
 .pi-markdown th {
-  background: var(--pi-panel);
+  background: color-mix(in srgb, var(--pi-panel-subtle) 80%, var(--pi-panel));
   font-weight: 800;
   color: var(--pi-text);
   text-transform: uppercase;
