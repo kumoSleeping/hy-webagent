@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, XCircle } from "lucide-react";
 import type { ActivityItem } from "../../lib/blockGrouping";
+import { formatProcessDuration } from "../../lib/messageGrouping";
 import type { ToolCallRecord } from "../../types";
 import { extractToolTarget, resolveToolOutput } from "../../lib/toolDisplay";
 import { CodeBlock } from "./CodeBlock";
@@ -12,6 +13,8 @@ interface ProcessTraceProps {
   isActive: boolean;
   /** Index of the live step while streaming; null when the run is closed. */
   activeIndex: number | null;
+  /** Finished-turn duration from message timestamps (ms); live turns freeze wall-clock. */
+  durationMs?: number | null;
   /** Hide thinking segments (preview / hide-thinking mode). */
   hideThinking?: boolean;
 }
@@ -20,7 +23,7 @@ interface ProcessTraceProps {
  * Text-style chain for everything before the final answer: thinking and
  * tool calls under one top-level "Working process" toggle.
  *
- * - Fresh load / finished turn → collapsed.
+ * - Fresh load / finished turn → collapsed, labeled `Working process · 12s`.
  * - Live turn → expands; the current step opens, prior steps fold shut.
  * - Click the top label to collapse/expand the whole chain at once.
  * - Click any step to inspect its details.
@@ -29,6 +32,7 @@ export const ProcessTrace = memo(function ProcessTrace({
   items,
   isActive,
   activeIndex,
+  durationMs = null,
   hideThinking = false,
 }: ProcessTraceProps) {
   const visibleItems = hideThinking
@@ -45,6 +49,39 @@ export const ProcessTrace = memo(function ProcessTrace({
 
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const expanded = manualExpanded ?? isActive;
+  const wasActiveRef = useRef(isActive);
+
+  // Prefer wall-clock for the live session (timestamps can be identical when
+  // tools share one assistant message); fall back to timestamp span for history.
+  const activeSinceRef = useRef<number | null>(null);
+  const [frozenMs, setFrozenMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Entering the final answer (or finishing the turn) always folds the
+    // Working process — same as a fresh page load — even if the user had
+    // manually expanded it while tools were running.
+    if (wasActiveRef.current && !isActive) {
+      setManualExpanded(null);
+    }
+    wasActiveRef.current = isActive;
+
+    if (isActive) {
+      if (activeSinceRef.current == null) activeSinceRef.current = Date.now();
+      setFrozenMs(null);
+      return;
+    }
+    if (activeSinceRef.current != null) {
+      setFrozenMs(Date.now() - activeSinceRef.current);
+      activeSinceRef.current = null;
+    }
+  }, [isActive]);
+
+  const displayMs = !isActive ? (frozenMs ?? (durationMs != null && durationMs > 0 ? durationMs : null)) : null;
+  const label = isActive
+    ? "Working..."
+    : displayMs != null
+      ? `Working process · ${formatProcessDuration(displayMs)}`
+      : "Working process";
 
   if (visibleItems.length === 0) {
     if (!isActive) return null;
@@ -72,7 +109,7 @@ export const ProcessTrace = memo(function ProcessTrace({
         aria-expanded={expanded}
       >
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <span>{isActive ? "Working..." : "Working process"}</span>
+        <span>{label}</span>
       </button>
 
       {expanded && (

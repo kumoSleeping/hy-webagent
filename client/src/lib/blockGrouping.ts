@@ -71,6 +71,12 @@ export function groupBlocksForDisplay(blocks: ContentBlock[], isStreaming: boole
   blocks.forEach((block, i) => {
     const isLast = i === blocks.length - 1;
     if (block.type === "text") {
+      // Empty/whitespace placeholders must not split one Working process into
+      // many — only a real answer closes the activity stretch.
+      if (!block.text.trim()) {
+        if (isLast) flushPending(true);
+        return;
+      }
       flushPending(false);
       units.push({ kind: "text", key: `text-${i}`, text: block.text });
       return;

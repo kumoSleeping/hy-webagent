@@ -3,18 +3,18 @@ import { createPortal } from "react-dom";
 import { Clipboard, ImageDown, LoaderCircle } from "lucide-react";
 import type { ChatMessage } from "../../types";
 import { GlassPanel } from "../common/GlassPanel";
-import { ToolCallCard } from "./ToolCallCard";
 import { ProcessTrace } from "./ProcessTrace";
-import { groupBlocksForDisplay } from "../../lib/blockGrouping";
 import { MarkdownContent } from "./MarkdownContent";
 import { splitTextWithMarkers } from "../../lib/compressedText";
 import { useAuthStore } from "../../stores/authStore";
 import { copyTextToClipboard } from "../../lib/copyToClipboard";
 import { downloadDataUri, messageExportText, messageImageFilename, renderMessageImage } from "../../lib/messageExport";
+import { buildAssistantTurnView } from "../../lib/messageGrouping";
 import { useNotificationStore } from "../../stores/notificationStore";
 
 interface MessageBubbleProps {
-  message: ChatMessage;
+  /** One user message, or consecutive assistant messages coalesced into one turn. */
+  messages: ChatMessage[];
 }
 
 function UserTextBlock({ text }: { text: string }) {
@@ -57,22 +57,118 @@ const MessageImages = memo(function MessageImages({ images }: { images: NonNulla
   );
 });
 
-export const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
-  const isUser = message.role === "user";
-  const variant = isUser ? "message-user" : "message-assistant";
-  const blocks = message.blocks;
-  const isStreaming = !!message.isStreaming;
-  const isPreviewMode = useAuthStore(s => s.isPreviewMode);
+export const MessageBubble = memo(function MessageBubble({ messages }: MessageBubbleProps) {
+  const primary = messages[0];
+  if (!primary) return null;
+
+  const isUser = primary.role === "user";
+  if (isUser) {
+    return <UserBubble message={primary} />;
+  }
+  return <AssistantTurnBubble messages={messages} />;
+}, (prev, next) => {
+  if (prev.messages.length !== next.messages.length) return false;
+  return prev.messages.every((m, i) => m === next.messages[i]);
+});
+
+function UserBubble({ message }: { message: ChatMessage }) {
   const notify = useNotificationStore(s => s.notify);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [rendering, setRendering] = useState(false);
   const exportText = useMemo(() => messageExportText(message), [message]);
 
+  useMessageMenu(menu, message.id, setMenu);
+
+  if (!message.content?.trim() && !(message.images?.length)) return null;
+
+  return (
+    <div
+      className="pi-message-bubble flex justify-end mb-4"
+      onContextMenu={(event) => openMenu(event, exportText, message.id, setMenu)}
+    >
+      <GlassPanel variant="message-user" className="min-w-0">
+        {message.images && message.images.length > 0 && <MessageImages images={message.images} />}
+        {message.content ? <TextBlock text={message.content} isUser /> : null}
+      </GlassPanel>
+      {rendering && <span className="pi-message-exporting" title="正在生成图片"><LoaderCircle size={15} /></span>}
+      {menu && (
+        <MessageMenu
+          x={menu.x}
+          y={menu.y}
+          onCopy={() => void copyExport(exportText, notify, setMenu)}
+          onSave={() => void saveExport(exportText, message, notify, setMenu, setRendering)}
+        />
+      )}
+    </div>
+  );
+}
+
+function AssistantTurnBubble({ messages }: { messages: ChatMessage[] }) {
+  const isPreviewMode = useAuthStore(s => s.isPreviewMode);
+  const notify = useNotificationStore(s => s.notify);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [rendering, setRendering] = useState(false);
+
+  const turn = useMemo(() => buildAssistantTurnView(messages), [messages]);
+  const exportText = useMemo(() => {
+    const parts = turn.texts.map((t) => t.text.trim()).filter(Boolean);
+    if (parts.length > 0) return parts.join("\n\n");
+    return messageExportText(turn.exportMessage);
+  }, [turn]);
+
+  useMessageMenu(menu, turn.exportMessage.id, setMenu);
+
+  const hasVisibleContent =
+    turn.images.length > 0 ||
+    turn.items.length > 0 ||
+    turn.texts.length > 0 ||
+    turn.isStreaming;
+
+  if (!hasVisibleContent) return null;
+
+  return (
+    <div
+      className="pi-message-bubble flex justify-start mb-4"
+      onContextMenu={(event) => openMenu(event, exportText, turn.exportMessage.id, setMenu)}
+    >
+      <GlassPanel variant="message-assistant" className="min-w-0">
+        {turn.images.length > 0 && <MessageImages images={turn.images} />}
+        {(turn.items.length > 0 || turn.processActive) && (
+          <ProcessTrace
+            items={turn.items}
+            isActive={turn.processActive}
+            activeIndex={turn.activeIndex}
+            durationMs={turn.durationMs}
+            hideThinking={isPreviewMode}
+          />
+        )}
+        {turn.texts.map((t) => (
+          <TextBlock key={t.key} text={t.text} />
+        ))}
+      </GlassPanel>
+      {rendering && <span className="pi-message-exporting" title="正在生成图片"><LoaderCircle size={15} /></span>}
+      {menu && (
+        <MessageMenu
+          x={menu.x}
+          y={menu.y}
+          onCopy={() => void copyExport(exportText, notify, setMenu)}
+          onSave={() => void saveExport(exportText, turn.exportMessage, notify, setMenu, setRendering)}
+        />
+      )}
+    </div>
+  );
+}
+
+function useMessageMenu(
+  menu: { x: number; y: number } | null,
+  messageId: string,
+  setMenu: (v: { x: number; y: number } | null) => void,
+) {
   useEffect(() => {
     if (!menu) return;
     const close = () => setMenu(null);
     const closeOther = (event: Event) => {
-      if ((event as CustomEvent<string>).detail !== message.id) close();
+      if ((event as CustomEvent<string>).detail !== messageId) close();
     };
     document.addEventListener("click", close);
     window.addEventListener("blur", close);
@@ -84,96 +180,83 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("pi-message-menu-open", closeOther);
     };
-  }, [menu, message.id]);
+  }, [menu, messageId, setMenu]);
+}
 
-  function openMenu(event: React.MouseEvent) {
-    if (!exportText) return;
-    event.preventDefault();
-    const width = 176;
-    const height = 92;
-    setMenu({
-      x: Math.min(event.clientX, window.innerWidth - width - 8),
-      y: Math.min(event.clientY, window.innerHeight - height - 8),
-    });
-    window.dispatchEvent(new CustomEvent("pi-message-menu-open", { detail: message.id }));
+function openMenu(
+  event: React.MouseEvent,
+  exportText: string,
+  messageId: string,
+  setMenu: (v: { x: number; y: number } | null) => void,
+) {
+  if (!exportText) return;
+  event.preventDefault();
+  const width = 176;
+  const height = 92;
+  setMenu({
+    x: Math.min(event.clientX, window.innerWidth - width - 8),
+    y: Math.min(event.clientY, window.innerHeight - height - 8),
+  });
+  window.dispatchEvent(new CustomEvent("pi-message-menu-open", { detail: messageId }));
+}
+
+async function copyExport(
+  exportText: string,
+  notify: (msg: string, kind: "success" | "info") => void,
+  setMenu: (v: { x: number; y: number } | null) => void,
+) {
+  setMenu(null);
+  const copied = await copyTextToClipboard(exportText);
+  notify(copied ? "消息已复制" : "复制失败，请检查浏览器权限", copied ? "success" : "info");
+}
+
+async function saveExport(
+  exportText: string,
+  message: ChatMessage,
+  notify: (msg: string, kind: "success" | "info") => void,
+  setMenu: (v: { x: number; y: number } | null) => void,
+  setRendering: (v: boolean) => void,
+) {
+  setMenu(null);
+  setRendering(true);
+  try {
+    const image = await renderMessageImage(exportText);
+    downloadDataUri(image.dataUri, messageImageFilename(message, image.mimeType));
+    notify("图片已生成，下载已开始", "success");
+  } catch (error) {
+    notify(`图片生成失败：${error instanceof Error ? error.message : "未知错误"}`, "info");
+  } finally {
+    setRendering(false);
   }
+}
 
-  async function copyMessage() {
-    setMenu(null);
-    const copied = await copyTextToClipboard(exportText);
-    notify(copied ? "消息已复制" : "复制失败，请检查浏览器权限", copied ? "success" : "info");
-  }
-
-  async function saveMessageImage() {
-    setMenu(null);
-    setRendering(true);
-    try {
-      const image = await renderMessageImage(exportText);
-      downloadDataUri(image.dataUri, messageImageFilename(message, image.mimeType));
-      notify("图片已生成，下载已开始", "success");
-    } catch (error) {
-      notify(`图片生成失败：${error instanceof Error ? error.message : "未知错误"}`, "info");
-    } finally {
-      setRendering(false);
-    }
-  }
-
-  // Same derivation regardless of whether this message is live-streaming
-  // right now or was just replayed from history — grouping/collapsing is
-  // always recomputed from the raw blocks, never a one-off side effect.
-  const units = useMemo(() => groupBlocksForDisplay(blocks ?? [], isStreaming), [blocks, isStreaming]);
-
-  const hasLegacyTools = !blocks && (message.toolCalls?.length ?? 0) > 0;
-  const hasImages = (message.images?.length ?? 0) > 0;
-  const hasVisibleContent =
-    hasImages ||
-    hasLegacyTools ||
-    units.length > 0 ||
-    Boolean(message.content?.trim());
-
-  if (!isUser && !isStreaming && !hasVisibleContent) return null;
-
-  return (
-    <div className={`pi-message-bubble flex ${isUser ? "justify-end" : "justify-start"} mb-4`} onContextMenu={openMenu}>
-      <GlassPanel variant={variant} className="min-w-0">
-        {message.images && message.images.length > 0 && (
-          <MessageImages images={message.images} />
-        )}
-        {units.length > 0
-          ? units.map((u) => {
-              switch (u.kind) {
-                case "text":
-                  return <TextBlock key={u.key} text={u.text} isUser={isUser} />;
-                case "activity":
-                  return (
-                    <ProcessTrace
-                      key={u.key}
-                      items={u.items}
-                      isActive={u.isActive}
-                      activeIndex={u.activeIndex}
-                      hideThinking={isPreviewMode}
-                    />
-                  );
-              }
-            })
-          : message.content ? (
-            /* fallback for messages without blocks */
-            <TextBlock text={message.content} isUser={isUser} />
-          ) : null}
-
-        {/* Legacy tool calls (only shown if no blocks) */}
-        {!blocks && message.toolCalls?.map((tc) => (
-          <ToolCallCard key={tc.toolCallId} toolCall={tc} />
-        ))}
-      </GlassPanel>
-      {rendering && <span className="pi-message-exporting" title="正在生成图片"><LoaderCircle size={15} /></span>}
-      {menu && createPortal(
-        <div className="pi-message-context-menu" style={{ left: menu.x, top: menu.y }} role="menu" onClick={(event) => event.stopPropagation()}>
-          <button type="button" role="menuitem" onClick={() => void copyMessage()}><Clipboard size={15} /><span>复制内容</span></button>
-          <button type="button" role="menuitem" onClick={() => void saveMessageImage()}><ImageDown size={15} /><span>保存为图片</span></button>
-        </div>,
-        document.body
-      )}
-    </div>
+function MessageMenu({
+  x,
+  y,
+  onCopy,
+  onSave,
+}: {
+  x: number;
+  y: number;
+  onCopy: () => void;
+  onSave: () => void;
+}) {
+  return createPortal(
+    <div
+      className="pi-message-context-menu"
+      style={{ left: x, top: y }}
+      role="menu"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <button type="button" role="menuitem" onClick={onCopy}>
+        <Clipboard size={15} />
+        <span>复制内容</span>
+      </button>
+      <button type="button" role="menuitem" onClick={onSave}>
+        <ImageDown size={15} />
+        <span>保存为图片</span>
+      </button>
+    </div>,
+    document.body,
   );
-}, (prev, next) => prev.message === next.message);
+}

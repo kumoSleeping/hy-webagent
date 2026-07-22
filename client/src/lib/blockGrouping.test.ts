@@ -134,15 +134,15 @@ describe("groupBlocksForDisplay", () => {
     expect(groupBlocksForDisplay([], false)).toEqual([]);
   });
 
-  it("keeps text output outside any activity grouping", () => {
+  it("ignores empty text blocks so they do not split one Working process", () => {
     const blocks: ContentBlock[] = [
+      { type: "thinking", text: "hmm" },
+      { type: "text", text: "   " },
       { type: "tool", tool: tool("a") },
-      { type: "tool", tool: tool("b") },
-      { type: "text", text: "first answer" },
-      { type: "tool", tool: tool("c") },
-      { type: "tool", tool: tool("d") },
+      { type: "text", text: "done" },
     ];
     const units = groupBlocksForDisplay(blocks, false);
-    expect(units.map((u) => u.kind)).toEqual(["activity", "text", "activity"]);
+    expect(units.map((u) => u.kind)).toEqual(["activity", "text"]);
+    expect(units[0]).toMatchObject({ kind: "activity", toolCount: 1 });
   });
 });

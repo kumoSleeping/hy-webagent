@@ -1,7 +1,8 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import { useAutoScrollFollow } from "../../hooks/useAutoScrollFollow";
 import { useComposerReserveHeight } from "../../hooks/useComposerReserveHeight";
+import { groupMessagesForFeed } from "../../lib/messageGrouping";
 import { MessageBubble } from "./MessageBubble";
 
 export function MessageFeed() {
@@ -13,6 +14,7 @@ export function MessageFeed() {
   });
 
   const composerReserve = useComposerReserveHeight([messages, isStreaming]);
+  const feedItems = useMemo(() => groupMessagesForFeed(messages), [messages]);
 
   // Catch every streaming delta — ResizeObserver alone misses growth that
   // happens inside capped inner scroll areas (e.g. process-step body)
@@ -29,9 +31,13 @@ export function MessageFeed() {
       style={{ paddingTop: "var(--pi-top-strip)", paddingBottom: `${composerReserve}px` }}
     >
       <div ref={contentRef} className="mx-auto max-w-[var(--pi-feed-max)] py-4">
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
+        {feedItems.map((item) =>
+          item.kind === "user" ? (
+            <MessageBubble key={item.key} messages={[item.message]} />
+          ) : (
+            <MessageBubble key={item.key} messages={item.messages} />
+          )
+        )}
       </div>
     </div>
   );
