@@ -15,6 +15,8 @@ interface ProcessTraceProps {
   activeIndex: number | null;
   /** Finished-turn duration from message timestamps (ms); live turns freeze wall-clock. */
   durationMs?: number | null;
+  /** True only after the surrounding agent run has completely ended. */
+  isComplete?: boolean;
   /** Hide thinking segments (preview / hide-thinking mode). */
   hideThinking?: boolean;
 }
@@ -41,6 +43,7 @@ export const ProcessTrace = memo(function ProcessTrace({
   isActive,
   activeIndex,
   durationMs = null,
+  isComplete = false,
   hideThinking = false,
 }: ProcessTraceProps) {
   const visibleItems = hideThinking
@@ -59,6 +62,10 @@ export const ProcessTrace = memo(function ProcessTrace({
   const wasEverActiveRef = useRef(isActive);
   if (isActive) wasEverActiveRef.current = true;
   const expanded = manualExpanded ?? wasEverActiveRef.current;
+
+  useEffect(() => {
+    if (isComplete && wasEverActiveRef.current) setManualExpanded(false);
+  }, [isComplete]);
 
   // Prefer wall-clock for the live session (timestamps can be identical when
   // tools share one assistant message); fall back to timestamp span for history.

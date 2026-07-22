@@ -81,8 +81,8 @@ describe("buildAssistantTurnView", () => {
         timestamp: 20,
       }),
     ], true);
-    expect(answering.processActive).toBe(false);
-    expect(answering.activeIndex).toBeNull();
+    expect(answering.processActive).toBe(true);
+    expect(answering.activeIndex).toBe(answering.items.length - 1);
 
     const finished = buildAssistantTurnView([
       assistant("a1", { blocks: [{ type: "tool", tool: tool("t1") }], timestamp: 10 }),
@@ -150,6 +150,24 @@ describe("buildAssistantTurnView", () => {
     expect(view.items).toEqual([{ kind: "status", text: "再核几条重点报道的细节。" }]);
     expect(view.texts).toEqual([{ key: "a1-text-1", text: "# 今日 AI 新闻速览\n\n正文" }]);
     expect(view.processActive).toBe(false);
+  });
+
+  it("renders unstructured live text after a tool as process text from its first token", () => {
+    const view = buildAssistantTurnView([
+      assistant("a1", { blocks: [{ type: "tool", tool: tool("web-1") }] }),
+      assistant("a2", {
+        content: "I got results; let me verify another source.",
+        blocks: [{ type: "text", text: "I got results; let me verify another source." }],
+        isStreaming: true,
+      }),
+    ], true);
+
+    expect(view.items).toContainEqual({
+      kind: "status",
+      text: "I got results; let me verify another source.",
+    });
+    expect(view.texts).toEqual([]);
+    expect(view.processActive).toBe(true);
   });
 });
 

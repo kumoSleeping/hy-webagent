@@ -151,6 +151,7 @@ function AssistantTurnBubble({ messages, agentRunning }: { messages: ChatMessage
             isActive={turn.processActive}
             activeIndex={turn.activeIndex}
             durationMs={turn.durationMs}
+            isComplete={!turn.isStreaming}
             hideThinking={isPreviewMode}
           />
         )}

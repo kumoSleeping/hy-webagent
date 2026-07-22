@@ -61,6 +61,10 @@ function splitProcessPreamble(text: string): { processText: string; answerText: 
   return processText && answerText ? { processText, answerText } : null;
 }
 
+function startsExplicitAnswer(text: string): boolean {
+  return /^\s*(?:#{1,6}[ \t]+|```(?:summary)?\b)/.test(text);
+}
+
 /**
  * Flatten consecutive assistant messages into one Working process + answer texts.
  */
@@ -72,10 +76,12 @@ export function buildAssistantTurnView(
   const texts: { key: string; text: string }[] = [];
   const images: NonNullable<ChatMessage["images"]> = [];
   const errors: string[] = [];
-  let isStreaming = agentRunning;
+  const turnRunning = agentRunning || messages.some((message) => !!message.isStreaming);
+  let isStreaming = turnRunning;
 
   const rawBlocks = messages.map(resolveBlocks);
   const flattened = rawBlocks.flat();
+  const hasProcessActivity = flattened.some((block) => block.type === "thinking" || block.type === "tool");
   let finalTextMessageIndex = -1;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (rawBlocks[index]?.some((block) => block.type === "text" && block.text.trim())) {
@@ -106,6 +112,9 @@ export function buildAssistantTurnView(
             { type: "process_text", text: split.processText },
             { type: "text", text: split.answerText },
           ];
+        }
+        if (turnRunning && hasProcessActivity && !startsExplicitAnswer(block.text)) {
+          return [{ type: "process_text", text: block.text }];
         }
       }
       return [block];

@@ -72,6 +72,21 @@ describe("ProcessTrace", () => {
     expect(screen.queryByText("持续显示的思考")).not.toBeInTheDocument();
   });
 
+  it("auto-collapses only when the entire answer completes", () => {
+    const items = [{ kind: "thinking" as const, text: "完整过程" }];
+    const { rerender } = render(
+      <ProcessTrace items={items} isActive activeIndex={0} />,
+    );
+
+    rerender(<ProcessTrace items={items} isActive={false} activeIndex={null} />);
+    expect(screen.getByText("完整过程")).toBeVisible();
+
+    rerender(
+      <ProcessTrace items={items} isActive={false} activeIndex={null} isComplete />,
+    );
+    expect(screen.queryByText("完整过程")).not.toBeInTheDocument();
+  });
+
   it("keeps fresh history collapsed until the user opens it", () => {
     render(
       <ProcessTrace

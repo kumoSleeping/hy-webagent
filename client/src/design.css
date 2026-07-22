@@ -251,7 +251,6 @@ body {
  * ========================================================== */
 .pi-process-trace {
   min-width: 0;
-  --pi-process-content-indent: 1.225rem;
 }
 .pi-disclosure-icon {
   width: 0.875rem;
@@ -279,7 +278,7 @@ body {
   flex-direction: column;
   gap: 0.1rem;
   margin-top: 0.15rem;
-  padding-left: 0.15rem;
+  padding-left: 0;
 }
 .pi-process-step {
   min-width: 0;
@@ -303,6 +302,10 @@ body {
 .pi-process-step-toggle:hover {
   color: var(--pi-text);
 }
+.pi-process-step-toggle .pi-disclosure-icon {
+  order: 10;
+  margin-left: auto;
+}
 .pi-process-step-label {
   flex-shrink: 0;
   font-family: var(--pi-font-mono);
@@ -323,7 +326,7 @@ body {
   opacity: 0.7;
 }
 .pi-process-step-text {
-  padding: 0.2rem 0 0.2rem var(--pi-process-content-indent);
+  padding: 0.2rem 0;
   color: var(--pi-muted);
   font-family: var(--pi-font);
   font-size: 0.875rem;
@@ -332,7 +335,7 @@ body {
   word-break: break-word;
 }
 .pi-process-step-state {
-  margin: 0.1rem 0 0.25rem var(--pi-process-content-indent);
+  margin: 0.1rem 0 0.25rem;
   color: var(--pi-muted);
   font-family: var(--pi-font-mono);
   font-size: 0.72rem;
@@ -343,7 +346,7 @@ body {
   color: #dc2626;
 }
 .pi-process-step-body {
-  margin: 0.15rem 0 0.35rem var(--pi-process-content-indent);
+  margin: 0.15rem 0 0.35rem;
   max-height: 16rem;
   overflow: auto;
   color: var(--pi-muted);
