@@ -15,6 +15,12 @@ export function MessageFeed() {
 
   const composerReserve = useComposerReserveHeight([messages, isStreaming]);
   const feedItems = useMemo(() => groupMessagesForFeed(messages), [messages]);
+  const lastUserFeedIndex = useMemo(() => {
+    for (let index = feedItems.length - 1; index >= 0; index -= 1) {
+      if (feedItems[index]?.kind === "user") return index;
+    }
+    return -1;
+  }, [feedItems]);
 
   // Catch every streaming delta — ResizeObserver alone misses growth that
   // happens inside capped inner scroll areas (e.g. process-step body)
@@ -38,7 +44,7 @@ export function MessageFeed() {
             <MessageBubble
               key={item.key}
               messages={item.messages}
-              agentRunning={isStreaming && index === feedItems.length - 1}
+              agentRunning={isStreaming && index > lastUserFeedIndex}
             />
           )
         )}

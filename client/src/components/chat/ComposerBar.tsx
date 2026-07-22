@@ -256,6 +256,7 @@ export function ComposerBar({
   }
   const draftWriteTimerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sendButtonRef = useRef<HTMLButtonElement>(null);
   const persistDraft = useCallback((value: string) => {
     if (draftWriteTimerRef.current !== null) window.clearTimeout(draftWriteTimerRef.current);
     draftWriteTimerRef.current = window.setTimeout(() => {
@@ -294,16 +295,29 @@ export function ComposerBar({
     pastedTextPayloadsRef.current!.clear();
     persistPastedTexts();
   }, [persistPastedTexts]);
+  const syncComposerButton = useCallback((value: string) => {
+    const button = sendButtonRef.current;
+    if (!button) return;
+    const hasDraft = value.trim().length > 0 || pendingAttachments.length > 0;
+    const attachmentsBusy = pendingAttachments.some((item) => item.status === "processing");
+    const readyCount = pendingAttachments.filter((item) => item.status === "ready" && item.prepared).length;
+    const canSend =
+      !disabled &&
+      !sendDisabled &&
+      !isSendUnavailable &&
+      !attachmentsBusy &&
+      (readyCount > 0 ? !value.startsWith("/") : Boolean(value.trim()));
+    button.classList.toggle("pi-composer-send-btn--accent", hasDraft);
+    button.setAttribute("aria-disabled", String(!canSend));
+  }, [disabled, sendDisabled, isSendUnavailable, pendingAttachments]);
   const mirrorComposerText = useCallback((value: string) => {
+    const previousValue = textRef.current;
     textRef.current = value;
     persistDraft(value);
     prunePastedTexts(value);
-    setTextState((current) => {
-      const slashRelevant = current.startsWith("/") || value.startsWith("/");
-      const presenceChanged = Boolean(current.trim()) !== Boolean(value.trim());
-      return slashRelevant || presenceChanged ? value : current;
-    });
-  }, [persistDraft, prunePastedTexts]);
+    syncComposerButton(value);
+    if (previousValue.startsWith("/") || value.startsWith("/")) setTextState(value);
+  }, [persistDraft, prunePastedTexts, syncComposerButton]);
   const setComposerText = useCallback((next: string | ((current: string) => string)) => {
     const current = taRef.current?.value ?? textRef.current;
     const value = typeof next === "function" ? next(current) : next;
@@ -604,7 +618,7 @@ export function ComposerBar({
     if (groupPreview) return;
     function onGlobalKeyDown(e: globalThis.KeyboardEvent) {
       if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (text.length > 0) return;
+      if (textRef.current.length > 0) return;
 
       const target = e.target as HTMLElement | null;
       if (target === taRef.current?.element) return;
@@ -669,7 +683,7 @@ export function ComposerBar({
       if (key === "ArrowLeft" || key === "ArrowRight") {
         // Never hijacks caret movement while actually typing a message —
         // only kicks in once the box is empty or we're already navigating.
-        if (isMainTextarea && text.length > 0 && !toolbarKeyboardFocus && panel === null) return;
+        if (isMainTextarea && textRef.current.length > 0 && !toolbarKeyboardFocus && panel === null) return;
         e.preventDefault();
         e.stopPropagation();
         const len = toolbarItems.length;
@@ -1104,8 +1118,9 @@ export function ComposerBar({
         return;
       }
 
-      if (text.startsWith("/")) {
-        const parts = getSlashParts(text);
+      const currentText = taRef.current?.value ?? textRef.current;
+      if (currentText.startsWith("/")) {
+        const parts = getSlashParts(currentText);
         if (parts && !parts.argText) {
           const cmd = findSlashCommand(parts.id);
           if (cmd?.kind === "panel") {
@@ -1117,7 +1132,7 @@ export function ComposerBar({
       }
 
       if (panel === "commands" && showCommandList && !toolbarKeyboardFocus && filtered.length > 0) {
-        if (shouldPickSlashFromList(text, filtered) || !canSubmitOnEnter(text)) {
+        if (shouldPickSlashFromList(currentText, filtered) || !canSubmitOnEnter(currentText)) {
           e.preventDefault();
           const cmd = filtered[selectedIndex];
           if (cmd) activateCommand(cmd);
@@ -1125,7 +1140,7 @@ export function ComposerBar({
         }
       }
 
-      if (canSubmitOnEnter(text)) {
+      if (canSubmitOnEnter(currentText)) {
         e.preventDefault();
         handleSend();
       } else {
@@ -1197,7 +1212,8 @@ export function ComposerBar({
   const toolbarActive = panel !== null && !elevatedPanel && !(previewOpen && panel === "files" && !isMobileLayout);
   const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
   const showInlinePanel = panel !== null && !elevatedPanel;
-  const hasDraft = text.trim().length > 0 || pendingAttachments.length > 0;
+  const liveComposerText = taRef.current?.value ?? text;
+  const hasDraft = liveComposerText.trim().length > 0 || pendingAttachments.length > 0;
 
   function renderPanelBody(): ReactNode {
     if (!panel) return null;
@@ -1420,11 +1436,13 @@ export function ComposerBar({
           className="pi-composer-input min-w-0 flex-1 resize-none border-none bg-transparent px-1.5 py-1.5 text-[var(--pi-text)] outline-none placeholder:text-[#a8b0bc] disabled:cursor-not-allowed"
         />
         <button
+          ref={sendButtonRef}
           type="button"
           className={`pi-composer-send-btn${hasDraft ? " pi-composer-send-btn--accent" : ""}`}
           onPointerDown={handleToolbarPointerDown}
           onClick={handleSend}
-          disabled={!canSendNow(text)}
+          disabled={disabled || sendDisabled || isSendUnavailable || attachmentsProcessing()}
+          aria-disabled={!canSendNow(liveComposerText)}
           title="Send message"
           aria-label="Send message"
         >

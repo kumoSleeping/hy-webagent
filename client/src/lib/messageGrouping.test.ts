@@ -119,6 +119,24 @@ describe("buildAssistantTurnView", () => {
       expect.objectContaining({ kind: "tool" }),
     ]);
   });
+
+  it("keeps pre-answer narration from earlier assistant messages in the process", () => {
+    const view = buildAssistantTurnView([
+      assistant("a1", {
+        content: "继续核实几条较新的头条报道。",
+        blocks: [{ type: "text", text: "继续核实几条较新的头条报道。" }],
+      }),
+      assistant("a2", {
+        content: "# 今日 AI 新闻速览",
+        blocks: [{ type: "text", text: "# 今日 AI 新闻速览" }],
+        isStreaming: true,
+      }),
+    ], true);
+
+    expect(view.items).toContainEqual({ kind: "status", text: "继续核实几条较新的头条报道。" });
+    expect(view.texts).toEqual([{ key: "a2-text-0", text: "# 今日 AI 新闻速览" }]);
+    expect(view.processActive).toBe(true);
+  });
 });
 
 describe("formatProcessDuration", () => {

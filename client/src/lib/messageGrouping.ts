@@ -66,6 +66,13 @@ export function buildAssistantTurnView(
 
   const rawBlocks = messages.map(resolveBlocks);
   const flattened = rawBlocks.flat();
+  let finalTextMessageIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (rawBlocks[index]?.some((block) => block.type === "text" && block.text.trim())) {
+      finalTextMessageIndex = index;
+      break;
+    }
+  }
   let lastToolIndex = -1;
   for (let index = flattened.length - 1; index >= 0; index -= 1) {
     const block = flattened[index]!;
@@ -75,9 +82,12 @@ export function buildAssistantTurnView(
     }
   }
   let blockOffset = 0;
-  const displayBlocks = rawBlocks.map((blocks) => {
+  const displayBlocks = rawBlocks.map((blocks, messageIndex) => {
     const mapped: DisplayBlock[] = blocks.map((block, index) =>
-      lastToolIndex >= 0 && block.type === "text" && blockOffset + index < lastToolIndex
+      block.type === "text" && (
+        messageIndex < finalTextMessageIndex ||
+        (lastToolIndex >= 0 && blockOffset + index < lastToolIndex)
+      )
         ? { type: "process_text", text: block.text }
         : block
     );

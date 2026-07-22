@@ -1164,12 +1164,13 @@ body {
   cursor: pointer;
   transition: color 140ms ease;
 }
-.pi-composer-send-btn:hover:not(:disabled),
-.pi-composer-send-btn:focus-visible:not(:disabled) {
+.pi-composer-send-btn:hover:not(:disabled):not([aria-disabled="true"]),
+.pi-composer-send-btn:focus-visible:not(:disabled):not([aria-disabled="true"]) {
   color: var(--pi-theme);
   background: transparent;
 }
-.pi-composer-send-btn:disabled {
+.pi-composer-send-btn:disabled,
+.pi-composer-send-btn[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -1177,12 +1178,13 @@ body {
   color: var(--pi-theme);
   background: transparent;
 }
-.pi-composer-send-btn--accent:hover:not(:disabled),
-.pi-composer-send-btn--accent:focus-visible:not(:disabled) {
+.pi-composer-send-btn--accent:hover:not(:disabled):not([aria-disabled="true"]),
+.pi-composer-send-btn--accent:focus-visible:not(:disabled):not([aria-disabled="true"]) {
   color: #dc2626;
   background: transparent;
 }
-.pi-composer-send-btn--accent:disabled {
+.pi-composer-send-btn--accent:disabled,
+.pi-composer-send-btn--accent[aria-disabled="true"] {
   opacity: 0.45;
 }
 .pi-composer-send-btn svg {

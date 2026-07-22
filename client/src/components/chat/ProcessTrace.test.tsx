@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProcessTrace } from "./ProcessTrace";
 
@@ -56,5 +56,62 @@ describe("ProcessTrace", () => {
     );
 
     expect(screen.getByText("Working process · 11s")).toBeInTheDocument();
+    expect(screen.getByText("第一轮思考")).toBeVisible();
+  });
+
+  it("never auto-collapses a process that was live", () => {
+    const items = [{ kind: "thinking" as const, text: "持续显示的思考" }];
+    const { rerender } = render(
+      <ProcessTrace items={items} isActive activeIndex={0} />,
+    );
+
+    rerender(<ProcessTrace items={items} isActive={false} activeIndex={null} />);
+    expect(screen.getByText("持续显示的思考")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Working process · 0s" }));
+    expect(screen.queryByText("持续显示的思考")).not.toBeInTheDocument();
+  });
+
+  it("keeps fresh history collapsed until the user opens it", () => {
+    render(
+      <ProcessTrace
+        items={[{ kind: "thinking", text: "历史思考" }]}
+        isActive={false}
+        activeIndex={null}
+        durationMs={12_000}
+      />,
+    );
+
+    expect(screen.queryByText("历史思考")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Working process · 12s" }));
+    expect(screen.getByText("历史思考")).toBeVisible();
+  });
+
+  it("does not auto-collapse a tool after the next step starts", () => {
+    const runningTool = {
+      kind: "tool" as const,
+      tool: {
+        toolCallId: "tool-1",
+        toolName: "bash",
+        input: { command: "pwd" },
+        status: "running" as const,
+      },
+    };
+    const { rerender } = render(
+      <ProcessTrace items={[runningTool]} isActive activeIndex={0} />,
+    );
+    expect(screen.getByText("Running…")).toBeVisible();
+
+    rerender(
+      <ProcessTrace
+        items={[
+          { ...runningTool, tool: { ...runningTool.tool, status: "done", output: "/workspace" } },
+          { kind: "thinking", text: "继续分析" },
+        ]}
+        isActive
+        activeIndex={1}
+      />,
+    );
+    expect(screen.getByText("/workspace")).toBeVisible();
   });
 });

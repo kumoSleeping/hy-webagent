@@ -31,8 +31,8 @@ function DisclosureIcon({ expanded }: { expanded: boolean }) {
  * Text-style chain for everything before the final answer: thinking and
  * tool calls under one top-level "Working process" toggle.
  *
- * - Fresh load / finished turn → collapsed, labeled `Working process · 12s`.
- * - Live turn → expands; the current step opens, prior steps fold shut.
+ * - Fresh history load → collapsed, labeled `Working process · 12s`.
+ * - Once a live turn expands, only an explicit user click may collapse it.
  * - Click the top label to collapse/expand the whole chain at once.
  * - Click any step to inspect its details.
  */
@@ -56,8 +56,9 @@ export const ProcessTrace = memo(function ProcessTrace({
   }
 
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
-  const expanded = manualExpanded ?? isActive;
-  const wasActiveRef = useRef(isActive);
+  const wasEverActiveRef = useRef(isActive);
+  if (isActive) wasEverActiveRef.current = true;
+  const expanded = manualExpanded ?? wasEverActiveRef.current;
 
   // Prefer wall-clock for the live session (timestamps can be identical when
   // tools share one assistant message); fall back to timestamp span for history.
@@ -65,14 +66,6 @@ export const ProcessTrace = memo(function ProcessTrace({
   const [frozenMs, setFrozenMs] = useState<number | null>(null);
 
   useEffect(() => {
-    // Entering the final answer (or finishing the turn) always folds the
-    // Working process — same as a fresh page load — even if the user had
-    // manually expanded it while tools were running.
-    if (wasActiveRef.current && !isActive) {
-      setManualExpanded(null);
-    }
-    wasActiveRef.current = isActive;
-
     if (isActive) {
       if (activeSinceRef.current == null) activeSinceRef.current = Date.now();
       setFrozenMs(null);
@@ -80,7 +73,6 @@ export const ProcessTrace = memo(function ProcessTrace({
     }
     if (activeSinceRef.current != null) {
       setFrozenMs(Date.now() - activeSinceRef.current);
-      activeSinceRef.current = null;
     }
   }, [isActive]);
 
@@ -179,7 +171,9 @@ const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCa
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const { toolName, status, input, output, details, isError } = toolCall;
   const isWeb = getToolCategory(toolName) === "web";
-  const expanded = manualExpanded ?? (isWeb ? false : isLive);
+  const wasEverLiveRef = useRef(isLive && !isWeb);
+  if (isLive && !isWeb) wasEverLiveRef.current = true;
+  const expanded = manualExpanded ?? wasEverLiveRef.current;
   const target = extractToolTarget(toolName, input);
   const resultText = resolveToolOutput(output, details);
   const errored = isError || status === "error";

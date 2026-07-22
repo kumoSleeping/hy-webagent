@@ -3,8 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ComposerBar } from "./ComposerBar";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { useSessionStore } from "../../stores/sessionStore";
+import { ChatWebSocketProvider } from "../../context/chatWebSocketContext";
+import type { ChatWebSocketApi } from "../../hooks/useChatWebSocket";
 
 const noop = () => {};
+const connectedApi = {
+  connectionState: "connected",
+} as ChatWebSocketApi;
 
 describe("ComposerBar group preview", () => {
   beforeEach(() => {
@@ -40,6 +45,32 @@ describe("ComposerBar group preview", () => {
     expect(editor).toHaveTextContent("第一个字");
     expect(editor).toHaveFocus();
     expect(screen.getByLabelText("Send message")).toBeDisabled();
+  });
+
+  it("handles a third-party input event without losing the live caret", () => {
+    const onSend = vi.fn();
+    render(
+      <ChatWebSocketProvider value={connectedApi}>
+        <ComposerBar onSend={onSend} onNewChat={noop} onFileClick={noop} />
+      </ChatWebSocketProvider>,
+    );
+
+    const editor = screen.getByRole("textbox");
+    editor.focus();
+    editor.textContent = "甲乙";
+    const range = document.createRange();
+    range.setStart(editor.firstChild!, 1);
+    range.collapse(true);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    fireEvent.input(editor, { inputType: "insertText", isComposing: false });
+
+    expect(window.getSelection()?.anchorOffset).toBe(1);
+    expect(screen.getByLabelText("Send message")).toHaveAttribute("aria-disabled", "false");
+    fireEvent.click(screen.getByLabelText("Send message"));
+    expect(onSend).toHaveBeenCalledWith("甲乙", undefined, "甲乙");
   });
 
   it("keeps the normal composer chrome but exposes only read-only group actions", async () => {
