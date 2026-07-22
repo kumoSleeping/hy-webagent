@@ -12,6 +12,34 @@ export function getToolCategory(toolName: string): ToolCategory {
   return WEB_TOOLS.has(normalized) ? "web" : "tools";
 }
 
+/** Stable user-facing labels for tools and native provider actions. */
+export function getToolDisplayLabel(
+  toolName: string,
+  input?: Record<string, unknown>,
+): string {
+  const normalized = toolName.toLowerCase().replace(/-/g, "_");
+  const actionType = typeof input?.type === "string" ? input.type.toLowerCase() : "";
+
+  if (normalized === "web_search") {
+    if (actionType === "open_page") return "Open Page";
+    if (actionType === "find_in_page") return "Find on Page";
+    return "Web Search";
+  }
+
+  const labels: Record<string, string> = {
+    x_search: "X Search",
+    code_interpreter: "Code Interpreter",
+    view_image: "View Image",
+    view_x_video: "View X Video",
+    read_url: "Read URL",
+    fetch_url: "Fetch URL",
+    web_fetch: "Web Fetch",
+    parallel_search_web: "Parallel Web Search",
+    search_web: "Web Search",
+  };
+  return labels[normalized] ?? toolName;
+}
+
 /** True when streamed tool chunks were corrupted by String(object). */
 export function isGarbageToolOutput(output: string | undefined): boolean {
   if (!output?.trim()) return false;
@@ -92,6 +120,12 @@ export function extractToolTarget(
     case "search_web":
     case "web_search":
     case "x_search": {
+      const actionType = typeof input.type === "string" ? input.type : "";
+      if (actionType === "open_page") return pickUrl(input) || "open page";
+      if (actionType === "find_in_page") {
+        const needle = input.pattern ?? input.query;
+        return needle ? `"${truncate(String(needle), 80)}"` : pickUrl(input) || "find on page";
+      }
       return summarizeSearches(input);
     }
     case "grep":
@@ -132,7 +166,9 @@ function summarizeSearches(input: Record<string, unknown>): string {
   const searches = input.searches;
   if (!Array.isArray(searches) || searches.length === 0) {
     const query = input.query ?? input.q;
-    return query ? `"${truncate(String(query), 80)}"` : "web search";
+    if (!query) return "web search";
+    const sourceCount = Array.isArray(input.sources) ? input.sources.length : 0;
+    return `"${truncate(String(query), 80)}"${sourceCount > 0 ? ` · ${sourceCount} sources` : ""}`;
   }
 
   const queries = searches

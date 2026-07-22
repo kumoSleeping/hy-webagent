@@ -125,7 +125,8 @@ function dispatchWsMessage(
         msg.payload.toolCallId,
         msg.payload.isError,
         msg.payload.details,
-        msg.payload.output
+        msg.payload.output,
+        msg.payload.input,
       );
       break;
     }

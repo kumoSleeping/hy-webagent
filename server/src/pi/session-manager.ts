@@ -271,6 +271,7 @@ export class PISessionManager {
       type: "tool_execution_end",
       toolCallId: activity.toolCallId,
       toolName: activity.toolName,
+      args: activity.input,
       result: activity.output ? { content: [{ type: "text", text: activity.output }] } : undefined,
       isError: false,
     } as AgentSessionEvent);

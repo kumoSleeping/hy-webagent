@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Loader2, XCircle } from "lucide-react";
 import type { ActivityItem } from "../../lib/assistantTurnState";
 import { formatProcessDuration } from "../../lib/messageGrouping";
 import type { ToolCallRecord } from "../../types";
-import { extractToolTarget, getToolCategory, resolveToolOutput } from "../../lib/toolDisplay";
+import { extractToolTarget, getToolCategory, getToolDisplayLabel, resolveToolOutput } from "../../lib/toolDisplay";
 import { CodeBlock } from "./CodeBlock";
 
 interface ProcessTraceProps {
@@ -179,31 +179,20 @@ const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCa
   if (isLive && !isWeb) wasEverLiveRef.current = true;
   const expanded = manualExpanded ?? wasEverLiveRef.current;
   const target = extractToolTarget(toolName, input);
+  const label = getToolDisplayLabel(toolName, input);
   const resultText = resolveToolOutput(output, details);
   const errored = isError || status === "error";
 
   if (isWeb) {
     const preview = target === "web search" || target === "…" ? "" : target;
-    const stateText = errored ? "Failed" : status === "running" ? "Searching" : "Success";
     return (
       <div className="pi-process-step">
-        <button
-          type="button"
-          onClick={() => setManualExpanded(!expanded)}
-          className="pi-process-step-toggle"
-          aria-expanded={expanded}
-        >
-          <DisclosureIcon expanded={expanded} />
-          <span className="pi-process-step-label">Web Search</span>
+        <div className="pi-process-step-toggle">
+          <span className="pi-process-step-label">{label}</span>
           {preview && <span className="pi-process-step-summary">{preview}</span>}
           {status === "running" && <Loader2 size={12} className="animate-spin shrink-0" />}
           {errored && <XCircle size={12} className="text-[var(--pi-theme)] shrink-0" />}
-        </button>
-        {expanded && (
-          <div className={`pi-process-step-state${errored ? " pi-process-step-state--error" : ""}`}>
-            {stateText}
-          </div>
-        )}
+        </div>
       </div>
     );
   }
@@ -217,7 +206,7 @@ const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCa
         aria-expanded={expanded}
       >
         <DisclosureIcon expanded={expanded} />
-        <span className="pi-process-step-label">{toolName}</span>
+        <span className="pi-process-step-label">{label}</span>
         <span className="pi-process-step-summary">{target}</span>
         {status === "running" && <Loader2 size={12} className="animate-spin shrink-0" />}
         {errored && <XCircle size={12} className="text-[var(--pi-theme)] shrink-0" />}

@@ -122,6 +122,56 @@ describe("chatStore transcript sync", () => {
     });
   });
 
+  it("replaces an empty native-tool start input with completed Grok action data", () => {
+    const messageId = useChatStore.getState().startAssistantMessage("native-tool-owner");
+    useChatStore.getState().addToolCall(messageId, {
+      toolCallId: "native-search-1",
+      toolName: "web_search",
+      input: {},
+      status: "running",
+    });
+    useChatStore.getState().endToolCall(
+      messageId,
+      "native-search-1",
+      false,
+      undefined,
+      "Completed",
+      { type: "search", query: "AI news", sources: [{ url: "https://example.com" }] },
+    );
+
+    expect(useChatStore.getState().messages[0]?.toolCalls?.[0]).toMatchObject({
+      status: "done",
+      input: { type: "search", query: "AI news" },
+    });
+  });
+
+  it("restores completed native-tool input instead of the empty start input", () => {
+    useChatStore.getState().loadHistory([], {
+      serverToolActivities: [
+        {
+          phase: "start",
+          toolCallId: "native-open-1",
+          toolName: "web_search",
+          input: {},
+          recordedAt: 1,
+        },
+        {
+          phase: "done",
+          toolCallId: "native-open-1",
+          toolName: "web_search",
+          input: { type: "open_page", url: "https://example.com/article" },
+          output: "Completed",
+          recordedAt: 2,
+        },
+      ],
+    });
+
+    expect(useChatStore.getState().messages[0]?.toolCalls?.[0]?.input).toEqual({
+      type: "open_page",
+      url: "https://example.com/article",
+    });
+  });
+
   it("finishAssistantMessage drops empty assistant orphans", () => {
     const assistantId = useChatStore.getState().startAssistantMessage();
     useChatStore.getState().finishAssistantMessage(assistantId);

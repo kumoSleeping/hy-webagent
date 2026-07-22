@@ -32,7 +32,7 @@
   --pi-accent: var(--pi-theme);
   --pi-accent-soft: rgba(239, 68, 68, 0.08);
   --pi-primary: var(--pi-theme);
-  --pi-link: #2563eb;
+  --pi-link: var(--pi-theme);
 
   /* —— Shadows: flat, low-spread (ref: shadow-sm shadow-black/5) —— */
   --pi-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -2134,12 +2134,12 @@ button.pi-panel-row.pi-panel-row--selected {
   color: var(--pi-link);
   font-weight: 600;
   text-decoration: none;
-  border-bottom: 1px solid rgba(37, 99, 235, 0.25);
+  border-bottom: 1px solid color-mix(in srgb, var(--pi-link) 28%, transparent);
   transition: border-color 140ms ease, color 140ms ease;
 }
 .pi-markdown a:hover {
-  color: #1d4ed8;
-  border-bottom-color: rgba(29, 78, 216, 0.45);
+  color: color-mix(in srgb, var(--pi-link) 82%, black);
+  border-bottom-color: color-mix(in srgb, var(--pi-link) 48%, transparent);
 }
 
 /* Workspace file download — theme red, not external-link blue */

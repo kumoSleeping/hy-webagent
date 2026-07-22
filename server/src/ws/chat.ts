@@ -193,6 +193,7 @@ export function handleChatWs(
           payload: {
             messageId: toolOwnerMessageIds.get(String(evt.toolCallId)),
             toolCallId: evt.toolCallId,
+            input: evt.args,
             isError: evt.isError,
             details: evt.result,
             output: toolResultToText(evt.result),
@@ -579,6 +580,7 @@ export function handleChatWs(
               send({ type: "chat:tool_end", payload: {
                 messageId: guestToolOwners.get(String(event.toolCallId)),
                 toolCallId: event.toolCallId,
+                input: (event as any).args,
                 isError: event.isError,
                 details: event.result,
                 output: toolResultToText(event.result),

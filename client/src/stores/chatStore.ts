@@ -57,7 +57,14 @@ interface ChatState {
   appendThinkingDelta: (msgId: string, delta: string, contentIndex?: number) => void;
   addToolCall: (msgId: string, tool: ToolCallRecord) => void;
   updateToolCall: (msgId: string, toolCallId: string, output: string) => void;
-  endToolCall: (msgId: string, toolCallId: string, isError: boolean, details?: unknown, outputFromEnd?: string) => void;
+  endToolCall: (
+    msgId: string,
+    toolCallId: string,
+    isError: boolean,
+    details?: unknown,
+    outputFromEnd?: string,
+    inputFromEnd?: Record<string, unknown>,
+  ) => void;
   finalizeRunningToolCalls: (msgId: string) => void;
   finishAssistantMessage: (msgId: string) => void;
   /** Close one SDK assistant message without ending the surrounding agent run. */
@@ -333,7 +340,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
-  endToolCall: (msgId, toolCallId, isError, details, outputFromEnd) => {
+  endToolCall: (msgId, toolCallId, isError, details, outputFromEnd, inputFromEnd) => {
     const typedDetails = details as Record<string, unknown> | undefined;
     const resultText =
       (typeof outputFromEnd === "string" && outputFromEnd.trim() ? outputFromEnd : "") ||
@@ -347,6 +354,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : tc.output;
       return {
         ...tc,
+        input: inputFromEnd && Object.keys(inputFromEnd).length > 0 ? inputFromEnd : tc.input,
         status: isError ? "error" as const : "done" as const,
         isError,
         details: typedDetails,
@@ -640,7 +648,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const tool: ToolCallRecord = {
         toolCallId: first.toolCallId,
         toolName: first.toolName,
-        input: first.input,
+        input: done?.input ?? first.input,
         output: done?.output,
         status: done ? "done" : options?.agentRunning ? "running" : "done",
         isError: false,

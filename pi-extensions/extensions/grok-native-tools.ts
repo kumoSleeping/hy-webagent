@@ -82,6 +82,22 @@ function activityTarget(input: Record<string, unknown>): string {
   return typeof input.type === "string" ? input.type : "";
 }
 
+function activityLabel(toolName: string, input: Record<string, unknown>): string {
+  const actionType = typeof input.type === "string" ? input.type.toLowerCase() : "";
+  if (toolName === "web_search") {
+    if (actionType === "open_page") return "Open Page";
+    if (actionType === "find_in_page") return "Find on Page";
+    return "Web Search";
+  }
+  const labels: Record<string, string> = {
+    x_search: "X Search",
+    code_interpreter: "Code Interpreter",
+    view_image: "View Image",
+    view_x_video: "View X Video",
+  };
+  return labels[toolName] ?? (toolName || "Server Tool");
+}
+
 // ─── Server-tool activity (SSE sniff via fetch wrap) ─────
 
 function describeServerToolItem(item: Record<string, unknown> | null | undefined): string | null {
@@ -325,8 +341,9 @@ export default function (pi: ExtensionAPI) {
   }>(GROK_SERVER_TOOL_ENTRY, (entry, _options, theme) => {
     const data = entry.data;
     if (data?.phase !== "done") return undefined;
-    const toolName = data.toolName === "web_search" ? "Web Search" : data.toolName || "Server Tool";
-    const target = activityTarget(data.input ?? {});
+    const input = data.input ?? {};
+    const toolName = activityLabel(data.toolName ?? "", input);
+    const target = activityTarget(input);
     const suffix = target ? ` · ${target}` : "";
     return new Text(theme.fg("muted", `✓ ${toolName}${suffix}`), 0, 0);
   });
