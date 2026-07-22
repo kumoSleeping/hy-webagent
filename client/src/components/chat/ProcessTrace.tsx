@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, XCircle } from "lucide-react";
-import type { ActivityItem } from "../../lib/blockGrouping";
+import type { ActivityItem } from "../../lib/assistantTurnState";
 import { formatProcessDuration } from "../../lib/messageGrouping";
 import type { ToolCallRecord } from "../../types";
 import { extractToolTarget, getToolCategory, resolveToolOutput } from "../../lib/toolDisplay";
@@ -15,8 +15,6 @@ interface ProcessTraceProps {
   activeIndex: number | null;
   /** Finished-turn duration from message timestamps (ms); live turns freeze wall-clock. */
   durationMs?: number | null;
-  /** True only after the surrounding agent run has completely ended. */
-  isComplete?: boolean;
   /** Hide thinking segments (preview / hide-thinking mode). */
   hideThinking?: boolean;
 }
@@ -34,7 +32,7 @@ function DisclosureIcon({ expanded }: { expanded: boolean }) {
  * tool calls under one top-level "Working process" toggle.
  *
  * - Fresh history load → collapsed, labeled `Working process · 12s`.
- * - Once a live turn expands, only an explicit user click may collapse it.
+ * - The first answer text closes and collapses a live process immediately.
  * - Click the top label to collapse/expand the whole chain at once.
  * - Click any step to inspect its details.
  */
@@ -43,7 +41,6 @@ export const ProcessTrace = memo(function ProcessTrace({
   isActive,
   activeIndex,
   durationMs = null,
-  isComplete = false,
   hideThinking = false,
 }: ProcessTraceProps) {
   const visibleItems = hideThinking
@@ -61,11 +58,14 @@ export const ProcessTrace = memo(function ProcessTrace({
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const wasEverActiveRef = useRef(isActive);
   if (isActive) wasEverActiveRef.current = true;
-  const expanded = manualExpanded ?? wasEverActiveRef.current;
 
+  const previousActiveRef = useRef(isActive);
+  const justBecameInactive = previousActiveRef.current && !isActive;
+  const expanded = justBecameInactive ? false : manualExpanded ?? wasEverActiveRef.current;
   useEffect(() => {
-    if (isComplete && wasEverActiveRef.current) setManualExpanded(false);
-  }, [isComplete]);
+    if (previousActiveRef.current && !isActive) setManualExpanded(false);
+    previousActiveRef.current = isActive;
+  }, [isActive]);
 
   // Prefer wall-clock for the live session (timestamps can be identical when
   // tools share one assistant message); fall back to timestamp span for history.
@@ -146,7 +146,7 @@ const ProcessTextStep = memo(function ProcessTextStep({
   text,
   isLive,
 }: {
-  kind: "thinking" | "status";
+  kind: "thinking";
   text: string;
   isLive: boolean;
 }) {

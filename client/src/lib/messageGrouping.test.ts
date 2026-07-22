@@ -81,8 +81,8 @@ describe("buildAssistantTurnView", () => {
         timestamp: 20,
       }),
     ], true);
-    expect(answering.processActive).toBe(true);
-    expect(answering.activeIndex).toBe(answering.items.length - 1);
+    expect(answering.processActive).toBe(false);
+    expect(answering.activeIndex).toBeNull();
 
     const finished = buildAssistantTurnView([
       assistant("a1", { blocks: [{ type: "tool", tool: tool("t1") }], timestamp: 10 }),
@@ -92,7 +92,7 @@ describe("buildAssistantTurnView", () => {
     expect(finished.activeIndex).toBeNull();
   });
 
-  it("keeps narration in the process before any tool", () => {
+  it("keeps text stable as answer content when a later tool arrives", () => {
     const view = buildAssistantTurnView([
       assistant("a1", {
         content: "正在检索剧情资料。",
@@ -113,14 +113,14 @@ describe("buildAssistantTurnView", () => {
       }),
     ]);
 
-    expect(view.texts).toEqual([{ key: "a3-text-0", text: "最终回答" }]);
-    expect(view.items).toEqual([
-      { kind: "status", text: "正在检索剧情资料。" },
-      expect.objectContaining({ kind: "tool" }),
+    expect(view.texts).toEqual([
+      { key: "a1-text-0", text: "正在检索剧情资料。" },
+      { key: "a3-text-0", text: "最终回答" },
     ]);
+    expect(view.items).toEqual([expect.objectContaining({ kind: "tool" })]);
   });
 
-  it("keeps pre-answer narration from earlier assistant messages in the process", () => {
+  it("collapses the process on the first streamed answer text", () => {
     const view = buildAssistantTurnView([
       assistant("a1", {
         content: "继续核实几条较新的头条报道。",
@@ -133,12 +133,14 @@ describe("buildAssistantTurnView", () => {
       }),
     ], true);
 
-    expect(view.items).toContainEqual({ kind: "status", text: "继续核实几条较新的头条报道。" });
-    expect(view.texts).toEqual([{ key: "a2-text-0", text: "# 今日 AI 新闻速览" }]);
+    expect(view.texts).toEqual([
+      { key: "a1-text-0", text: "继续核实几条较新的头条报道。" },
+      { key: "a2-text-0", text: "# 今日 AI 新闻速览" },
+    ]);
     expect(view.processActive).toBe(false);
   });
 
-  it("splits process narration from a Markdown heading in the same streamed block", () => {
+  it("never splits one text block with Markdown heuristics", () => {
     const view = buildAssistantTurnView([
       assistant("a1", {
         content: "再核几条重点报道的细节。 # 今日 AI 新闻速览\n\n正文",
@@ -147,12 +149,15 @@ describe("buildAssistantTurnView", () => {
       }),
     ], true);
 
-    expect(view.items).toEqual([{ kind: "status", text: "再核几条重点报道的细节。" }]);
-    expect(view.texts).toEqual([{ key: "a1-text-1", text: "# 今日 AI 新闻速览\n\n正文" }]);
+    expect(view.items).toEqual([]);
+    expect(view.texts).toEqual([{
+      key: "a1-text-0",
+      text: "再核几条重点报道的细节。 # 今日 AI 新闻速览\n\n正文",
+    }]);
     expect(view.processActive).toBe(false);
   });
 
-  it("renders unstructured live text after a tool as process text from its first token", () => {
+  it("does not move live text behind a preceding tool", () => {
     const view = buildAssistantTurnView([
       assistant("a1", { blocks: [{ type: "tool", tool: tool("web-1") }] }),
       assistant("a2", {
@@ -162,12 +167,12 @@ describe("buildAssistantTurnView", () => {
       }),
     ], true);
 
-    expect(view.items).toContainEqual({
-      kind: "status",
+    expect(view.items).toEqual([expect.objectContaining({ kind: "tool" })]);
+    expect(view.texts).toEqual([{
+      key: "a2-text-0",
       text: "I got results; let me verify another source.",
-    });
-    expect(view.texts).toEqual([]);
-    expect(view.processActive).toBe(true);
+    }]);
+    expect(view.processActive).toBe(false);
   });
 });
 
