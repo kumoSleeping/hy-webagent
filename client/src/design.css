@@ -213,31 +213,29 @@ body {
   overflow: visible;
 }
 
-/* Spacing between mixed content inside assistant bubbles.
-   Keep activity (thinking ↔ tools) tight — badge hang uses the bubble
-   gutter, so cards must not reserve a second empty pt-8 band. */
+/* Spacing between mixed content inside assistant bubbles */
 .pi-message-dialog-assistant .pi-thinking-block {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
 }
 .pi-message-dialog-assistant .pi-tool-call,
 .pi-message-dialog-assistant .pi-tool-group {
-  margin-block: 0.45rem;
+  margin-block: 0.5rem;
 }
 .pi-message-dialog-assistant .pi-tool-call:first-child,
 .pi-message-dialog-assistant .pi-tool-group:first-child {
-  margin-top: 0.2rem;
+  margin-top: 0.25rem;
 }
 .pi-message-dialog-assistant .pi-tool-call:last-child,
 .pi-message-dialog-assistant .pi-tool-group:last-child {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 .pi-message-dialog-assistant .pi-markdown + .pi-tool-call,
 .pi-message-dialog-assistant .pi-markdown + .pi-tool-group {
-  margin-top: 0.85rem;
+  margin-top: 1rem;
 }
 .pi-message-dialog-assistant .pi-tool-call + .pi-markdown,
 .pi-message-dialog-assistant .pi-tool-group + .pi-markdown {
-  margin-top: 0.45rem;
+  margin-top: 0.5rem;
 }
 .pi-message-dialog-assistant .pi-markdown > :first-child {
   margin-top: 0;
@@ -1991,21 +1989,21 @@ button.pi-panel-row.pi-panel-row--selected {
 /* ============================================================
  * HYW-style feature cards — Summary / Code / Table / Tools
  *
- * Text and white bodies share one column (assistant --pi-badge-hang
- * padding). Badge hangs with -top/-left into that gutter — same as
- * HYW App.vue absolute -top-2 -left-2 over a full-width white body.
+ * Badge hang must stay inside the feature box: content-visibility on
+ * .pi-message-bubble paint-clips negative offsets. Use an 8px padding
+ * gutter + badge at top/left 0 (same visual as -top-2/-left-2).
  * ========================================================== */
 .pi-markdown .pi-md-feature,
 .pi-tool-feature {
   position: relative;
-  margin: 0.85rem 0 0.65rem;
-  padding: 0;
+  margin: 0.65rem 0 0.5rem;
+  padding: var(--pi-badge-hang) 0 0 var(--pi-badge-hang);
   overflow: visible;
 }
 .pi-markdown .pi-md-feature > .pi-corner-badge,
 .pi-tool-feature > .pi-corner-badge {
-  top: calc(-1 * var(--pi-badge-hang));
-  left: calc(-1 * var(--pi-badge-hang));
+  top: 0;
+  left: 0;
 }
 .pi-markdown .pi-md-feature-body,
 .pi-tool-feature-body {
@@ -2044,9 +2042,9 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel);
 }
 
-/* Tool / API call cards — same hang as Summary */
+/* Tool / API call cards — tight body; badge lives in the feature gutter */
 .pi-tool-feature {
-  margin-block: 0.45rem;
+  margin-block: 0.5rem;
 }
 .pi-tool-feature-body {
   border: 1px solid var(--pi-line);
@@ -2056,25 +2054,26 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel-subtle);
 }
 .pi-message-dialog-assistant .pi-tool-group .pi-tool-feature {
-  margin-block: 0;
+  margin-block: 0.35rem;
 }
-.pi-tool-group-body {
-  padding-top: 0.55rem;
-  padding-bottom: 0.55rem;
+.pi-tool-feature-trigger {
+  /* Badge sits on the body corner (gutter is only the 8px hang). Clear the
+     1.75rem badge with ~1.5rem top pad — tighter than the old pt-8 band. */
+  padding: 1.5rem 0.75rem 0.55rem;
 }
 
 /* Legacy class aliases kept so older markup / tests don't flash unstyled. */
 .pi-markdown .pi-md-card {
   position: relative;
-  margin: 1.35rem 0 1.1rem;
-  padding: 0;
-  background: var(--pi-panel);
-  box-shadow: var(--pi-shadow);
+  margin: 0.65rem 0 0.5rem;
+  padding: var(--pi-badge-hang) 0 0 var(--pi-badge-hang);
+  background: transparent;
+  box-shadow: none;
   overflow: visible;
 }
 .pi-markdown .pi-md-card > .pi-corner-badge {
-  top: calc(-1 * var(--pi-badge-hang));
-  left: calc(-1 * var(--pi-badge-hang));
+  top: 0;
+  left: 0;
 }
 
 /* Fenced code blocks */

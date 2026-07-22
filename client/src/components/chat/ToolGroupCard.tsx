@@ -47,7 +47,7 @@ export const ToolGroupCard = memo(function ToolGroupCard({ items, toolCount, cat
       <div className="pi-tool-feature-body">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white transition-colors cursor-pointer"
+          className="pi-tool-feature-trigger flex w-full items-center gap-2.5 text-left text-sm hover:bg-white transition-colors cursor-pointer"
         >
           <span className="min-w-0 flex-1 text-[var(--pi-text-body)] leading-snug truncate font-mono">
             {summary}
