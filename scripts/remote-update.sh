@@ -82,13 +82,6 @@ for (const name of fs.readdirSync(root)) {
   console.log("updated", name);
 }
 NODE
-echo "==> ensure NODE_OPTIONS ipv4first for SoruxGPT/CF"
-mkdir -p /etc/systemd/system/${SERVICE}.service.d
-cat > /etc/systemd/system/${SERVICE}.service.d/override.conf <<'UNIT'
-[Service]
-Environment=NODE_OPTIONS=--dns-result-order=ipv4first
-UNIT
-systemctl daemon-reload
 echo "==> restart ${SERVICE}"
 systemctl restart ${SERVICE}
 sleep 2
