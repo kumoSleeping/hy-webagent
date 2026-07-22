@@ -2,9 +2,19 @@
   "templates": {
     "full": {
       "label": "全功能",
-      "description": "不限制模型（默认）",
+      "description": "不限制模型（仅管理用途）",
       "allow": null,
       "providers": null
+    },
+    "core-3": {
+      "label": "三模型",
+      "description": "DeepSeek V4 Pro + MiMo UltraSpeed + Grok 5.4 (SoruxGPT)",
+      "allow": [
+        { "provider": "deepseek", "modelId": "deepseek-v4-pro" },
+        { "provider": "xiaomi", "modelId": "mimo-v2.5-pro-ultraspeed" },
+        { "provider": "soruxgpt", "modelId": "grok-5.4" }
+      ],
+      "providers": ["deepseek", "xiaomi", "soruxgpt"]
     },
     "budget-cn": {
       "label": "Deepseek + 小米",

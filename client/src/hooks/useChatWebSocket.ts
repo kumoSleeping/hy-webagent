@@ -135,6 +135,13 @@ function dispatchWsMessage(
       break;
     case "chat:agent_end": {
       store().finishAgentRun();
+      useStatusBarStore.getState().setWorkingMessage(null);
+      break;
+    }
+    case "working:update": {
+      const visible = msg.payload?.visible !== false;
+      const text = visible ? (msg.payload?.message ?? null) : null;
+      useStatusBarStore.getState().setWorkingMessage(text);
       break;
     }
     case "chat:notice":

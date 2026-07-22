@@ -13,6 +13,11 @@ export interface StatusUpdatePayload {
   text: string | null;
 }
 
+export interface WorkingUpdatePayload {
+  message: string | null;
+  visible: boolean;
+}
+
 /** Strip ANSI escape sequences from pi theme.fg() output. */
 export function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;]*m/g, "");
@@ -30,13 +35,25 @@ export interface WebExtensionUIOptions {
   bridge: ExtensionUIBridge;
   widgetHost: WebWidgetHost;
   onStatus: (update: StatusUpdatePayload) => void;
+  onWorking?: (update: WorkingUpdatePayload) => void;
 }
 
 export function createWebExtensionUIContext({
   bridge,
   widgetHost,
   onStatus,
+  onWorking,
 }: WebExtensionUIOptions): ExtensionUIContext {
+  let workingMessage: string | null = null;
+  let workingVisible = true;
+
+  const pushWorking = () => {
+    onWorking?.({
+      message: workingVisible ? workingMessage : null,
+      visible: workingVisible && !!workingMessage,
+    });
+  };
+
   const context: ExtensionUIContext = {
     select: (title, options, opts) => bridge.select(title, options, opts),
     confirm: (title, message, opts) => bridge.confirm(title, message, opts),
@@ -49,8 +66,19 @@ export function createWebExtensionUIContext({
       const clean = text === undefined ? null : sanitizeStatusText(text);
       onStatus({ key, text: clean || null });
     },
-    setWorkingMessage: () => {},
-    setWorkingVisible: () => {},
+    setWorkingMessage(message?: string) {
+      if (message === undefined || message === null) {
+        workingMessage = null;
+      } else {
+        const clean = sanitizeStatusText(message);
+        workingMessage = clean || null;
+      }
+      pushWorking();
+    },
+    setWorkingVisible(visible: boolean) {
+      workingVisible = !!visible;
+      pushWorking();
+    },
     setWorkingIndicator: () => {},
     setHiddenThinkingLabel: () => {},
     setWidget: widgetHost.bindSetWidget(),

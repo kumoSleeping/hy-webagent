@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_MODEL_TEMPLATE_ID,
   filterModels,
   isModelAllowed,
   normalizeModelTemplateId,
@@ -7,18 +8,25 @@ import {
 } from "../model-policy.js";
 
 describe("model-policy", () => {
-  it("treats missing template as unrestricted", () => {
+  it("defaults missing template to core-3 for every user", () => {
     const policy = resolveModelPolicy({}, false);
-    expect(policy.unrestricted).toBe(true);
-    expect(isModelAllowed(policy, "anthropic", "claude-sonnet-4")).toBe(true);
+    expect(policy.unrestricted).toBe(false);
+    expect(policy.templateId).toBe(DEFAULT_MODEL_TEMPLATE_ID);
+    expect(isModelAllowed(policy, "deepseek", "deepseek-v4-pro")).toBe(true);
+    expect(isModelAllowed(policy, "xiaomi", "mimo-v2.5-pro-ultraspeed")).toBe(true);
+    expect(isModelAllowed(policy, "soruxgpt", "grok-5.4")).toBe(true);
+    expect(isModelAllowed(policy, "anthropic", "claude-sonnet-4")).toBe(false);
   });
 
-  it("admin always unrestricted", () => {
+  it("admin shares the same default catalog", () => {
     const policy = resolveModelPolicy(
       { modelTemplateId: "budget-cn", modelAllow: [{ provider: "deepseek", modelId: "x" }] },
       true
     );
-    expect(policy.unrestricted).toBe(true);
+    // custom modelAllow still wins; admin is not a free pass past allowlists
+    expect(policy.unrestricted).toBe(false);
+    expect(isModelAllowed(policy, "deepseek", "x")).toBe(true);
+    expect(isModelAllowed(policy, "xiaomi", "mimo-v2-flash")).toBe(false);
   });
 
   it("custom modelAllow overrides template", () => {
@@ -49,8 +57,10 @@ describe("model-policy", () => {
     expect(filtered[0]?.provider).toBe("deepseek");
   });
 
-  it("normalizes full template id to null", () => {
+  it("normalizes full template id to null (then falls back to core-3)", () => {
     expect(normalizeModelTemplateId("full")).toBeNull();
     expect(normalizeModelTemplateId("budget-cn")).toBe("budget-cn");
+    const policy = resolveModelPolicy({ modelTemplateId: "full" }, false);
+    expect(policy.templateId).toBe(DEFAULT_MODEL_TEMPLATE_ID);
   });
 });

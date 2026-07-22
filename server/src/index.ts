@@ -225,6 +225,7 @@ function sessionStatusPayload(sessionManager: PISessionManager, sid: string) {
     footer: sessionManager.getFooterSnapshot(sid),
     widgets: sessionManager.getWidgetSnapshot(sid),
     plugins: sessionManager.getExtensionStatusSnapshot(sid),
+    workingMessage: sessionManager.getWorkingMessage(sid),
     agentRunning: sessionManager.isAgentRunning(sid),
   };
 }

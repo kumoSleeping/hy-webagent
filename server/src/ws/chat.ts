@@ -237,13 +237,17 @@ export function handleChatWs(
         if (getActiveSessionId()) botRepository?.updateSessionStatus(getActiveSessionId()!, "running");
         startLiveUiPush();
         break;
-      case "agent_end":
+      case "agent_end": {
+        const endedSid = getActiveSessionId();
+        if (endedSid) sessionManager.clearWorkingMessage(endedSid);
         send({ type: "chat:agent_end", payload: {} });
-        if (getActiveSessionId()) botRepository?.updateSessionStatus(getActiveSessionId()!, "idle");
+        send({ type: "working:update", payload: { message: null, visible: false } });
+        if (endedSid) botRepository?.updateSessionStatus(endedSid, "idle");
         stopLiveUiPush();
         sendFooterSnapshot();
         sendWidgetSnapshot();
         break;
+      }
       case "queue_update": {
         const evt: any = event;
         send({
@@ -385,6 +389,7 @@ export function handleChatWs(
         footer: sessionManager.getFooterSnapshot(sid),
         widgets: sessionManager.getWidgetSnapshot(sid),
         plugins: sessionManager.getExtensionStatusSnapshot(sid),
+        workingMessage: sessionManager.getWorkingMessage(sid),
         agentRunning: sessionManager.isAgentRunning(sid),
       },
     });
@@ -399,6 +404,9 @@ export function handleChatWs(
       if (update.key.startsWith("__")) return;
       sendStatusUpdate(update.key, update.text);
     });
+    sessionManager.setWorkingListener(sessionId, (_uid, update) => {
+      send({ type: "working:update", payload: update });
+    });
     sessionManager.setWidgetListener(sessionId, (_uid, snapshot) => {
       send({ type: "widget:update", payload: snapshot });
     });
@@ -412,6 +420,7 @@ export function handleChatWs(
 
   function detachStatusListener(sessionId: string) {
     sessionManager.setStatusListener(sessionId, undefined);
+    sessionManager.setWorkingListener(sessionId, undefined);
     sessionManager.setWidgetListener(sessionId, undefined);
     sessionManager.setFooterListener(sessionId, undefined);
     sessionManager.setExtensionUiListener(sessionId, undefined);
@@ -537,6 +546,7 @@ export function handleChatWs(
               send({ type: "chat:agent_start", payload: {} });
               break;
             case "agent_end":
+              send({ type: "working:update", payload: { message: null, visible: false } });
               send({ type: "chat:agent_end", payload: {} });
               sendHistorySnapshot();
               break;

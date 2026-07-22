@@ -76,7 +76,7 @@ export function getAdminApiCatalog(baseUrl = "http://localhost:3001"): AdminApiC
           username: "optional",
           role: "user | admin",
           budgetUsd: "number | null (admin default null=unlimited, user default 2)",
-          modelTemplateId: "optional: full | budget-cn | null (default full)",
+          modelTemplateId: "optional: full | core-3 | budget-cn | null (default core-3)",
           apiKey: "optional; auto-generated if omitted",
         },
         example: {
@@ -103,7 +103,7 @@ export function getAdminApiCatalog(baseUrl = "http://localhost:3001"): AdminApiC
         path: "/api/admin/users/:userId",
         auth: "admin",
         description: "Update user; set role=admin to promote (reloads admin-skills on active sessions)",
-        body: { role: "admin | user", budgetUsd: "number | null", displayName: "string", modelTemplateId: "full | budget-cn | null" },
+        body: { role: "admin | user", budgetUsd: "number | null", displayName: "string", modelTemplateId: "full | core-3 | budget-cn | null" },
         example: {
           curl: `curl -s -X PATCH ${baseUrl}/api/admin/users/<userId> -H "${authHeader}" -H "Content-Type: application/json" -d '{"role":"admin"}'`,
           cli: "npm run admin -- users promote alice",
@@ -179,7 +179,7 @@ export function getAdminApiCatalog(baseUrl = "http://localhost:3001"): AdminApiC
         method: "GET",
         path: "/api/admin/model-templates",
         auth: "admin",
-        description: "List model access templates (full, budget-cn, …)",
+        description: "List model access templates (core-3, budget-cn, full, …)",
       },
       {
         method: "GET",

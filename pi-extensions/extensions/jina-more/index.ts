@@ -1,6 +1,14 @@
-import type { ExtensionAPI, ModelRegistry } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ModelRegistry, ModelSelectEvent } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { resolveJinaApiKey } from "../_lib/jina-auth.ts";
+
+/** Grok models use xAI native server-side search tools — keep Jina off. */
+function isGrokModel(model?: { id?: string; provider?: string } | null): boolean {
+  if (!model) return false;
+  return !!(model.id?.includes("grok") || model.provider === "xai");
+}
+
+const JINA_TOOL_NAMES = ["parallel_search_web", "read_url"] as const;
 
 // ─── Jina 配置 ───────────────────────────────────────────
 const JINA_MCP_URL = "https://mcp.jina.ai/v1";
@@ -135,8 +143,34 @@ async function requireJinaApiKey(registry?: ModelRegistry): Promise<string> {
   return key;
 }
 
+// ─── Grok 模式下关闭 Jina ─────────────────────────────────
+function syncJinaToolsForModel(pi: ExtensionAPI, model?: { id?: string; provider?: string } | null) {
+  const active = pi.getActiveTools();
+  if (isGrokModel(model)) {
+    // Grok: 用 xAI 原生 web_search / x_search 等，关掉 Jina 客户端工具
+    const next = active.filter((name) => !(JINA_TOOL_NAMES as readonly string[]).includes(name));
+    if (next.length !== active.length) {
+      pi.setActiveTools(next);
+    }
+  } else {
+    // 非 Grok：保证 Jina 工具处于 active
+    const missing = JINA_TOOL_NAMES.filter((name) => !active.includes(name));
+    if (missing.length > 0) {
+      pi.setActiveTools([...new Set([...active, ...missing])]);
+    }
+  }
+}
+
 // ─── 工具注册 ────────────────────────────────────────────
 export default function (pi: ExtensionAPI) {
+  pi.on("session_start", async (_event, ctx) => {
+    // 等本扩展 registerTool 完成后再按当前模型裁剪 active tools
+    queueMicrotask(() => syncJinaToolsForModel(pi, ctx.model));
+  });
+
+  pi.on("model_select", (event: ModelSelectEvent) => {
+    syncJinaToolsForModel(pi, event.model);
+  });
 
   pi.registerTool({
     name: "parallel_search_web",

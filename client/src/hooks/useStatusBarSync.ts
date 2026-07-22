@@ -14,6 +14,7 @@ export interface StatusApiResponse {
   footer: FooterSnapshot;
   widgets: WidgetSnapshot;
   plugins: Record<string, string>;
+  workingMessage?: string | null;
   /** True while the server-side agent loop is still running (survives tab close). */
   agentRunning?: boolean;
 }
@@ -23,6 +24,7 @@ export function applyStatusPayload(data: StatusApiResponse) {
   if (data.footer) store.setFooter(data.footer);
   if (data.widgets) store.setWidgets(normalizeWidgetSnapshot(data.widgets));
   if (data.plugins) store.applyPluginSnapshot(data.plugins);
+  if ("workingMessage" in data) store.setWorkingMessage(data.workingMessage ?? null);
   if (data.agentRunning) useChatStore.getState().resumeAgentRun();
 }
 

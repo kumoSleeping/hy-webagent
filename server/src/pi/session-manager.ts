@@ -17,7 +17,11 @@ import { config } from "../config.js";
 import { existsSync } from "node:fs";
 import { findSessionFilePath } from "./session-files.js";
 import { computeFooterSnapshot, type FooterSnapshot } from "./footer-stats.js";
-import { createWebExtensionUIContext, type StatusUpdatePayload } from "./web-ui-context.js";
+import {
+  createWebExtensionUIContext,
+  type StatusUpdatePayload,
+  type WorkingUpdatePayload,
+} from "./web-ui-context.js";
 import { ExtensionUIBridge } from "./extension-ui-bridge.js";
 import type { ExtensionUIRequest, ExtensionUIResponse } from "./extension-ui-types.js";
 import { WebWidgetHost, type WidgetSnapshot } from "./web-widget-host.js";
@@ -46,6 +50,7 @@ type FollowUpMode = Parameters<AgentSession["setFollowUpMode"]>[0];
 
 export type PiExtensionUiCallback = (userId: string, request: ExtensionUIRequest) => void;
 export type PiStatusCallback = (userId: string, update: StatusUpdatePayload) => void;
+export type PiWorkingCallback = (userId: string, update: WorkingUpdatePayload) => void;
 export type PiWidgetCallback = (userId: string, snapshot: WidgetSnapshot) => void;
 export type PiFooterCallback = (userId: string, snapshot: FooterSnapshot) => void;
 export type PiStatusSnapshot = Record<string, string>;
@@ -78,11 +83,13 @@ interface UserPISession {
   lastActivity: number;
   onEvent: PiEventCallback;
   onStatus?: PiStatusCallback;
+  onWorking?: PiWorkingCallback;
   onWidget?: PiWidgetCallback;
   onFooter?: PiFooterCallback;
   widgetHost: WebWidgetHost;
   extensionUiBridge: ExtensionUIBridge;
   extensionStatuses: Map<string, string>;
+  workingMessage: string | null;
   onExtensionUiRequest?: PiExtensionUiCallback;
   /** True after admin-skills/ was extendResources'd onto this session's loader. */
   adminSkillsExtended?: boolean;
@@ -240,6 +247,26 @@ export class PISessionManager {
     this.pushFooterSnapshot(ps);
   }
 
+  private applyWorkingMessage(ps: UserPISession, update: WorkingUpdatePayload) {
+    ps.workingMessage = update.visible ? update.message : null;
+    ps.onWorking?.(ps.userId, {
+      message: ps.workingMessage,
+      visible: !!ps.workingMessage,
+    });
+  }
+
+  getWorkingMessage(sessionId: string): string | null {
+    return this.sessions.get(sessionId)?.workingMessage ?? null;
+  }
+
+  clearWorkingMessage(sessionId: string) {
+    const ps = this.sessions.get(sessionId);
+    if (!ps) return;
+    if (!ps.workingMessage) return;
+    ps.workingMessage = null;
+    ps.onWorking?.(ps.userId, { message: null, visible: false });
+  }
+
   private pushFooterSnapshot(ps: UserPISession) {
     ps.onFooter?.(ps.userId, this.getFooterSnapshot(ps.sessionId));
   }
@@ -304,6 +331,11 @@ export class PISessionManager {
     if (ps) ps.onStatus = listener;
   }
 
+  setWorkingListener(sessionId: string, listener: PiWorkingCallback | undefined) {
+    const ps = this.sessions.get(sessionId);
+    if (ps) ps.onWorking = listener;
+  }
+
   setWidgetListener(sessionId: string, listener: PiWidgetCallback | undefined) {
     const ps = this.sessions.get(sessionId);
     if (ps) ps.onWidget = listener;
@@ -337,6 +369,7 @@ export class PISessionManager {
       bridge: ps.extensionUiBridge,
       widgetHost: ps.widgetHost,
       onStatus: (update) => this.applyExtensionStatus(ps, update.key, update.text),
+      onWorking: (update) => this.applyWorkingMessage(ps, update),
     });
 
     await ps.session.bindExtensions({
@@ -597,6 +630,7 @@ export class PISessionManager {
       widgetHost: null as unknown as WebWidgetHost,
       extensionUiBridge: null as unknown as ExtensionUIBridge,
       extensionStatuses: new Map(),
+      workingMessage: null,
       sidecarInput: 0,
       sidecarOutput: 0,
       sidecarCost: 0,
@@ -738,6 +772,7 @@ export class PISessionManager {
       await ps.session.prompt(text, promptOpts);
     } finally {
       ps.isStreaming = false;
+      this.clearWorkingMessage(sessionId);
     }
   }
 
@@ -758,6 +793,7 @@ export class PISessionManager {
     if (!ps) return;
     await ps.session.abort();
     ps.isStreaming = false;
+    this.clearWorkingMessage(sessionId);
   }
 
   isStreaming(sessionId: string): boolean {

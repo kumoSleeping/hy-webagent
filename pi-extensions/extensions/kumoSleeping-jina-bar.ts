@@ -1,12 +1,12 @@
 /**
- * kumoSleeping-jina-bar — Timer + Jina Stats + I2T model + Subagent Billing
+ * kumoSleeping-jina-bar — Timer + Jina Stats + I2T model + Subagent Billing + Grok Native Tools
  *
- * Single bar: timer | jina | I2T:{model} | subagent | @kumoSleeping
+ * Single bar: timer | jina | [Grok native tools] | I2T:{model} | subagent | @kumoSleeping
  *
  * I2T:{model} = describe_image active, delegating to this vision model (set by image-viewer)
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ModelSelectEvent } from "@earendil-works/pi-coding-agent";
 import { visibleWidth, truncateToWidth } from "@earendil-works/pi-tui";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { resolveJinaApiKey } from "./_lib/jina-auth.ts";
@@ -17,6 +17,15 @@ const SIGNATURE = "@kumoSleeping";
 function visionModelName(): string | undefined {
   return (globalThis as Record<string, unknown>).__visionModelName as string | undefined;
 }
+
+/** Check if current model gets xAI native server-side tools (extension: grok-native-tools). */
+function isGrokModel(model?: { id?: string; provider?: string }): boolean {
+  if (!model) return false;
+  return !!(model.id?.includes("grok") || model.provider === "xai");
+}
+
+/** Status label — keep in sync with extensions/grok-native-tools.ts */
+const GROK_NATIVE_TOOLS_LABEL = "grok-native-tools ✓";
 
 function formatMs(ms: number): string {
   if (ms < 10000) return `${(ms / 1000).toFixed(1)}s`;
@@ -108,6 +117,7 @@ export default function (pi: ExtensionAPI) {
     let renderInterval: ReturnType<typeof setInterval> | null = null;
     let jinaBalance: string | null = null;
     let requestRender: (() => void) | null = null;
+    let grokActive = isGrokModel(ctx.model);
 
     function clearInterval_() {
       if (renderInterval !== null) { clearInterval(renderInterval); renderInterval = null; }
@@ -125,11 +135,14 @@ export default function (pi: ExtensionAPI) {
               ? `✓ ${formatMs(finalTime)}`
               : null;
 
-          const jina = t > 0
-            ? `Jina △${formatTokens(t)}`
-            : jinaBalance
-              ? `Jina:${jinaBalance}`
-              : null;
+          // On Grok, Jina tools are disabled — only show Jina when not using native Grok tools
+          const jina = grokActive
+            ? null
+            : t > 0
+              ? theme.fg("success", `Jina △${formatTokens(t)}`)
+              : jinaBalance
+                ? theme.fg("success", `Jina:${jinaBalance}`)
+                : null;
 
           // subagent billing (from npm:pi-subagents)
           const sub = subagentStats();
@@ -146,8 +159,12 @@ export default function (pi: ExtensionAPI) {
           }
 
           const vname = visionModelName();
-          const eyeStr = vname ? `I2T:${vname}` : null;
-          const parts = [timer, jina, eyeStr, subStr].filter(Boolean);
+          const eyeStr = vname ? theme.fg("success", `I2T:${vname}`) : null;
+          // Static badge only — search activity goes to the thinking/working spinner (hyw)
+          const grokStr = grokActive
+            ? theme.fg("success", GROK_NATIVE_TOOLS_LABEL)
+            : null;
+          const parts = [timer, jina, grokStr, eyeStr, subStr].filter(Boolean);
           const left = dim(parts.join("  "));
           const sigColored = theme.fg("error", SIGNATURE);
           const sigWidth = visibleWidth(sigColored);
@@ -165,6 +182,11 @@ export default function (pi: ExtensionAPI) {
     void resolveJinaApiKey(ctx.modelRegistry).then((key) => {
       if (!key) return;
       fetchBalance(key).then((b) => { if (b) { jinaBalance = b; requestRender?.(); } });
+    });
+
+    pi.on("model_select", (_event: ModelSelectEvent) => {
+      grokActive = isGrokModel(_event.model);
+      requestRender?.();
     });
 
     pi.on("agent_start", async () => {

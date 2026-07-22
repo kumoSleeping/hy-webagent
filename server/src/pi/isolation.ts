@@ -113,6 +113,17 @@ async function copySeedFileIfMissing(target: string, source: string): Promise<vo
   await fs.chmod(target, 0o600);
 }
 
+/** Always refresh workspace models.json from host (custom providers / API keys). */
+async function syncModelsJsonFromGlobal(target: string, source: string): Promise<void> {
+  try {
+    await fs.access(source);
+  } catch {
+    return;
+  }
+  await fs.copyFile(source, target);
+  await fs.chmod(target, 0o600);
+}
+
 /** Seed auth.json when missing or empty ({}), e.g. after a failed first deploy. */
 async function seedAgentAuthFromGlobal(agentAuthPath: string, globalAuthPath: string): Promise<void> {
   if (await authJsonHasCredentials(agentAuthPath)) return;
@@ -382,7 +393,7 @@ export async function ensureUserAgentDir(
   } else {
     await writeEmptyAuthIfMissing(path.join(agentDir, "auth.json"));
   }
-  await copySeedFileIfMissing(path.join(agentDir, "models.json"), path.join(globalDir, "models.json"));
+  await syncModelsJsonFromGlobal(path.join(agentDir, "models.json"), path.join(globalDir, "models.json"));
   const agentAuthPath = path.join(agentDir, "auth.json");
   for (const providerId of SEED_PROVIDERS_FROM_GLOBAL) {
     await mergeProviderFromGlobalAuth(agentAuthPath, path.join(globalDir, "auth.json"), providerId);

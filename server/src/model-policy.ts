@@ -67,20 +67,34 @@ export function assertValidModelTemplateId(templateId: string): void {
   }
 }
 
+/** Platform default when a user has no template / custom allowlist. */
+export const DEFAULT_MODEL_TEMPLATE_ID = "core-3";
+
 export function normalizeModelTemplateId(value?: string | null): string | null {
   const trimmed = value?.trim();
   if (!trimmed || trimmed === "full") return null;
   return trimmed;
 }
 
-export function resolveModelPolicy(
-  user: Pick<UserAccount, "modelTemplateId" | "modelAllow"> | undefined,
-  isAdmin: boolean
-): ResolvedModelPolicy {
-  if (isAdmin) {
+function policyFromTemplate(templateId: string): ResolvedModelPolicy | null {
+  const template = getModelTemplate(templateId);
+  if (!template) return null;
+  if (template.allow == null) {
     return { templateId: null, unrestricted: true, allow: null, providers: null };
   }
+  return {
+    templateId,
+    unrestricted: false,
+    allow: template.allow,
+    providers: template.providers,
+  };
+}
 
+export function resolveModelPolicy(
+  user: Pick<UserAccount, "modelTemplateId" | "modelAllow"> | undefined,
+  _isAdmin: boolean
+): ResolvedModelPolicy {
+  // All users share the same catalog — admin is not unrestricted for chat models.
   if (user?.modelAllow != null && user.modelAllow.length > 0) {
     const providers = [...new Set(user.modelAllow.map((rule) => rule.provider))];
     return {
@@ -91,22 +105,14 @@ export function resolveModelPolicy(
     };
   }
 
-  const templateId = normalizeModelTemplateId(user?.modelTemplateId);
-  if (!templateId) {
-    return { templateId: null, unrestricted: true, allow: null, providers: null };
-  }
+  const templateId = normalizeModelTemplateId(user?.modelTemplateId) ?? DEFAULT_MODEL_TEMPLATE_ID;
+  const fromTemplate = policyFromTemplate(templateId);
+  if (fromTemplate) return fromTemplate;
 
-  const template = getModelTemplate(templateId);
-  if (!template) {
-    return { templateId: null, unrestricted: true, allow: null, providers: null };
-  }
+  const fallback = policyFromTemplate(DEFAULT_MODEL_TEMPLATE_ID);
+  if (fallback) return fallback;
 
-  return {
-    templateId,
-    unrestricted: false,
-    allow: template.allow,
-    providers: template.providers,
-  };
+  return { templateId: null, unrestricted: true, allow: null, providers: null };
 }
 
 export function isModelAllowed(

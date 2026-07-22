@@ -1242,23 +1242,38 @@ body {
   0%, 100% { transform: scaleY(0.32); }
   50% { transform: scaleY(1); }
 }
-/* Working indicator + queue badges all sit in a row along the top-left
-   of the composer shell, anchored at the outer border vertex. */
-.pi-composer-working--shell {
+/* Working equalizer + rotating message sit on one hang-off row at the
+   composer shell's top-left vertex (CLI Working… parity). */
+.pi-composer-working-row {
   position: absolute;
   top: calc(-1 * var(--pi-composer-border, 1px));
   left: calc(-1 * var(--pi-composer-border, 1px) + 4px);
-  transform: translate(-50%, -50%);
-  z-index: 51;
-}
-.pi-composer-badges {
-  position: absolute;
-  top: calc(-1 * var(--pi-composer-border, 1px));
-  /* Tucked just right of the stop button, nudged right so they don't
-     kiss the screen edge. */
-  left: calc(1.75rem + 6px);
   transform: translateY(-50%);
   z-index: 51;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(72vw, 28rem);
+  pointer-events: auto;
+}
+.pi-composer-working-msg {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--pi-text-muted, #6b7280);
+  background: var(--pi-surface, #fff);
+  border: 1px solid var(--pi-border, #e5e7eb);
+  padding: 0.2rem 0.45rem;
+  box-shadow: var(--pi-shadow-badge);
+}
+.pi-composer-badges {
+  position: static;
+  transform: none;
   flex-shrink: 0;
   align-items: center;
   gap: .3rem;

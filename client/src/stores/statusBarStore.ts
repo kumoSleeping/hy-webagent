@@ -17,10 +17,13 @@ interface StatusBarState {
   widgets: WidgetSnapshot;
   /** Legacy keyed plugin statuses from setStatus (also in footer.extensionLine). */
   pluginStatuses: Record<string, string>;
+  /** Rotating Working… line from ExtensionUIContext.setWorkingMessage. */
+  workingMessage: string | null;
   setFooter: (footer: FooterSnapshot) => void;
   setWidgets: (widgets: WidgetSnapshot) => void;
   setPluginStatus: (key: string, text: string | null | undefined) => void;
   applyPluginSnapshot: (items: Record<string, string>) => void;
+  setWorkingMessage: (message: string | null | undefined) => void;
   clear: () => void;
 }
 
@@ -40,6 +43,7 @@ export const useStatusBarStore = create<StatusBarState>((set) => ({
   footer: null,
   widgets: emptyWidgets,
   pluginStatuses: {},
+  workingMessage: null,
 
   setFooter: (footer) => set({ footer }),
 
@@ -60,7 +64,14 @@ export const useStatusBarStore = create<StatusBarState>((set) => ({
 
   applyPluginSnapshot: (items) => set({ pluginStatuses: { ...items } }),
 
-  clear: () => set({ footer: null, widgets: emptyWidgets, pluginStatuses: {} }),
+  setWorkingMessage: (message) =>
+    set((s) => {
+      const next = message?.trim() ? message.trim() : null;
+      if (s.workingMessage === next) return s;
+      return { workingMessage: next };
+    }),
+
+  clear: () => set({ footer: null, widgets: emptyWidgets, pluginStatuses: {}, workingMessage: null }),
 }));
 
 /** Split a below-editor widget line that uses NBSP padding (timer + signature). */

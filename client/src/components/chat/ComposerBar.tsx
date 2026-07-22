@@ -20,6 +20,7 @@ import { useComposerFocusStore } from "../../stores/composerFocusStore";
 import { useComposerPanelStore, type ComposerPanelKind } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useStatusBarStore } from "../../stores/statusBarStore";
 import { FileTree } from "../files/FileTree";
 import { PanelFilterBar } from "../common/PanelFilterBar";
 import { PanelBody, PanelListRow } from "../common/panel";
@@ -1114,11 +1115,13 @@ export function ComposerBar({
   );
 
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
+  const workingMessage = useStatusBarStore((s) => s.workingMessage);
   const elevatedPanel = isElevatedPanel(panel, isMobileLayout);
   const toolbarActive = panel !== null && !elevatedPanel && !(previewOpen && panel === "files" && !isMobileLayout);
   const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
   const showInlinePanel = panel !== null && !elevatedPanel;
   const hasDraft = text.trim().length > 0 || pendingAttachments.length > 0;
+  const showWorkingLine = isStreaming && !isConnecting && !!workingMessage;
 
   function renderPanelBody(): ReactNode {
     if (!panel) return null;
@@ -1154,7 +1157,7 @@ export function ComposerBar({
 
   const badgeRow =
     queuedItems.length > 0 ? (
-      <div className="pi-composer-badges" onClick={(e) => e.stopPropagation()}>
+      <div className="pi-composer-badges">
         <div className="pi-composer-queue-cell-wrap">
           <button
             type="button"
@@ -1174,29 +1177,38 @@ export function ComposerBar({
       ref={shellRef}
       onClick={focusInput}
     >
-      {isStreaming && !isConnecting && (
-        <button
-          type="button"
-          className="pi-composer-working pi-composer-working--shell"
-          onClick={(e) => { e.stopPropagation(); if (!groupPreview) onAbort?.(); }}
-          disabled={Boolean(groupPreview)}
-          title={groupPreview ? "机器人正在群聊中处理" : "Stop"}
-          aria-label={groupPreview ? "机器人正在群聊中处理" : "Stop — click to interrupt"}
-        >
-          <span className="pi-composer-working-bars" aria-hidden="true">
-            <span /><span /><span /><span />
-          </span>
-        </button>
-      )}
-      {isConnecting && (
-        <div
-          className="pi-composer-working pi-composer-working--shell pi-composer-connecting"
-          aria-label="连接中…"
-        >
-          <span className="pi-composer-connecting-block" />
+      {(isStreaming || isConnecting || badgeRow) && (
+        <div className="pi-composer-working-row" onClick={(e) => e.stopPropagation()}>
+          {isStreaming && !isConnecting && (
+            <button
+              type="button"
+              className="pi-composer-working"
+              onClick={(e) => { e.stopPropagation(); if (!groupPreview) onAbort?.(); }}
+              disabled={Boolean(groupPreview)}
+              title={groupPreview ? "机器人正在群聊中处理" : "Stop"}
+              aria-label={groupPreview ? "机器人正在群聊中处理" : "Stop — click to interrupt"}
+            >
+              <span className="pi-composer-working-bars" aria-hidden="true">
+                <span /><span /><span /><span />
+              </span>
+            </button>
+          )}
+          {isConnecting && (
+            <div
+              className="pi-composer-working pi-composer-connecting"
+              aria-label="连接中…"
+            >
+              <span className="pi-composer-connecting-block" />
+            </div>
+          )}
+          {showWorkingLine && (
+            <div className="pi-composer-working-msg" aria-live="polite">
+              {workingMessage}
+            </div>
+          )}
+          {badgeRow}
         </div>
       )}
-      {badgeRow}
       <div
         className="pi-composer-toolbar"
         data-open={toolbarActive ? "true" : "false"}
