@@ -1037,12 +1037,12 @@ body {
   border-radius: 0;
   border: var(--pi-composer-border) solid var(--pi-line);
   background: var(--pi-panel);
-  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
+  box-shadow: none;
   padding: 0 var(--pi-composer-pad-x) 0.7rem;
   transition: border-color 200ms;
 }
 .pi-composer-shell:focus-within {
-  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
+  box-shadow: none;
 }
 
 .pi-composer-input {

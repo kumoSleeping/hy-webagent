@@ -20,7 +20,7 @@ export const DESKTOP_TOOLBAR_ITEMS: ToolbarItemDef[] = [
 ];
 
 /** Mobile toolbar — same pool as desktop; trimmed one item at a time
- *  in the order model → account → tree → files → history → new-chat,
+ *  in the order tree → account → model → files → history → new-chat,
  *  always keeping commands. */
 export const MOBILE_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "commands", panel: "commands", enterToActivate: false },
@@ -46,9 +46,9 @@ export const TOOLBAR_BAND_RATIO = 0.8;
 
 /** Remove-first order when the bar is wider than the 80% band. */
 export const TOOLBAR_TRIM_ORDER: ToolbarItemId[] = [
-  "model",
-  "account",
   "tree",
+  "account",
+  "model",
   "files",
   "history",
   "new-chat",

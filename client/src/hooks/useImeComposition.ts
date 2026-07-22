@@ -3,12 +3,12 @@ import { useCallback, useRef, type CompositionEvent, type KeyboardEvent } from "
 type CompositionCommit = (value: string, caret: number | null) => void;
 
 /**
- * IME-safe helpers for controlled text fields.
+ * IME-safe helpers for text fields.
  *
- * iOS Safari is especially fragile: controlled `value` + caret restoration
- * during composition duplicates glyphs, and preventDefault on Enter blocks
- * candidate selection. Callers must skip caret/layout side-effects while
- * `isComposingActive()` is true and never preventDefault on Enter when composing.
+ * iOS Safari is especially fragile during composition: caret restoration can
+ * duplicate glyphs, and preventDefault on Enter blocks candidate selection.
+ * Callers must skip caret/layout side-effects while `isComposingActive()` is
+ * true and never preventDefault on Enter when composing.
  */
 export function useImeComposition(onCompositionCommit?: CompositionCommit) {
   const composingRef = useRef(false);

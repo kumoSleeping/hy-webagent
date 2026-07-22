@@ -45,6 +45,7 @@ import {
   findMarkerBounds,
   createCompressedMarker,
 } from "../../lib/compressedText";
+import { StableComposerTextarea } from "./StableComposerTextarea";
 
 interface ComposerBarProps {
   disabled?: boolean;
@@ -89,7 +90,6 @@ interface ComposerBarProps {
 }
 
 const MIN_ROWS = 1;
-const MAX_ROWS = 8;
 const COMPRESSED_PASTE_THRESHOLD = 300;
 const DRAFT_CACHE_PREFIX = "pi-composer-draft-v1:";
 
@@ -226,7 +226,7 @@ export function ComposerBar({
   const newChatToolbarIndex = toolbarItems.findIndex((item) => item.id === "new-chat");
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
     panelToolbarIndex(kind, toolbarItems);
-  const [text, setText] = useState(() => readCachedDraft(draftCacheKey));
+  const [text, setTextState] = useState(() => readCachedDraft(draftCacheKey));
   /** ↑/↓ in the command list (panel body above the toolbar row). */
   const [commandListFocus, setCommandListFocus] = useState(false);
   /** ↑/↓ cursor in the history list (mirrors commandListFocus/selectedIndex,
@@ -236,10 +236,19 @@ export function ComposerBar({
   const historyRowRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const textRef = useRef(text);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { imeProps, isComposing, composingRef } = useImeComposition((value) => {
-    setText(value);
-  });
+  const mirrorComposerText = useCallback((value: string) => {
+    textRef.current = value;
+    setTextState(value);
+  }, []);
+  const setComposerText = useCallback((next: string | ((current: string) => string)) => {
+    const current = taRef.current?.value ?? textRef.current;
+    const value = typeof next === "function" ? next(current) : next;
+    if (taRef.current && taRef.current.value !== value) taRef.current.value = value;
+    mirrorComposerText(value);
+  }, [mirrorComposerText]);
+  const { imeProps, isComposing, composingRef } = useImeComposition(mirrorComposerText);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const argsLockRef = useRef<string | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
@@ -479,37 +488,6 @@ export function ComposerBar({
     historyRowRefs.current[historySelectedIndex]?.scrollIntoView({ block: "nearest" });
   }, [historySelectedIndex]);
 
-  const resizeComposerInput = useCallback(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    // Capture selection before geometry mutation — iOS Safari often resets
-    // the caret to 0 when height flips through "auto".
-    const selStart = ta.selectionStart;
-    const selEnd = ta.selectionEnd;
-    const hadFocus = document.activeElement === ta;
-    ta.style.height = "auto";
-    const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 24;
-    const padTop = parseFloat(getComputedStyle(ta).paddingTop) || 0;
-    const padBot = parseFloat(getComputedStyle(ta).paddingBottom) || 0;
-    const maxH = lineHeight * MAX_ROWS + padTop + padBot;
-    ta.style.height = Math.min(ta.scrollHeight, maxH) + "px";
-    ta.style.overflowX = "hidden";
-    ta.style.overflowY = ta.scrollHeight > maxH + 1 ? "auto" : "hidden";
-    if (hadFocus && !composingRef.current && selStart != null && selEnd != null) {
-      const len = ta.value.length;
-      ta.setSelectionRange(Math.min(selStart, len), Math.min(selEnd, len));
-    }
-  }, []);
-
-  // Do NOT call height:"auto" on every keystroke — that layout thrash on iOS
-  // Safari resets the caret to 0 (first char ends up behind the cursor).
-  // Typing grows via onInput + rAF; only force-measure when the box is cleared
-  // (send / draft wipe), since onInput does not fire for programmatic setText("").
-  useLayoutEffect(() => {
-    if (text !== "") return;
-    resizeComposerInput();
-  }, [text, resizeComposerInput]);
-
   // Sync the commands popup with composer text — typing "/" opens the same
   // right-aligned panel the commands button does; finishing up a command's
   // arguments (or erasing back out of a slash command) closes it again.
@@ -552,11 +530,10 @@ export function ComposerBar({
     if (focusTick === 0) return;
     const draft = pendingText ?? composerDraft;
     if (draft != null) {
-      setText(draft);
+      setComposerText(draft);
       useComposerFocusStore.setState({ pendingText: null });
       useExtensionUiStore.getState().setComposerDraft(null);
       focusComposerAtEnd(draft);
-      requestAnimationFrame(resizeComposerInput);
       return;
     }
     focusComposerAtEnd();
@@ -579,7 +556,7 @@ export function ComposerBar({
       }
 
       e.preventDefault();
-      setText("/");
+      setComposerText("/");
       setPanel("commands");
       setToolbarIndex(panelToolbarIdx("commands"));
       focusCommandList();
@@ -908,13 +885,13 @@ export function ComposerBar({
       e.preventDefault();
       const ta = taRef.current;
       if (!ta) {
-        setText((prev) => prev + createCompressedMarker(pastedText.length));
+        setComposerText((prev) => prev + createCompressedMarker(pastedText.length));
         return;
       }
       const start = ta.selectionStart ?? 0;
       const end = ta.selectionEnd ?? 0;
       const { text: nextText, position } = insertCompressedMarker(text, start, end, pastedText.length);
-      setText(nextText);
+      setComposerText(nextText);
       pendingCaretRef.current = position;
       applyPendingCaret({ focus: true });
     }
@@ -928,17 +905,16 @@ export function ComposerBar({
   }
 
   function handleSend() {
-    // Sync from DOM in case iOS dictation updated the textarea directly
-    // (React state was skipped to avoid corrupting the dictation event stream).
+    // The browser owns the live value; read it directly at submit time.
     const currentText = taRef.current?.value ?? text;
-    if (currentText !== text) setText(currentText);
+    if (currentText !== text) mirrorComposerText(currentText);
 
     if (!canSendNow(currentText)) return;
 
     if (isStreaming) {
       if (currentText.startsWith("/") || pendingAttachments.length > 0) return;
       onSteer?.(currentText.trim());
-      setText("");
+      setComposerText("");
       argsLockRef.current = null;
       closeMenu();
       closePanel();
@@ -959,8 +935,8 @@ export function ComposerBar({
     const images = merged.images.length > 0 ? merged.images : undefined;
     if (!finalText && !images?.length) return;
 
-    onSend(finalText, images, text.trim());
-    setText("");
+    onSend(finalText, images, currentText.trim());
+    setComposerText("");
     clearPendingAttachments();
     argsLockRef.current = null;
     closeMenu();
@@ -988,23 +964,23 @@ export function ComposerBar({
         setPanel("commands");
         setToolbarIndex(panelToolbarIdx("commands"));
       }
-      setText("");
+      setComposerText("");
       blurComposerInput();
     } else if (command.kind === "args") {
       const nextText = `/${command.id} `;
       argsLockRef.current = command.id;
-      setText(nextText);
+      setComposerText(nextText);
       closeMenu();
       focusComposerForTyping(nextText);
     } else if (command.kind === "prompt" || command.kind === "skill" || command.kind === "extension") {
       closeMenu();
       onSend(`/${command.label}`);
-      setText("");
+      setComposerText("");
     } else {
       const nextText = `/${command.id}`;
       closeMenu();
       onSend(nextText);
-      setText("");
+      setComposerText("");
     }
   }
 
@@ -1024,7 +1000,7 @@ export function ComposerBar({
         e.preventDefault();
         const removed = removeMarker(text, selStart);
         if (removed) {
-          setText(removed.text);
+          setComposerText(removed.text);
           pendingCaretRef.current = removed.position;
           applyPendingCaret({ focus: true });
         }
@@ -1327,8 +1303,10 @@ export function ComposerBar({
         >
           <Plus strokeWidth={2} aria-hidden="true" />
         </button>
-        <textarea
+        <StableComposerTextarea
           ref={taRef}
+          initialValue={text}
+          onValueChange={mirrorComposerText}
           rows={MIN_ROWS}
           disabled={disabled}
           placeholder={
@@ -1342,27 +1320,6 @@ export function ComposerBar({
                   ? "Queued..."
                   : "Type / for commands..."
           }
-          value={text}
-          onChange={(e) => {
-            // iOS dictation fires input events with null/undefined inputType.
-            // React's controlled value sync during dictation corrupts the
-            // event stream (desyncs DOM from model, breaks character order).
-            // Let the browser manage the textarea directly during dictation.
-            const it = (e.nativeEvent as InputEvent).inputType;
-            if (it == null) {
-              // Clear any pending caret reposition — moving the cursor
-              // mid-dictation lands the first character at the wrong spot.
-              pendingCaretRef.current = null;
-              return;
-            }
-            setText(e.target.value);
-          }}
-          onInput={() => {
-            /* Defer resize so iOS Safari can finish pointer/caret tracking before we
-               mutate the textarea geometry. Synchronous style mutation during an input
-               event is a known cause of cursor-order bugs with dictation / IME. */
-            requestAnimationFrame(resizeComposerInput);
-          }}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
           enterKeyHint="send"

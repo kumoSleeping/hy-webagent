@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, MessagesSquare, Plus, UserRound } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, LogOut, MessagesSquare, Plus, UserRound } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { fetchAccountProfile } from "../../hooks/useAccountProfileSync";
 import { apiGet, apiPost } from "../../lib/api";
@@ -116,6 +116,7 @@ function GroupBrowser({ onBack }: { onBack: () => void }) {
 }
 
 export function AccountPanel() {
+  const navigate = useNavigate();
   const [showGroups, setShowGroups] = useState(false);
   const username = useAuthStore((s) => s.username);
   const displayName = useAuthStore((s) => s.displayName);
@@ -147,17 +148,6 @@ export function AccountPanel() {
     <PanelBody
       variant="list"
       loading={todayLoading && todayUsd === null}
-      footer={
-        <div className="pi-panel-actions" style={{ width: "100%", justifyContent: "space-between" }}>
-          <button type="button" className="pi-panel-btn pi-panel-btn--ghost" onClick={() => setShowGroups(true)}>
-            <MessagesSquare size={14} aria-hidden="true" />
-            群聊进度
-          </button>
-          <Link to="/logout" className="pi-panel-btn pi-panel-btn--theme" style={{ textDecoration: "none" }}>
-            Log out
-          </Link>
-        </div>
-      }
     >
       <PanelListRow
         leading={<UserRound size={14} strokeWidth={2} />}
@@ -179,6 +169,20 @@ export function AccountPanel() {
           detail="Today"
         />
       )}
+      <PanelListRow
+        leading={<MessagesSquare size={14} strokeWidth={2} />}
+        leadingKind="icon"
+        title="群聊记录"
+        detail="查看已保存群聊中的工作进度"
+        onClick={() => setShowGroups(true)}
+      />
+      <PanelListRow
+        leading={<LogOut size={14} strokeWidth={2} />}
+        leadingKind="icon"
+        title="退出登录"
+        detail="清除当前登录并返回登录页"
+        onClick={() => navigate("/logout")}
+      />
     </PanelBody>
   );
 }

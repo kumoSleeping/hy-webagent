@@ -53,20 +53,20 @@ describe("composerLayout", () => {
     const btn = 50;
     const band = 175;
     const step1 = adjustToolbarItemsForBand(base, base, band, btn);
-    // model is dropped first.
+    // tree is dropped first so model remains visible on typical phones.
     expect(step1.map((i) => i.id)).toEqual([
       "commands",
+      "model",
       "account",
-      "tree",
       "files",
       "history",
       "new-chat",
     ]);
     const step2 = adjustToolbarItemsForBand(step1, base, band, btn);
-    // account is dropped next.
+    // account is dropped next; model ranks after commands/files/history.
     expect(step2.map((i) => i.id)).toEqual([
       "commands",
-      "tree",
+      "model",
       "files",
       "history",
       "new-chat",
@@ -76,7 +76,19 @@ describe("composerLayout", () => {
     // One more step from step1 drops account.
     expect(step3.map((i) => i.id)).toEqual([
       "commands",
-      "tree",
+      "model",
+      "files",
+      "history",
+      "new-chat",
+    ]);
+  });
+
+  it("keeps model and removes tree at a common six-slot phone width", () => {
+    const fitted = fitToolbarItemsToBand(toolbarItemsForLayout(true), 300, 50);
+    expect(fitted.map((item) => item.id)).toEqual([
+      "commands",
+      "model",
+      "account",
       "files",
       "history",
       "new-chat",
@@ -99,11 +111,11 @@ describe("composerLayout", () => {
     ]);
   });
 
-  it("drops model before account on desktop when stepping repeatedly", () => {
+  it("drops tree before account when stepping repeatedly", () => {
     const base = toolbarItemsForLayout(false);
     const btn = 50;
     const trimmed = fitToolbarItemsToBand(base, 300, btn);
-    expect(trimmed).not.toContain("model");
+    expect(trimmed).not.toContain("tree");
     expect(trimmed.some((i) => i.id === "account")).toBe(true);
   });
 
