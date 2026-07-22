@@ -126,6 +126,37 @@ export class UserRepository {
     this.db.exec(
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_key_lookup ON users(api_key_lookup) WHERE api_key_lookup IS NOT NULL"
     );
+    this.migrateSoruxGrokModelAllow();
+  }
+
+  /**
+   * Sorux retired grok-5.4 (no distributor channel). Per-user modelAllow rows
+   * still pointed at 5.4 and hid Grok entirely once it left models.json.
+   */
+  private migrateSoruxGrokModelAllow(): void {
+    const rows = this.db
+      .prepare("SELECT user_id, model_allow_json FROM users WHERE model_allow_json IS NOT NULL")
+      .all() as Array<{ user_id: string; model_allow_json: string }>;
+    const update = this.db.prepare("UPDATE users SET model_allow_json = ? WHERE user_id = ?");
+    for (const row of rows) {
+      if (!row.model_allow_json.includes("grok-5.4")) continue;
+      let allow: Array<{ provider: string; modelId: string }>;
+      try {
+        allow = JSON.parse(row.model_allow_json) as Array<{ provider: string; modelId: string }>;
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(allow)) continue;
+      let changed = false;
+      const next = allow.map((rule) => {
+        if (rule?.provider === "soruxgpt" && rule.modelId === "grok-5.4") {
+          changed = true;
+          return { ...rule, modelId: "grok-4.5" };
+        }
+        return rule;
+      });
+      if (changed) update.run(JSON.stringify(next), row.user_id);
+    }
   }
 
   close(): void {
