@@ -212,7 +212,7 @@ export function ChatPanel({
       return;
     }
     useChatStore.getState().appendOptimisticUserMessage(
-      stripFileAttachmentTags(promptText),
+      stripFileAttachmentTags(trimmed),
       images?.map((img) => ({ mediaType: img.mediaType, data: img.data }))
     );
     setTimeout(() => fetchSessions(), 800);

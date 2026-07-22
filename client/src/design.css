@@ -168,7 +168,8 @@ body {
   padding: 0.85rem 1rem 0.95rem;
   box-shadow: var(--pi-shadow);
   width: max-content;
-  max-width: var(--pi-user-max);
+  max-width: min(var(--pi-user-max), 100%);
+  min-width: 0;
   margin-left: auto;
   display: flex;
   flex-direction: column;
@@ -208,6 +209,16 @@ body {
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
   overflow: visible;
+}
+.pi-message-bubble--live {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+}
+@supports (-webkit-touch-callout: none) {
+  .pi-message-bubble {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
 }
 
 /* Spacing between mixed content inside assistant bubbles */
@@ -1955,19 +1966,49 @@ button.pi-panel-row.pi-panel-row--selected {
   color: var(--pi-text-body);
   white-space: pre-wrap;
   word-wrap: break-word;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.pi-skill-invocation-chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  max-width: 100%;
+  padding: 0.22rem 0.48rem;
+  border: 1px solid color-mix(in srgb, var(--pi-theme) 45%, var(--pi-line));
+  background: color-mix(in srgb, var(--pi-theme) 9%, var(--pi-panel));
+  color: var(--pi-theme);
+  font-family: var(--pi-font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.pi-skill-invocation-chip + .pi-user-text {
+  margin-top: 0.45rem;
 }
 
 .pi-compressed-marker {
   display: inline-block;
   padding: 0.12rem 0.4rem;
   margin: 0 0.15rem;
-  border: 1px solid var(--pi-line);
-  background: var(--pi-panel-subtle);
-  color: var(--pi-muted);
+  border: 1px solid color-mix(in srgb, var(--pi-theme) 45%, var(--pi-line));
+  background: color-mix(in srgb, var(--pi-theme) 9%, var(--pi-panel));
+  color: var(--pi-theme);
   font-size: var(--pi-panel-font-meta);
   line-height: 1.2;
   vertical-align: middle;
+}
+
+.pi-composer-text-token {
+  display: inline;
+  padding: 0.08rem 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--pi-theme) 45%, var(--pi-line));
+  background: color-mix(in srgb, var(--pi-theme) 9%, var(--pi-panel));
+  color: var(--pi-theme);
+  font-family: var(--pi-font-mono);
+  font-size: 0.8em;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 /* Block rhythm — generous vertical spacing between sections */
@@ -2173,13 +2214,22 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-markdown .pi-md-feature--table .pi-md-feature-body {
   padding-top: 0;
+  min-width: 0;
+  max-width: 100%;
   overflow: visible;
   background: var(--pi-panel);
 }
+.pi-markdown .pi-md-feature--table {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding-top: 1.75rem;
+}
 .pi-markdown .pi-md-feature--table .pi-md-table-wrap {
   margin: 0;
+  max-width: 100%;
   border: none;
   background: var(--pi-panel);
+  overscroll-behavior-inline: contain;
 }
 
 /* Tool / API call cards — tight body; badge lives in the feature gutter */
@@ -2300,9 +2350,6 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-markdown th:last-child,
 .pi-markdown td:last-child { border-right: none; }
-.pi-markdown .pi-md-feature--table th:first-child {
-  padding-left: 5.25rem;
-}
 .pi-markdown th {
   background: color-mix(in srgb, var(--pi-panel-subtle) 80%, var(--pi-panel));
   font-weight: 800;

@@ -44,6 +44,7 @@ import {
   removeMarker,
   findMarkerBounds,
   createCompressedMarker,
+  serializeCompressedMarkers,
 } from "../../lib/compressedText";
 import { StableComposerEditor, type ComposerEditorHandle } from "./StableComposerEditor";
 
@@ -91,12 +92,24 @@ interface ComposerBarProps {
 
 const COMPRESSED_PASTE_THRESHOLD = 300;
 const DRAFT_CACHE_PREFIX = "pi-composer-draft-v1:";
+const PASTED_TEXT_CACHE_PREFIX = "pi-composer-pasted-text-v1:";
 
 function readCachedDraft(key: string): string {
   try {
     return localStorage.getItem(key) ?? "";
   } catch {
     return "";
+  }
+}
+
+function readCachedPastedTexts(key: string): Map<string, string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, unknown>;
+    return new Map(
+      Object.entries(parsed).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+    );
+  } catch {
+    return new Map();
   }
 }
 
@@ -213,6 +226,7 @@ export function ComposerBar({
   const isConnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
   const isSendUnavailable = connectionState !== 'connected';
   const draftCacheKey = `${DRAFT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
+  const pastedTextCacheKey = `${PASTED_TEXT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   const toolbarItems = useFittedToolbarItems(
     isMobileLayout,
     shellRef,
@@ -236,6 +250,10 @@ export function ComposerBar({
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const taRef = useRef<ComposerEditorHandle>(null);
   const textRef = useRef(text);
+  const pastedTextPayloadsRef = useRef<Map<string, string> | null>(null);
+  if (pastedTextPayloadsRef.current === null) {
+    pastedTextPayloadsRef.current = readCachedPastedTexts(pastedTextCacheKey);
+  }
   const draftWriteTimerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const persistDraft = useCallback((value: string) => {
@@ -249,15 +267,43 @@ export function ComposerBar({
       }
     }, 120);
   }, [draftCacheKey]);
+  const persistPastedTexts = useCallback(() => {
+    try {
+      const payloads = pastedTextPayloadsRef.current!;
+      if (payloads.size > 0) {
+        localStorage.setItem(pastedTextCacheKey, JSON.stringify(Object.fromEntries(payloads)));
+      } else {
+        localStorage.removeItem(pastedTextCacheKey);
+      }
+    } catch {
+      // Keep the in-memory payload when storage is unavailable.
+    }
+  }, [pastedTextCacheKey]);
+  const prunePastedTexts = useCallback((value: string) => {
+    const payloads = pastedTextPayloadsRef.current!;
+    let changed = false;
+    for (const marker of payloads.keys()) {
+      if (!value.includes(marker)) {
+        payloads.delete(marker);
+        changed = true;
+      }
+    }
+    if (changed) persistPastedTexts();
+  }, [persistPastedTexts]);
+  const clearPastedTexts = useCallback(() => {
+    pastedTextPayloadsRef.current!.clear();
+    persistPastedTexts();
+  }, [persistPastedTexts]);
   const mirrorComposerText = useCallback((value: string) => {
     textRef.current = value;
     persistDraft(value);
+    prunePastedTexts(value);
     setTextState((current) => {
       const slashRelevant = current.startsWith("/") || value.startsWith("/");
       const presenceChanged = Boolean(current.trim()) !== Boolean(value.trim());
       return slashRelevant || presenceChanged ? value : current;
     });
-  }, [persistDraft]);
+  }, [persistDraft, prunePastedTexts]);
   const setComposerText = useCallback((next: string | ((current: string) => string)) => {
     const current = taRef.current?.value ?? textRef.current;
     const value = typeof next === "function" ? next(current) : next;
@@ -896,14 +942,31 @@ export function ComposerBar({
     const pastedText = e.clipboardData?.getData("text") ?? "";
     if (pastedText.length > COMPRESSED_PASTE_THRESHOLD) {
       e.preventDefault();
+      const payloads = pastedTextPayloadsRef.current!;
+      let label = "Pasted text";
+      let duplicateIndex = 2;
+      while (payloads.has(createCompressedMarker(pastedText.length, label))) {
+        label = `Pasted text ${duplicateIndex++}`;
+      }
       const ta = taRef.current;
       if (!ta) {
-        setComposerText((prev) => prev + createCompressedMarker(pastedText.length));
+        const marker = createCompressedMarker(pastedText.length, label);
+        payloads.set(marker, pastedText);
+        persistPastedTexts();
+        setComposerText((prev) => prev + marker);
         return;
       }
       const start = ta.selectionStart ?? 0;
       const end = ta.selectionEnd ?? 0;
-      const { text: nextText, position } = insertCompressedMarker(ta.value, start, end, pastedText.length);
+      const { text: nextText, position, marker } = insertCompressedMarker(
+        ta.value,
+        start,
+        end,
+        pastedText.length,
+        label,
+      );
+      payloads.set(marker, pastedText);
+      persistPastedTexts();
       setComposerText(nextText);
       pendingCaretRef.current = position;
       applyPendingCaret({ focus: true });
@@ -923,11 +986,13 @@ export function ComposerBar({
     if (currentText !== text) mirrorComposerText(currentText);
 
     if (!canSendNow(currentText)) return;
+    const expandedText = serializeCompressedMarkers(currentText, pastedTextPayloadsRef.current!);
 
     if (isStreaming) {
       if (currentText.startsWith("/") || pendingAttachments.length > 0) return;
-      onSteer?.(currentText.trim());
+      onSteer?.(expandedText.trim());
       setComposerText("");
+      clearPastedTexts();
       argsLockRef.current = null;
       closeMenu();
       closePanel();
@@ -939,7 +1004,7 @@ export function ComposerBar({
 
     const preparedItems = readyAttachments().map((item) => item.prepared!);
     const merged = mergePreparedAttachments(preparedItems);
-    let finalText = currentText.trim();
+    let finalText = expandedText.trim();
     if (merged.textAppend) {
       finalText = finalText
         ? `${finalText}\n\n${merged.textAppend.trim()}`
@@ -950,6 +1015,7 @@ export function ComposerBar({
 
     onSend(finalText, images, currentText.trim());
     setComposerText("");
+    clearPastedTexts();
     clearPendingAttachments();
     argsLockRef.current = null;
     closeMenu();
@@ -1012,8 +1078,11 @@ export function ComposerBar({
       const bounds = findMarkerBounds(currentText, selStart) ?? findMarkerBounds(currentText, selEnd);
       if (bounds) {
         e.preventDefault();
+        const marker = currentText.slice(bounds.start, bounds.end);
         const removed = removeMarker(currentText, selStart);
         if (removed) {
+          pastedTextPayloadsRef.current!.delete(marker);
+          persistPastedTexts();
           setComposerText(removed.text);
           pendingCaretRef.current = removed.position;
           applyPendingCaret({ focus: true });

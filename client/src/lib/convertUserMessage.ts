@@ -4,6 +4,8 @@ import {
   parseHistoryImagePart,
   stripFileAttachmentTags,
 } from "./prepareAttachments";
+import { parseSkillInvocation } from "./skillInvocation";
+import { collapseSerializedPastes } from "./compressedText";
 
 /** Convert a Pi SDK user message payload into a client ChatMessage. */
 export function convertSdkUserMessage(raw: any, fallbackId: () => string): ChatMessage | null {
@@ -28,8 +30,11 @@ export function convertSdkUserMessage(raw: any, fallbackId: () => string): ChatM
     rawTextForTags = raw.content;
   }
 
+  const skillInvocation = parseSkillInvocation(content);
+  if (skillInvocation) content = skillInvocation.userMessage ?? "";
+  content = collapseSerializedPastes(content);
   content = stripFileAttachmentTags(content);
-  if (!content.trim() && images.length === 0) return null;
+  if (!content.trim() && images.length === 0 && !skillInvocation) return null;
 
   if (images.length > 0) {
     const name = fileNameFromAttachmentTags(rawTextForTags);
@@ -44,5 +49,6 @@ export function convertSdkUserMessage(raw: any, fallbackId: () => string): ChatM
     content,
     timestamp: raw.timestamp || Date.now(),
     images: images.length > 0 ? images : undefined,
+    skillInvocation: skillInvocation ? { name: skillInvocation.name } : undefined,
   };
 }

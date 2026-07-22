@@ -64,11 +64,11 @@ describe("buildAssistantTurnView", () => {
     expect(view.durationMs).toBe(12_000);
   });
 
-  it("marks the process active until the final answer text arrives", () => {
+  it("keeps the process active across assistant/tool boundaries for the whole agent run", () => {
     const live = buildAssistantTurnView([
       assistant("a1", { blocks: [{ type: "tool", tool: tool("t1") }], timestamp: 10 }),
-      assistant("a2", { blocks: [], isStreaming: true, timestamp: 20 }),
-    ]);
+      assistant("a2", { blocks: [], timestamp: 20 }),
+    ], true);
     expect(live.processActive).toBe(true);
     expect(live.activeIndex).toBe(live.items.length - 1);
 
@@ -80,9 +80,16 @@ describe("buildAssistantTurnView", () => {
         isStreaming: true,
         timestamp: 20,
       }),
+    ], true);
+    expect(answering.processActive).toBe(true);
+    expect(answering.activeIndex).toBe(answering.items.length - 1);
+
+    const finished = buildAssistantTurnView([
+      assistant("a1", { blocks: [{ type: "tool", tool: tool("t1") }], timestamp: 10 }),
+      assistant("a2", { content: "hi", blocks: [{ type: "text", text: "hi" }], timestamp: 20 }),
     ]);
-    expect(answering.processActive).toBe(false);
-    expect(answering.activeIndex).toBeNull();
+    expect(finished.processActive).toBe(false);
+    expect(finished.activeIndex).toBeNull();
   });
 
   it("keeps narration in the process before any tool", () => {

@@ -31,11 +31,15 @@ export function MessageFeed() {
       style={{ paddingTop: "var(--pi-top-strip)", paddingBottom: `${composerReserve}px` }}
     >
       <div ref={contentRef} className="mx-auto max-w-[var(--pi-feed-max)] pt-4 pb-0">
-        {feedItems.map((item) =>
+        {feedItems.map((item, index) =>
           item.kind === "user" ? (
             <MessageBubble key={item.key} messages={[item.message]} />
           ) : (
-            <MessageBubble key={item.key} messages={item.messages} />
+            <MessageBubble
+              key={item.key}
+              messages={item.messages}
+              agentRunning={isStreaming && index === feedItems.length - 1}
+            />
           )
         )}
       </div>

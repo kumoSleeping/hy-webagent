@@ -42,6 +42,26 @@ describe("StableComposerEditor", () => {
     expect(editorRef.current!.value).toBe("aXd");
   });
 
+  it("renders a pasted-text marker as an atomic colored token", () => {
+    const editorRef = createRef<ComposerEditorHandle>();
+    const marker = "[Pasted text · 400chars]";
+    const { getByLabelText } = render(
+      <StableComposerEditor
+        ref={editorRef}
+        aria-label="token-composer"
+        initialValue={marker}
+        onValueChange={() => {}}
+      />,
+    );
+
+    const editor = getByLabelText("token-composer");
+    expect(editor.querySelector(".pi-composer-text-token")).toHaveTextContent(marker);
+    expect(editorRef.current!.value).toBe(marker);
+    editorRef.current!.focus();
+    editorRef.current!.setSelectionRange(marker.length, marker.length);
+    expect(editorRef.current!.selectionStart).toBe(marker.length);
+  });
+
   it("preserves browser text and caret across unrelated React rerenders", () => {
     const { getByLabelText, getByRole } = render(<Harness />);
     const editor = getByLabelText("composer") as HTMLDivElement;

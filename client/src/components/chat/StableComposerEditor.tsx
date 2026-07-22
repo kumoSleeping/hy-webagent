@@ -7,6 +7,7 @@ import {
   type FormEventHandler,
   type HTMLAttributes,
 } from "react";
+import { splitTextWithMarkers } from "../../lib/compressedText";
 
 export interface ComposerEditorHandle {
   readonly element: HTMLDivElement | null;
@@ -38,6 +39,22 @@ function readValue(element: HTMLDivElement | null): string {
   return element?.textContent ?? "";
 }
 
+function writeValue(element: HTMLDivElement, value: string) {
+  const nodes: Node[] = [];
+  for (const part of splitTextWithMarkers(value)) {
+    if (part.kind === "text") {
+      nodes.push(document.createTextNode(part.value));
+      continue;
+    }
+    const marker = document.createElement("span");
+    marker.className = "pi-composer-text-token";
+    marker.contentEditable = "false";
+    marker.textContent = part.value;
+    nodes.push(marker, document.createTextNode(""));
+  }
+  element.replaceChildren(...nodes);
+}
+
 function selectionOffset(element: HTMLDivElement, edge: "anchor" | "focus"): number {
   const selection = window.getSelection();
   const node = edge === "anchor" ? selection?.anchorNode : selection?.focusNode;
@@ -57,6 +74,14 @@ function textPosition(element: HTMLDivElement, requestedOffset: number): { node:
   let node = walker.nextNode();
   while (node) {
     const length = node.textContent?.length ?? 0;
+    const token = node.parentElement?.closest(".pi-composer-text-token");
+    if (token && element.contains(token) && remaining <= length) {
+      const parent = token.parentNode;
+      if (parent) {
+        const tokenIndex = Array.prototype.indexOf.call(parent.childNodes, token) as number;
+        return { node: parent, offset: tokenIndex + (remaining === 0 ? 0 : 1) };
+      }
+    }
     if (remaining <= length) return { node, offset: remaining };
     remaining -= length;
     node = walker.nextNode();
@@ -103,7 +128,7 @@ export const StableComposerEditor = forwardRef<ComposerEditorHandle, StableCompo
     useLayoutEffect(() => {
       const element = elementRef.current;
       if (!element) return;
-      element.textContent = initialValueRef.current;
+      writeValue(element, initialValueRef.current);
     }, []);
 
     useLayoutEffect(() => {
@@ -124,7 +149,7 @@ export const StableComposerEditor = forwardRef<ComposerEditorHandle, StableCompo
       },
       set value(value: string) {
         const element = elementRef.current;
-        if (element && readValue(element) !== value) element.textContent = value;
+        if (element && readValue(element) !== value) writeValue(element, value);
       },
       get readOnly() {
         return readOnlyRef.current;

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   createCompressedMarker,
+  collapseSerializedPastes,
+  expandCompressedMarkers,
   findMarkerBounds,
   insertCompressedMarker,
   isCompressedMarker,
   removeMarker,
+  serializeCompressedMarkers,
   splitTextWithMarkers,
 } from "./compressedText";
 
@@ -39,6 +42,21 @@ describe("compressedText", () => {
     const result = insertCompressedMarker(text, 6, 6, 400);
     expect(result.text).toBe("hello [... · 400chars]world");
     expect(result.position).toBe(22);
+    expect(result.marker).toBe("[... · 400chars]");
+  });
+
+  it("expands a pasted marker back to its complete payload before send", () => {
+    const marker = createCompressedMarker(400, "Pasted text");
+    expect(expandCompressedMarkers(`before ${marker} after`, new Map([[marker, "完整长文本"]])))
+      .toBe("before 完整长文本 after");
+  });
+
+  it("round-trips a full pasted payload through live and history display", () => {
+    const marker = createCompressedMarker(17, "Pasted text");
+    const original = "before " + marker + " after";
+    const serialized = serializeCompressedMarkers(original, new Map([[marker, "line 1\nline 2 中文"]]));
+    expect(serialized).toContain("line 1\nline 2 中文");
+    expect(collapseSerializedPastes(serialized)).toBe(original);
   });
 
   it("splits text into text and marker segments", () => {

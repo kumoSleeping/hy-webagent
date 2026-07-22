@@ -8,6 +8,8 @@ import {
   stripFileAttachmentTags,
 } from "../lib/prepareAttachments";
 import { convertSdkUserMessage } from "../lib/convertUserMessage";
+import { parseSkillInvocation } from "../lib/skillInvocation";
+import { collapseSerializedPastes } from "../lib/compressedText";
 
 let counter = 0;
 function nextId() { return `msg-${++counter}-${Date.now()}`; }
@@ -485,6 +487,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const blocks: ContentBlock[] = [];
       const toolCalls: ToolCallRecord[] = [];
       const images: ChatImageAttachment[] = [];
+      let skillInvocation: ChatMessage["skillInvocation"];
       let rawTextForTags = "";
       if (Array.isArray(m.content)) {
         for (const p of m.content) {
@@ -537,6 +540,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       if (role === "user") {
+        const parsedSkill = parseSkillInvocation(content);
+        if (parsedSkill) {
+          skillInvocation = { name: parsedSkill.name };
+          content = parsedSkill.userMessage ?? "";
+          blocks.length = 0;
+          if (content) blocks.push({ type: "text", text: content });
+        }
+        content = collapseSerializedPastes(content);
         content = stripFileAttachmentTags(content);
         for (let i = 0; i < blocks.length; i++) {
           const block = blocks[i];
@@ -560,6 +571,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         blocks: blocks.length > 0 ? blocks : undefined,
         images: images.length > 0 ? images : undefined,
+        skillInvocation,
         isStreaming: false,
         error:
           role === "assistant" && (m.stopReason === "error" || m.errorMessage)

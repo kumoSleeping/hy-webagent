@@ -123,6 +123,38 @@ describe("chatStore transcript sync", () => {
     expect(messages[2]?.content).toBe("这是最终回答。");
   });
 
+  it("collapses expanded skill history into a compact invocation", () => {
+    useChatStore.getState().loadHistory([{
+      id: "skill-user",
+      role: "user",
+      content: [{
+        type: "text",
+        text: '<skill name="bot-group-operations" location="/skills/bot/SKILL.md">\nInstructions\n</skill>',
+      }],
+    }]);
+
+    expect(useChatStore.getState().messages[0]).toMatchObject({
+      content: "",
+      skillInvocation: { name: "bot-group-operations" },
+    });
+  });
+
+  it("collapses a live expanded skill message before adding it to the feed", () => {
+    useChatStore.getState().commitUserMessage({
+      id: "live-skill-user",
+      role: "user",
+      content: [{
+        type: "text",
+        text: '<skill name="browser" location="/skills/browser/SKILL.md">\nFull private instructions\n</skill>\n\n打开页面',
+      }],
+    });
+
+    expect(useChatStore.getState().messages[0]).toMatchObject({
+      content: "打开页面",
+      skillInvocation: { name: "browser" },
+    });
+  });
+
   it("keeps consecutive live assistant turns in separate bubbles", () => {
     const first = useChatStore.getState().startAssistantMessage("a-process");
     useChatStore.getState().appendTextDelta(first, "我先搜索。");

@@ -56,6 +56,8 @@ export interface ChatMessage {
   blocks?: ContentBlock[];
   /** Vision attachments on user messages */
   images?: ChatImageAttachment[];
+  /** Compact UI representation of a model-facing expanded skill block. */
+  skillInvocation?: { name: string };
   isStreaming?: boolean;
   /** Provider/API failure summarized for display (empty-content error turns). */
   error?: string;

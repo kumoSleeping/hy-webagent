@@ -54,12 +54,15 @@ export type AssistantTurnView = {
 /**
  * Flatten consecutive assistant messages into one Working process + answer texts.
  */
-export function buildAssistantTurnView(messages: ChatMessage[]): AssistantTurnView {
+export function buildAssistantTurnView(
+  messages: ChatMessage[],
+  agentRunning = false,
+): AssistantTurnView {
   const items: ActivityItem[] = [];
   const texts: { key: string; text: string }[] = [];
   const images: NonNullable<ChatMessage["images"]> = [];
   const errors: string[] = [];
-  let isStreaming = false;
+  let isStreaming = agentRunning;
 
   const rawBlocks = messages.map(resolveBlocks);
   const flattened = rawBlocks.flat();
@@ -116,14 +119,10 @@ export function buildAssistantTurnView(messages: ChatMessage[]): AssistantTurnVi
     items.push({ kind: "thinking", text: "" });
   }
 
-  // Process is live while the turn is streaming and no answer text has landed
-  // yet on the current (last) message — once the model starts answering, fold.
-  const lastHasAnswer =
-    !!last &&
-    groupBlocksForDisplay(lastBlocks, !!last.isStreaming).some(
-      (u) => u.kind === "text" && u.text.trim()
-    );
-  const processActive = isStreaming && !lastHasAnswer;
+  // Assistant messages end before their tools execute. Keep one continuous
+  // process alive for the surrounding agent run instead of folding/restarting
+  // at every assistant_end → tool → assistant_start boundary.
+  const processActive = isStreaming && items.length > 0;
   const activeIndex = processActive && items.length > 0 ? items.length - 1 : null;
 
   const exportMessage =

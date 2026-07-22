@@ -15,6 +15,8 @@ import { useNotificationStore } from "../../stores/notificationStore";
 interface MessageBubbleProps {
   /** One user message, or consecutive assistant messages coalesced into one turn. */
   messages: ChatMessage[];
+  /** Whole agent loop is running, including gaps between assistant messages. */
+  agentRunning?: boolean;
 }
 
 function UserTextBlock({ text }: { text: string }) {
@@ -30,6 +32,10 @@ function UserTextBlock({ text }: { text: string }) {
       )}
     </div>
   );
+}
+
+function SkillInvocationChip({ name }: { name: string }) {
+  return <span className="pi-skill-invocation-chip">[skill] {name}</span>;
 }
 
 function TextBlock({ text, isUser }: { text: string; isUser?: boolean }) {
@@ -57,7 +63,7 @@ const MessageImages = memo(function MessageImages({ images }: { images: NonNulla
   );
 });
 
-export const MessageBubble = memo(function MessageBubble({ messages }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ messages, agentRunning = false }: MessageBubbleProps) {
   const primary = messages[0];
   if (!primary) return null;
 
@@ -65,8 +71,9 @@ export const MessageBubble = memo(function MessageBubble({ messages }: MessageBu
   if (isUser) {
     return <UserBubble message={primary} />;
   }
-  return <AssistantTurnBubble messages={messages} />;
+  return <AssistantTurnBubble messages={messages} agentRunning={agentRunning} />;
 }, (prev, next) => {
+  if (prev.agentRunning !== next.agentRunning) return false;
   if (prev.messages.length !== next.messages.length) return false;
   return prev.messages.every((m, i) => m === next.messages[i]);
 });
@@ -79,7 +86,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
 
   useMessageMenu(menu, message.id, setMenu);
 
-  if (!message.content?.trim() && !(message.images?.length)) return null;
+  if (!message.content?.trim() && !(message.images?.length) && !message.skillInvocation) return null;
 
   return (
     <div
@@ -88,6 +95,7 @@ function UserBubble({ message }: { message: ChatMessage }) {
     >
       <GlassPanel variant="message-user" className="min-w-0">
         {message.images && message.images.length > 0 && <MessageImages images={message.images} />}
+        {message.skillInvocation && <SkillInvocationChip name={message.skillInvocation.name} />}
         {message.content ? <TextBlock text={message.content} isUser /> : null}
       </GlassPanel>
       {rendering && <span className="pi-message-exporting" title="正在生成图片"><LoaderCircle size={15} /></span>}
@@ -103,13 +111,13 @@ function UserBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function AssistantTurnBubble({ messages }: { messages: ChatMessage[] }) {
+function AssistantTurnBubble({ messages, agentRunning }: { messages: ChatMessage[]; agentRunning: boolean }) {
   const isPreviewMode = useAuthStore(s => s.isPreviewMode);
   const notify = useNotificationStore(s => s.notify);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [rendering, setRendering] = useState(false);
 
-  const turn = useMemo(() => buildAssistantTurnView(messages), [messages]);
+  const turn = useMemo(() => buildAssistantTurnView(messages, agentRunning), [messages, agentRunning]);
   const exportText = useMemo(() => {
     const parts = [
       ...turn.texts.map((t) => t.text.trim()).filter(Boolean),
@@ -132,7 +140,7 @@ function AssistantTurnBubble({ messages }: { messages: ChatMessage[] }) {
 
   return (
     <div
-      className="pi-message-bubble flex justify-start mb-4"
+      className={`pi-message-bubble flex justify-start mb-4${agentRunning ? " pi-message-bubble--live" : ""}`}
       onContextMenu={(event) => openMenu(event, exportText, turn.exportMessage.id, setMenu)}
     >
       <GlassPanel variant="message-assistant" className="min-w-0">
