@@ -215,11 +215,11 @@ body {
 
 /* Spacing between mixed content inside assistant bubbles */
 .pi-message-dialog-assistant .pi-thinking-block {
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.2rem;
 }
 .pi-message-dialog-assistant .pi-tool-call,
 .pi-message-dialog-assistant .pi-tool-group {
-  margin-block: 0.5rem;
+  margin-block: 0.35rem;
 }
 .pi-message-dialog-assistant .pi-tool-call:first-child,
 .pi-message-dialog-assistant .pi-tool-group:first-child {
@@ -231,11 +231,15 @@ body {
 }
 .pi-message-dialog-assistant .pi-markdown + .pi-tool-call,
 .pi-message-dialog-assistant .pi-markdown + .pi-tool-group {
-  margin-top: 1rem;
+  margin-top: 0.65rem;
 }
 .pi-message-dialog-assistant .pi-tool-call + .pi-markdown,
 .pi-message-dialog-assistant .pi-tool-group + .pi-markdown {
-  margin-top: 0.5rem;
+  margin-top: 0.35rem;
+}
+.pi-message-dialog-assistant .pi-thinking-block + .pi-tool-call,
+.pi-message-dialog-assistant .pi-thinking-block + .pi-tool-group {
+  margin-top: 0.2rem;
 }
 .pi-message-dialog-assistant .pi-markdown > :first-child {
   margin-top: 0;
@@ -1212,7 +1216,10 @@ body {
    darker red). */
 .pi-composer-working {
   display: flex; align-items: center; justify-content: center;
-  height: 1.625rem; padding: 0 0.6rem;
+  width: 1.625rem;
+  min-width: 1.625rem;
+  height: 1.625rem;
+  padding: 0;
   border-radius: 0; border: 1px solid var(--pi-theme);
   background: var(--pi-theme);
   color: var(--pi-theme-ink);
@@ -2044,7 +2051,7 @@ button.pi-panel-row.pi-panel-row--selected {
 
 /* Tool / API call cards — tight body; badge lives in the feature gutter */
 .pi-tool-feature {
-  margin-block: 0.5rem;
+  margin-block: 0.35rem;
 }
 .pi-tool-feature-body {
   border: 1px solid var(--pi-line);
@@ -2054,12 +2061,13 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel-subtle);
 }
 .pi-message-dialog-assistant .pi-tool-group .pi-tool-feature {
-  margin-block: 0.35rem;
+  margin-block: 0.2rem;
 }
 .pi-tool-feature-trigger {
   /* Badge sits on the body corner (gutter is only the 8px hang). Clear the
      1.75rem badge with ~1.5rem top pad — tighter than the old pt-8 band. */
-  padding: 1.5rem 0.75rem 0.55rem;
+  min-height: 2.9rem;
+  padding: 1.18rem 0.75rem 0.48rem;
 }
 
 /* Legacy class aliases kept so older markup / tests don't flash unstyled. */
@@ -2910,6 +2918,10 @@ button.pi-panel-row.pi-panel-row--selected {
  * Connection status — inline indicator inside composer shell
  * ========================================================== */
 .pi-composer-connecting {
+  width: 1.625rem;
+  min-width: 1.625rem;
+  height: 1.625rem;
+  padding: 0;
   cursor: default;
   color: #fff;
   background: #ef4444;
