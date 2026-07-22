@@ -1121,10 +1121,11 @@ export function ComposerBar({
   const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
   const showInlinePanel = panel !== null && !elevatedPanel;
   const hasDraft = text.trim().length > 0 || pendingAttachments.length > 0;
-  // Always show a Working line while streaming; extension text (hyw? / tool
-  // activity) replaces the default label when present.
-  const showWorkingLine = isStreaming && !isConnecting;
-  const workingLineText = workingMessage?.trim() || "Working...";
+  // Hang-off label: connecting text, else streaming Working / extension text.
+  const showWorkingLine = isConnecting || isStreaming;
+  const workingLineText = isConnecting
+    ? "连接中…"
+    : (workingMessage?.trim() || "Working...");
 
   function renderPanelBody(): ReactNode {
     if (!panel) return null;
@@ -1205,7 +1206,11 @@ export function ComposerBar({
             </div>
           )}
           {showWorkingLine && (
-            <div className="pi-composer-working-msg" aria-live="polite">
+            <div
+              className="pi-composer-working-msg"
+              aria-live="polite"
+              data-state={isConnecting ? "connecting" : "working"}
+            >
               {workingLineText}
             </div>
           )}

@@ -1,19 +1,21 @@
 /**
- * sorux-cf-guard — Backup fetch wrap for PI sessions.
+ * Process-level SoruxGPT Cloudflare guard.
  *
- * Primary guard is installed at hy-webagent server boot (curl-first).
- * This extension re-asserts the same policy if a session somehow sees a
- * plain global fetch (e.g. tests / CLI).
+ * PI talks to Sorux via the OpenAI SDK, which captures `fetch` per client.
+ * Extension-time wrapping is too late / easy to miss, so we install this at
+ * server boot and always route *.soruxgpt.com through `curl -4` (Node's TLS
+ * fingerprint is intermittently CF-blocked from the JP host).
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync, watchFile, unwatchFile } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
+import { createLogger } from "../logger.js";
 
+const log = createLogger("sorux-cf-guard");
 const SORUX_HOST_RE = /(?:^|\.)soruxgpt\.com(?::\d+)?$/i;
 const SKIP_REQ_HEADERS = new Set([
   "host",
@@ -54,6 +56,7 @@ async function bodyToString(body: BodyInit | null | undefined): Promise<string |
   if (ArrayBuffer.isView(body)) {
     return Buffer.from(body.buffer, body.byteOffset, body.byteLength).toString("utf8");
   }
+  if (typeof Blob !== "undefined" && body instanceof Blob) return await body.text();
   return await new Response(body as BodyInit).text();
 }
 
@@ -82,6 +85,8 @@ async function waitForHeaderFile(path: string, timeoutMs = 30_000): Promise<stri
       try {
         if (existsSync(path)) {
           const raw = readFileSync(path, "utf8");
+          // curl -D writes the status line first; wait for the blank line that
+          // ends the header block so we don't parse a partial write.
           if (/\r?\n\r?\n/.test(raw)) {
             cleanup();
             resolve(raw);
@@ -128,6 +133,7 @@ async function fetchViaCurl(url: string, init?: RequestInit): Promise<Response> 
   }
 
   const hdrPath = join(tmpdir(), `sorux-cf-${randomBytes(8).toString("hex")}.hdr`);
+  // HTTP/1.1 keeps -D header dumps simple; -N disables buffering for SSE.
   const args = [
     "-4",
     "-sS",
@@ -169,11 +175,14 @@ async function fetchViaCurl(url: string, init?: RequestInit): Promise<Response> 
     const headerRaw = await waitForHeaderFile(hdrPath);
     const { status, headers: outHeaders } = parseCurlHeaders(headerRaw);
     const webStream = Readable.toWeb(child.stdout) as ReadableStream<Uint8Array>;
-    child.on("close", () => {
+    child.on("close", (code) => {
       try {
         unlinkSync(hdrPath);
       } catch {
         /* ignore */
+      }
+      if (code && code !== 0 && status >= 200 && status < 400) {
+        log.warn("curl exited non-zero after headers", { code, status, stderr: stderr.slice(0, 200) });
       }
     });
     return new Response(webStream, {
@@ -196,7 +205,8 @@ async function fetchViaCurl(url: string, init?: RequestInit): Promise<Response> 
   }
 }
 
-function installSoruxCfGuard() {
+/** Install once at process boot. Safe to call repeatedly. */
+export function installSoruxCfGuard(): void {
   const g = globalThis as GlobalFetch;
   if (g.__soruxCfGuardWrapped && g.__soruxCfGuardMode === "curl-first") return;
 
@@ -219,19 +229,26 @@ function installSoruxCfGuard() {
       headers: init?.headers ?? (input instanceof Request ? input.headers : undefined),
     };
     if (bodyText != null) baseInit.body = bodyText;
+    // Avoid undici duplex requirements after materializing the body.
     delete (baseInit as { duplex?: string }).duplex;
 
     try {
-      return await fetchViaCurl(url, baseInit);
-    } catch {
+      const response = await fetchViaCurl(url, baseInit);
+      if (response.status === 403 || response.status === 503) {
+        log.warn("sorux curl returned block status", {
+          status: response.status,
+          url: url.slice(0, 96),
+        });
+      }
+      return response;
+    } catch (error) {
+      log.warn("sorux curl failed; falling back to node fetch", {
+        err: error instanceof Error ? error.message : String(error),
+        url: url.slice(0, 96),
+      });
       return previous(url, baseInit);
     }
   };
-}
 
-export default function (pi: ExtensionAPI) {
-  installSoruxCfGuard();
-  pi.on("session_start", async () => {
-    installSoruxCfGuard();
-  });
+  log.info("installed curl-first fetch guard for *.soruxgpt.com");
 }

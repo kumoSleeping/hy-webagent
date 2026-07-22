@@ -1349,12 +1349,15 @@ body {
    composer shell's top-left vertex (CLI Working… parity). */
 .pi-composer-working-row {
   position: absolute;
-  top: calc(-1 * var(--pi-composer-border, 1px));
-  left: calc(-1 * var(--pi-composer-border, 1px) + 4px);
-  transform: translateY(-50%);
+  top: 0;
+  left: 0;
+  right: auto;
+  margin: 0;
+  transform: translate(calc(-1 * var(--pi-composer-border, 1px)), -50%);
   z-index: 51;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.35rem;
   max-width: min(72vw, 28rem);
   pointer-events: auto;
