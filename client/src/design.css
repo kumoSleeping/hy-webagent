@@ -2331,23 +2331,6 @@ button.pi-panel-row.pi-panel-row--selected {
   background-color: var(--pi-bg); isolation: isolate;
 }
 
-/* Top scrim — empty band at the very top of the chat. Messages dissolve
-   into the background before they reach it (mirror of the composer scrim
-   below). */
-.pi-app-shell::before {
-  content: "";
-  position: absolute; top: 0; left: 0; right: 0;
-  height: var(--pi-top-strip);
-  background: linear-gradient(
-    to bottom,
-    var(--pi-bg) 0%,
-    var(--pi-bg) 42%,
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: 5;
-}
-
 /* Full-viewport loading — auth gate, session bootstrap, route sync */
 .pi-loading-gate {
   position: fixed;
