@@ -20,6 +20,26 @@ describe("ComposerBar group preview", () => {
     });
   });
 
+  it("accepts draft input while the session is still connecting", () => {
+    render(
+      <ComposerBar
+        sendDisabled
+        onSend={noop}
+        onNewChat={noop}
+        onFileClick={noop}
+      />,
+    );
+
+    const textarea = screen.getByPlaceholderText("会话准备中，可以先输入…");
+    expect(textarea).toBeEnabled();
+    textarea.focus();
+    expect(textarea).toHaveFocus();
+    fireEvent.input(textarea, { target: { value: "第一个字" }, inputType: "insertText" });
+    expect(textarea).toHaveValue("第一个字");
+    expect(textarea).toHaveFocus();
+    expect(screen.getByLabelText("Send message")).toBeDisabled();
+  });
+
   it("keeps the normal composer chrome but exposes only read-only group actions", async () => {
     const onReturnToChat = vi.fn();
     render(

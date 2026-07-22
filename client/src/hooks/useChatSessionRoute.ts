@@ -21,7 +21,8 @@ export function useChatSessionRoute() {
   const navigate = useNavigate();
   const authSessionId = useAuthStore((s) => s.sessionId);
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
-  const [ready, setReady] = useState(false);
+  const [routeReady, setRouteReady] = useState(false);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
   const [isSyncingSession, setIsSyncingSession] = useState(false);
   const defaultRedirectStartedRef = useRef(false);
   const syncingFromUrlRef = useRef(false);
@@ -43,7 +44,8 @@ export function useChatSessionRoute() {
     const isGuestView = useAuthStore.getState().userId === "__guest__";
 
     if (!authSessionId && !isGuestView) {
-      setReady(false);
+      setRouteReady(false);
+      setWorkspaceReady(false);
       defaultRedirectStartedRef.current = false;
       syncedUrlIdRef.current = null;
       return;
@@ -51,17 +53,23 @@ export function useChatSessionRoute() {
 
     // Guest mode: skip workspace init, mark ready immediately
     if (isGuestView) {
-      setReady(true);
+      setRouteReady(true);
+      setWorkspaceReady(true);
       return;
     }
 
+    // Authentication is enough to reveal the workspace shell. Workspace
+    // preparation still gates session create/activate below, but it must not
+    // gate the composer: users can start typing while the server warms up.
+    setRouteReady(true);
+
     // StrictMode remount: a prior mount may have already activated the URL session
-    // in zustand while this instance's `ready` was reset to false in cleanup.
+    // in zustand while this instance's workspace state was reset in cleanup.
     const urlId = parseSessionIdFromPath(latestPathnameRef.current) ?? undefined;
     if (urlId && useSessionStore.getState().activePiSessionId === urlId) {
       syncedUrlIdRef.current = urlId;
       setIsSyncingSession(false);
-      setReady(true);
+      setWorkspaceReady(true);
     }
 
     let cancelled = false;
@@ -79,13 +87,13 @@ export function useChatSessionRoute() {
       } catch (err) {
         console.error(err);
       } finally {
-        if (!cancelled) setReady(true);
+        if (!cancelled) setWorkspaceReady(true);
       }
     })();
 
     return () => {
       cancelled = true;
-      setReady(false);
+      setWorkspaceReady(false);
       defaultRedirectStartedRef.current = false;
       syncedUrlIdRef.current = null;
     };
@@ -95,16 +103,16 @@ export function useChatSessionRoute() {
   // This keeps the bookmark URL generic (no specific session id).
   useEffect(() => {
     const isGuestView = useAuthStore.getState().userId === "__guest__";
-    if (!ready || urlSessionId || defaultRedirectStartedRef.current || isGuestView) return;
+    if (!workspaceReady || urlSessionId || defaultRedirectStartedRef.current || isGuestView) return;
     defaultRedirectStartedRef.current = true;
     setIsSyncingSession(true);
     navigate(chatPath("new"), { replace: true });
     setIsSyncingSession(false);
-  }, [ready, urlSessionId, navigate]);
+  }, [workspaceReady, urlSessionId, navigate]);
 
   // `/chat/new` → create a fresh session, then redirect to /chat/:id.
   useEffect(() => {
-    if (!ready) return;
+    if (!workspaceReady) return;
     if (!isNewChatPath(latestPathnameRef.current)) return;
     const isGuestView = useAuthStore.getState().userId === "__guest__";
     if (isGuestView) return;
@@ -130,12 +138,12 @@ export function useChatSessionRoute() {
         newChatInFlightRef.current = false;
       }
     })();
-  }, [ready, navigate]);
+  }, [workspaceReady, navigate]);
 
   // URL changed (refresh, direct link, browser back/forward) → activate session.
   useEffect(() => {
     const isGuestView = useAuthStore.getState().userId === "__guest__";
-    if (!ready || !urlSessionId || isGuestView) return;
+    if (!workspaceReady || !urlSessionId || isGuestView) return;
 
     const current = useSessionStore.getState().activePiSessionId;
     const hydrated = useChatStore.getState().hydratedPiSessionId;
@@ -207,7 +215,7 @@ export function useChatSessionRoute() {
         setIsSyncingSession(false);
       }
     };
-  }, [urlSessionId, ready, navigate]);
+  }, [urlSessionId, workspaceReady, navigate]);
 
-  return { routeReady: ready, isSyncingSession, syncingFromUrl: syncingFromUrlRef };
+  return { routeReady, isSyncingSession, syncingFromUrl: syncingFromUrlRef };
 }

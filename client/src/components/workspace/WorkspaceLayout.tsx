@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useChatStore } from "../../stores/chatStore";
+import { useSessionStore } from "../../stores/sessionStore";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { ChatPanel } from "../chat/ChatPanel";
 import { useChatConnection } from "../../context/useChatConnection";
@@ -31,11 +31,11 @@ export function WorkspaceLayout() {
 
   const { scheduleSave, flushSave, discardTab } = useEditorAutoSave(editorTabs, writeFile);
 
-  async function handleNewChat() {
+  function handleNewChat() {
     // Navigate to /chat/new immediately — the route handler creates the
     // session and redirects to /chat/:id when ready. This keeps the URL
     // stable during creation (no ID flash) and prevents rapid-click races.
-    useChatStore.getState().resetForSessionChange();
+    useSessionStore.getState().setActiveSession(null, { syncUrl: false });
     navigate(chatPath("new"), { replace: true });
   }
 

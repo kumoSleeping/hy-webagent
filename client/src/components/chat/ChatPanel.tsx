@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Check, Cpu } from "lucide-react";
 import { PanelActions, PanelBody, PanelButton, PanelListRow } from "../common/panel";
 import { useChatStore } from "../../stores/chatStore";
@@ -10,7 +10,6 @@ import { useComposerFocusStore } from "../../stores/composerFocusStore";
 import { useMobileLayout } from "../../hooks/useMobileLayout";
 import { isElevatedPanel } from "../../lib/composerLayout";
 import { apiGet } from "../../lib/api";
-import { MessageFeed } from "./MessageFeed";
 import { ComposerBar } from "./ComposerBar";
 import { StatusBar } from "./StatusBar";
 import { CenterStage, useCenterStageOpen } from "./CenterStage";
@@ -28,6 +27,10 @@ import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { useNotificationStore } from "../../stores/notificationStore";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
 import { useGroupPreview } from "../bot/GroupPreviewContext";
+
+const MessageFeed = lazy(() =>
+  import("./MessageFeed").then((module) => ({ default: module.MessageFeed }))
+);
 
 interface ModelInfo {
   provider: string;
@@ -484,7 +487,11 @@ export function ChatPanel({
     <div
       className={`pi-app-shell pi-app-shell--revealed${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
     >
-      {!isHydrating && <MessageFeed />}
+      {!isHydrating && (
+        <Suspense fallback={null}>
+          <MessageFeed />
+        </Suspense>
+      )}
       {(composerPanel || centerStageOpen) && (
         <div
           className="pi-click-backdrop"
@@ -516,7 +523,8 @@ export function ChatPanel({
           </div>
           {(!isPreviewMode || groupPreview) && (
           <ComposerBar
-            disabled={isHydrating || isGuestView || Boolean(groupPreview)}
+            disabled={isGuestView || Boolean(groupPreview)}
+            sendDisabled={isHydrating || !activePiSessionId}
             isStreaming={isStreaming}
             isMobileLayout={isMobileLayout}
             onSend={handleSend}

@@ -29,6 +29,7 @@ import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
 import { useNotificationStore } from "../../stores/notificationStore";
+import { useAuthStore } from "../../stores/authStore";
 import type { FileEntry } from "../../types";
 import {
   isElevatedPanel,
@@ -47,6 +48,8 @@ import {
 
 interface ComposerBarProps {
   disabled?: boolean;
+  /** Keep typing available while session transport/history is warming up. */
+  sendDisabled?: boolean;
   isStreaming?: boolean;
   onSend: (text: string, images?: PromptImage[], displayText?: string) => void;
   onAbort?: () => void;
@@ -88,6 +91,15 @@ interface ComposerBarProps {
 const MIN_ROWS = 1;
 const MAX_ROWS = 8;
 const COMPRESSED_PASTE_THRESHOLD = 300;
+const DRAFT_CACHE_PREFIX = "pi-composer-draft-v1:";
+
+function readCachedDraft(key: string): string {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
 
 interface PendingAttachment {
   id: string;
@@ -181,6 +193,7 @@ function shouldSendSlashOnEnter(value: string): boolean {
 
 export function ComposerBar({
   disabled = false,
+  sendDisabled = false,
   isStreaming = false,
   onSend,
   onAbort,
@@ -199,6 +212,8 @@ export function ComposerBar({
   const shellRef = useRef<HTMLDivElement>(null);
   const connectionState = useConnectionState();
   const isConnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
+  const isSendUnavailable = connectionState !== 'connected';
+  const draftCacheKey = `${DRAFT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   const toolbarItems = useFittedToolbarItems(
     isMobileLayout,
     shellRef,
@@ -211,7 +226,7 @@ export function ComposerBar({
   const newChatToolbarIndex = toolbarItems.findIndex((item) => item.id === "new-chat");
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
     panelToolbarIndex(kind, toolbarItems);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => readCachedDraft(draftCacheKey));
   /** ↑/↓ in the command list (panel body above the toolbar row). */
   const [commandListFocus, setCommandListFocus] = useState(false);
   /** ↑/↓ cursor in the history list (mirrors commandListFocus/selectedIndex,
@@ -246,6 +261,18 @@ export function ComposerBar({
   const activePanel = useSlashStore((s) => s.activePanel);
   const setActivePanel = useSlashStore((s) => s.setActivePanel);
   const showCommandList = panel === "commands" && activePanel === null;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        if (text) localStorage.setItem(draftCacheKey, text);
+        else localStorage.removeItem(draftCacheKey);
+      } catch {
+        // Storage can be unavailable in private browsing; the in-memory draft still works.
+      }
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [draftCacheKey, text]);
 
   const visibleSessions = useMemo(
     () => filterVisibleSessions(sessions, activePiSessionId),
@@ -868,7 +895,7 @@ export function ComposerBar({
   }
 
   function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
-    if (disabled || isStreaming || isConnecting) return;
+    if (disabled || isStreaming) return;
     const pastedFiles = filesFromClipboard(e.clipboardData).filter(isSupportedAttachmentFile);
     if (pastedFiles.length) {
       e.preventDefault();
@@ -894,7 +921,7 @@ export function ComposerBar({
   }
 
   function canSendNow(value: string): boolean {
-    if (disabled || attachmentsProcessing()) return false;
+    if (disabled || sendDisabled || isSendUnavailable || attachmentsProcessing()) return false;
     const readyCount = readyAttachments().length;
     if (readyCount > 0) return !value.startsWith("/");
     return !!value.trim();
@@ -1303,12 +1330,12 @@ export function ComposerBar({
         <textarea
           ref={taRef}
           rows={MIN_ROWS}
-          disabled={disabled || isConnecting}
+          disabled={disabled}
           placeholder={
             groupPreview
               ? groupPreview.notice
-              : isConnecting
-              ? "连接中…"
+              : sendDisabled || isSendUnavailable
+              ? "会话准备中，可以先输入…"
               : attachmentsProcessing()
                 ? "Preparing attachments..."
                 : isStreaming

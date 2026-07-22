@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "./stores/authStore";
 import { useSessionStore } from "./stores/sessionStore";
@@ -13,8 +13,13 @@ import { useChatWebSocket } from "./hooks/useChatWebSocket";
 import { ChatWebSocketProvider } from "./context/chatWebSocketContext";
 import { useAccountProfileSync } from "./hooks/useAccountProfileSync";
 import { setGlobalLoaderActive } from "./lib/globalLoader";
-import { MessageRenderPage } from "./components/chat/MessageRenderPage";
-import { GroupPreviewApp } from "./components/bot/GroupPreviewApp";
+
+const MessageRenderPage = lazy(() =>
+  import("./components/chat/MessageRenderPage").then((module) => ({ default: module.MessageRenderPage }))
+);
+const GroupPreviewApp = lazy(() =>
+  import("./components/bot/GroupPreviewApp").then((module) => ({ default: module.GroupPreviewApp }))
+);
 
 export default function App() {
   const groupMatch = window.location.pathname.match(/^\/bot_([^/]+)\/channel_([^/]+)\/?$/);
@@ -55,14 +60,18 @@ export default function App() {
     <>
       <NotificationStack />
       {isMessageRenderPath ? (
-        <MessageRenderPage />
+        <Suspense fallback={null}><MessageRenderPage /></Suspense>
       ) : directGroupRoute ? (
         <BrowserRouter>
-          <GroupPreviewApp botSlug={directGroupRoute.botSlug} channelId={directGroupRoute.channelId} />
+          <Suspense fallback={null}>
+            <GroupPreviewApp botSlug={directGroupRoute.botSlug} channelId={directGroupRoute.channelId} />
+          </Suspense>
         </BrowserRouter>
       ) : groupMatch ? (
         <BrowserRouter>
-          <GroupPreviewApp botSlug={decodeURIComponent(groupMatch[1]!)} channelId={decodeURIComponent(groupMatch[2]!)} />
+          <Suspense fallback={null}>
+            <GroupPreviewApp botSlug={decodeURIComponent(groupMatch[1]!)} channelId={decodeURIComponent(groupMatch[2]!)} />
+          </Suspense>
         </BrowserRouter>
       ) : (
       <BrowserRouter>
