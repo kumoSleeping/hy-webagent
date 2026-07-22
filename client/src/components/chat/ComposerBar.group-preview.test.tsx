@@ -30,7 +30,7 @@ describe("ComposerBar group preview", () => {
       />,
     );
 
-    const textarea = screen.getByPlaceholderText("会话准备中，可以先输入…");
+    const textarea = screen.getByPlaceholderText("Preparing...");
     expect(textarea).toBeEnabled();
     textarea.focus();
     expect(textarea).toHaveFocus();
@@ -50,7 +50,7 @@ describe("ComposerBar group preview", () => {
         onFileClick={noop}
         modelContent={<div>model</div>}
         groupPreview={{
-          notice: "请到群聊中输入消息",
+          notice: "Group chat only...",
           onReturnToChat,
           onSelectSession: (sessionId) => {
             useSessionStore.getState().setActiveSession(sessionId, { syncUrl: false });
@@ -61,7 +61,7 @@ describe("ComposerBar group preview", () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText("请到群聊中输入消息")).toBeDisabled();
+    expect(screen.getByPlaceholderText("Group chat only...")).toBeDisabled();
     expect(screen.getAllByRole("button").filter((button) =>
       ["Toggle model selector", "Toggle history", "Toggle files", "Toggle account panel", "返回正常聊天"]
         .includes(button.getAttribute("aria-label") ?? ""),

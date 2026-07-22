@@ -1335,11 +1335,11 @@ export function ComposerBar({
             groupPreview
               ? groupPreview.notice
               : sendDisabled || isSendUnavailable
-              ? "会话准备中，可以先输入…"
+              ? "Preparing..."
               : attachmentsProcessing()
-                ? "Preparing attachments..."
+                ? "Uploading..."
                 : isStreaming
-                  ? "Type — queued until the model is ready to see it..."
+                  ? "Queued..."
                   : "Type / for commands..."
           }
           value={text}

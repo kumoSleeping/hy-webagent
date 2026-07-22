@@ -545,7 +545,7 @@ export function ChatPanel({
             commandsContent={commandsContent}
             modelContent={modelContent}
             groupPreview={groupPreview ? {
-              notice: "请到群聊中输入消息",
+              notice: "Group chat only...",
               onReturnToChat: groupPreview.returnToChat,
               onSelectSession: groupPreview.selectSession,
               filesContent: groupFilesContent,
