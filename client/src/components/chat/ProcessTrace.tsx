@@ -127,7 +127,14 @@ export const ProcessTrace = memo(function ProcessTrace({
             if (item.kind === "tool") {
               return <ToolStep key={item.tool.toolCallId} toolCall={item.tool} isLive={isLive} />;
             }
-            return <ProcessTextStep key={`${item.kind}-${index}`} text={item.text} isLive={isLive} />;
+            return (
+              <ProcessTextStep
+                key={`${item.kind}-${index}`}
+                kind={item.kind}
+                text={item.text}
+                isLive={isLive}
+              />
+            );
           })}
         </div>
       )}
@@ -135,7 +142,15 @@ export const ProcessTrace = memo(function ProcessTrace({
   );
 });
 
-const ProcessTextStep = memo(function ProcessTextStep({ text, isLive }: { text: string; isLive: boolean }) {
+const ProcessTextStep = memo(function ProcessTextStep({
+  kind,
+  text,
+  isLive,
+}: {
+  kind: "thinking" | "status";
+  text: string;
+  isLive: boolean;
+}) {
   if (!text) {
     if (!isLive) return null;
     return (
@@ -153,7 +168,11 @@ const ProcessTextStep = memo(function ProcessTextStep({ text, isLive }: { text: 
     );
   }
 
-  return <div className="pi-process-step-text">{text.trim()}</div>;
+  return (
+    <div className={`pi-process-step-text pi-process-step-text--${kind}`}>
+      {text.trim()}
+    </div>
+  );
 });
 
 const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCallRecord; isLive: boolean }) {

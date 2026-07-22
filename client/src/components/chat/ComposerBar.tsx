@@ -237,17 +237,36 @@ export function ComposerBar({
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const textRef = useRef(text);
+  const draftWriteTimerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const persistDraft = useCallback((value: string) => {
+    if (draftWriteTimerRef.current !== null) window.clearTimeout(draftWriteTimerRef.current);
+    draftWriteTimerRef.current = window.setTimeout(() => {
+      try {
+        if (value) localStorage.setItem(draftCacheKey, value);
+        else localStorage.removeItem(draftCacheKey);
+      } catch {
+        // Storage can be unavailable in private browsing; the DOM still owns the live draft.
+      }
+    }, 120);
+  }, [draftCacheKey]);
   const mirrorComposerText = useCallback((value: string) => {
     textRef.current = value;
-    setTextState(value);
-  }, []);
+    persistDraft(value);
+    setTextState((current) => {
+      const slashRelevant = current.startsWith("/") || value.startsWith("/");
+      const presenceChanged = Boolean(current.trim()) !== Boolean(value.trim());
+      return slashRelevant || presenceChanged ? value : current;
+    });
+  }, [persistDraft]);
   const setComposerText = useCallback((next: string | ((current: string) => string)) => {
     const current = taRef.current?.value ?? textRef.current;
     const value = typeof next === "function" ? next(current) : next;
     if (taRef.current && taRef.current.value !== value) taRef.current.value = value;
-    mirrorComposerText(value);
-  }, [mirrorComposerText]);
+    textRef.current = value;
+    persistDraft(value);
+    setTextState(value);
+  }, [persistDraft]);
   const { imeProps, isComposing, composingRef } = useImeComposition(mirrorComposerText);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const argsLockRef = useRef<string | null>(null);
@@ -271,17 +290,9 @@ export function ComposerBar({
   const setActivePanel = useSlashStore((s) => s.setActivePanel);
   const showCommandList = panel === "commands" && activePanel === null;
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      try {
-        if (text) localStorage.setItem(draftCacheKey, text);
-        else localStorage.removeItem(draftCacheKey);
-      } catch {
-        // Storage can be unavailable in private browsing; the in-memory draft still works.
-      }
-    }, 120);
-    return () => window.clearTimeout(timer);
-  }, [draftCacheKey, text]);
+  useEffect(() => () => {
+    if (draftWriteTimerRef.current !== null) window.clearTimeout(draftWriteTimerRef.current);
+  }, []);
 
   const visibleSessions = useMemo(
     () => filterVisibleSessions(sessions, activePiSessionId),
@@ -890,7 +901,7 @@ export function ComposerBar({
       }
       const start = ta.selectionStart ?? 0;
       const end = ta.selectionEnd ?? 0;
-      const { text: nextText, position } = insertCompressedMarker(text, start, end, pastedText.length);
+      const { text: nextText, position } = insertCompressedMarker(ta.value, start, end, pastedText.length);
       setComposerText(nextText);
       pendingCaretRef.current = position;
       applyPendingCaret({ focus: true });
@@ -995,10 +1006,11 @@ export function ComposerBar({
       if (!ta) return;
       const selStart = ta.selectionStart ?? 0;
       const selEnd = ta.selectionEnd ?? 0;
-      const bounds = findMarkerBounds(text, selStart) ?? findMarkerBounds(text, selEnd);
+      const currentText = ta.value;
+      const bounds = findMarkerBounds(currentText, selStart) ?? findMarkerBounds(currentText, selEnd);
       if (bounds) {
         e.preventDefault();
-        const removed = removeMarker(text, selStart);
+        const removed = removeMarker(currentText, selStart);
         if (removed) {
           setComposerText(removed.text);
           pendingCaretRef.current = removed.position;
@@ -1308,6 +1320,9 @@ export function ComposerBar({
           initialValue={text}
           onValueChange={mirrorComposerText}
           rows={MIN_ROWS}
+          autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect="off"
           disabled={disabled}
           placeholder={
             groupPreview

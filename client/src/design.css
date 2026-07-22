@@ -319,6 +319,9 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
 }
+.pi-process-step-text--thinking {
+  color: var(--pi-muted);
+}
 .pi-process-step-state {
   margin: 0.1rem 0 0.25rem 1.225rem;
   color: var(--pi-muted);
@@ -1081,6 +1084,17 @@ body {
   background: rgba(60, 60, 67, 0.28); border-radius: 0;
 }
 .pi-composer-input::-webkit-scrollbar-track { background: transparent; }
+
+/* iOS/WebKit caret rendering is unreliable with custom line-height and
+   content-sized textareas, especially while Chinese/Japanese IME is active. */
+@supports (-webkit-touch-callout: none) {
+  .pi-composer-input {
+    field-sizing: fixed;
+    line-height: normal;
+    caret-color: auto;
+    text-size-adjust: 100%;
+  }
+}
 
 .pi-composer-body {
   margin-top: 0.7rem;

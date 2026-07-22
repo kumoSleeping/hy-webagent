@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { StableComposerTextarea } from "./StableComposerTextarea";
 
 function Harness() {
@@ -36,5 +36,26 @@ describe("StableComposerTextarea", () => {
     expect(textarea.selectionStart).toBe(2);
     expect(textarea.selectionEnd).toBe(2);
     expect(document.activeElement).toBe(textarea);
+  });
+
+  it("does not rerender the owner during an active IME composition", () => {
+    const onValueChange = vi.fn();
+    const onCompositionEnd = vi.fn();
+    const { getByLabelText } = render(
+      <StableComposerTextarea
+        aria-label="ime-composer"
+        initialValue=""
+        onValueChange={onValueChange}
+        onCompositionEnd={onCompositionEnd}
+      />,
+    );
+    const textarea = getByLabelText("ime-composer") as HTMLTextAreaElement;
+
+    fireEvent.compositionStart(textarea);
+    fireEvent.input(textarea, { target: { value: "你" }, inputType: "insertCompositionText" });
+    expect(onValueChange).not.toHaveBeenCalled();
+
+    fireEvent.compositionEnd(textarea, { data: "你" });
+    expect(onCompositionEnd).toHaveBeenCalledOnce();
   });
 });
