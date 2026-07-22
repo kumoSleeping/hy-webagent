@@ -56,12 +56,18 @@ function dispatchWsMessage(
         // Fallback timer may have completed hydration before history arrived.
         // Still load the real messages when they come in.
         if (messages.length > 0) {
-          store().loadHistory(messages, { agentRunning });
+          store().loadHistory(messages, {
+            agentRunning,
+            serverToolActivities: msg.payload?.serverToolActivities,
+          });
         } else if (agentRunning) {
           store().resumeAgentRun();
         }
       } else {
-        store().loadHistory(messages, { agentRunning });
+        store().loadHistory(messages, {
+          agentRunning,
+          serverToolActivities: msg.payload?.serverToolActivities,
+        });
       }
       finishHydration();
       break;

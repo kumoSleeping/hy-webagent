@@ -30,7 +30,7 @@ export function MessageFeed() {
       className="flex-1 min-h-0 overflow-y-auto pi-scrollbar px-[var(--pi-feed-edge)]"
       style={{ paddingTop: "var(--pi-top-strip)", paddingBottom: `${composerReserve}px` }}
     >
-      <div ref={contentRef} className="mx-auto max-w-[var(--pi-feed-max)] py-4">
+      <div ref={contentRef} className="mx-auto max-w-[var(--pi-feed-max)] pt-4 pb-0">
         {feedItems.map((item) =>
           item.kind === "user" ? (
             <MessageBubble key={item.key} messages={[item.message]} />

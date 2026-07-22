@@ -29,6 +29,7 @@ export const GROK_NATIVE_TOOLS = [
 
 /** Bottom status bar — keep in sync with kumoSleeping-jina-bar.ts */
 export const GROK_NATIVE_TOOLS_LABEL = "grok-native-tools ✓";
+export const GROK_SERVER_TOOL_ENTRY = "pi-web-server-tool:v1";
 
 function isGrokModel(model?: { id?: string; provider?: string } | null): boolean {
   if (!model) return false;
@@ -111,7 +112,11 @@ type UiSink = {
   }) => void;
 };
 
-type SinkRegistration = { getUi: () => UiSink | null; isActive: () => boolean };
+type SinkRegistration = {
+  getUi: () => UiSink | null;
+  isActive: () => boolean;
+  appendEntry: (customType: string, data: unknown) => void;
+};
 
 function sinkRegistry(): Map<string, SinkRegistration> {
   const g = globalThis as typeof globalThis & { __grokNativeToolSinks?: Map<string, SinkRegistration> };
@@ -157,7 +162,7 @@ function installFetchSniffer() {
     }
 
     const [forClient, forSniff] = response.body.tee();
-    void sniffSse(forSniff, registration.getUi);
+    void sniffSse(forSniff, registration);
 
     return new Response(forClient, {
       status: response.status,
@@ -167,7 +172,7 @@ function installFetchSniffer() {
   };
 }
 
-async function sniffSse(body: ReadableStream<Uint8Array>, getUi: () => UiSink | null) {
+async function sniffSse(body: ReadableStream<Uint8Array>, registration: SinkRegistration) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -186,7 +191,7 @@ async function sniffSse(body: ReadableStream<Uint8Array>, getUi: () => UiSink | 
     fullLog = fullLog ? `${fullLog}\n${line}` : line;
     publishActivity(line, fullLog);
 
-    const ui = getUi();
+    const ui = registration.getUi();
     try {
       const rawType = String(item.type || "server_tool");
       const toolName = rawType.endsWith("_call") ? rawType.slice(0, -"_call".length) : rawType;
@@ -201,12 +206,17 @@ async function sniffSse(body: ReadableStream<Uint8Array>, getUi: () => UiSink | 
           : typeof item.server_label === "string"
             ? { server_label: item.server_label }
             : {};
-      ui?.emitServerToolActivity?.({
+      const activity = {
         phase,
         toolCallId,
         toolName,
         input,
         output: phase === "done" ? "Completed" : undefined,
+      } as const;
+      ui?.emitServerToolActivity?.(activity);
+      registration.appendEntry(GROK_SERVER_TOOL_ENTRY, {
+        ...activity,
+        recordedAt: Date.now(),
       });
     } catch {
       // UI may be unavailable mid-shutdown
@@ -296,7 +306,11 @@ export default function (pi: ExtensionAPI) {
 
   const registerSink = (ctx: { sessionManager: { getSessionId(): string } }) => {
     sessionId = ctx.sessionManager.getSessionId();
-    sinkRegistry().set(sessionId, { getUi: () => uiRef, isActive: () => grokActive });
+    sinkRegistry().set(sessionId, {
+      getUi: () => uiRef,
+      isActive: () => grokActive,
+      appendEntry: (customType, data) => pi.appendEntry(customType, data),
+    });
   };
 
   pi.on("session_start", async (_event, ctx) => {

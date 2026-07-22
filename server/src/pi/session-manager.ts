@@ -44,6 +44,7 @@ import {
   type ResolvedModelPolicy,
 } from "../model-policy.js";
 import { injectRuntimeProviderKeys, injectSharedProviderKeys } from "../platform-credentials.js";
+import { readServerToolActivities } from "./server-tool-history.js";
 
 type ThinkingLevel = Parameters<AgentSession["setThinkingLevel"]>[0];
 type SteeringMode = Parameters<AgentSession["setSteeringMode"]>[0];
@@ -836,6 +837,12 @@ export class PISessionManager {
     const ps = this.sessions.get(sessionId);
     if (!ps) return [];
     return ps.session.messages;
+  }
+
+  getServerToolActivities(sessionId: string) {
+    const ps = this.sessions.get(sessionId);
+    if (!ps) return [];
+    return readServerToolActivities(ps.session.sessionManager);
   }
 
   // --- Slash command SDK wrappers ---

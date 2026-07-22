@@ -4,7 +4,10 @@ import { getToolCategory, type ToolCategory } from "./toolDisplay";
 /** One block inside a collapsed activity group, kept in original arrival order. */
 export type ActivityItem =
   | { kind: "thinking"; text: string }
+  | { kind: "status"; text: string }
   | { kind: "tool"; tool: ToolCallRecord };
+
+export type DisplayBlock = ContentBlock | { type: "process_text"; text: string };
 
 /**
  * Render-time projection of a message's raw `blocks` into display units.
@@ -42,7 +45,7 @@ export type DisplayUnit =
       activeIndex: number | null;
     };
 
-export function groupBlocksForDisplay(blocks: ContentBlock[], isStreaming: boolean): DisplayUnit[] {
+export function groupBlocksForDisplay(blocks: DisplayBlock[], isStreaming: boolean): DisplayUnit[] {
   const units: DisplayUnit[] = [];
   let pending: ActivityItem[] = [];
 
@@ -81,7 +84,13 @@ export function groupBlocksForDisplay(blocks: ContentBlock[], isStreaming: boole
       units.push({ kind: "text", key: `text-${i}`, text: block.text });
       return;
     }
-    pending.push(block.type === "tool" ? { kind: "tool", tool: block.tool } : { kind: "thinking", text: block.text });
+    pending.push(
+      block.type === "tool"
+        ? { kind: "tool", tool: block.tool }
+        : block.type === "process_text"
+          ? { kind: "status", text: block.text }
+          : { kind: "thinking", text: block.text }
+    );
     if (isLast) flushPending(true);
   });
 

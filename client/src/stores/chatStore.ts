@@ -71,7 +71,10 @@ interface ChatState {
   /** Pi session id whose transcript (+ deferred UI) is ready to display. */
   hydratedPiSessionId: string | null;
   completeHydration: (piSessionId: string) => void;
-  loadHistory: (messages: any[], options?: { agentRunning?: boolean }) => void;
+  loadHistory: (messages: any[], options?: {
+    agentRunning?: boolean;
+    serverToolActivities?: PersistedServerToolActivity[];
+  }) => void;
   /** Re-attach streaming UI after reload/reconnect while the server agent still runs. */
   resumeAgentRun: () => void;
   /** Resolve (or create) the assistant bubble that should receive live deltas. */
@@ -85,6 +88,15 @@ interface ChatState {
    * read as "everything just got delivered" and wrongly post them as real
    * messages instead of just handing them back for editing. */
   clearQueuedMessagesLocally: () => void;
+}
+
+interface PersistedServerToolActivity {
+  phase: "start" | "done";
+  toolCallId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  output?: string;
+  recordedAt: number;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -561,8 +573,48 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // right-click export capture content from unrelated model turns.
       converted.push(newMsg);
     }
+    const restoredTools = new Map<string, {
+      first: PersistedServerToolActivity;
+      done?: PersistedServerToolActivity;
+    }>();
+    for (const activity of options?.serverToolActivities ?? []) {
+      const current = restoredTools.get(activity.toolCallId);
+      if (!current) {
+        restoredTools.set(activity.toolCallId, {
+          first: activity,
+          done: activity.phase === "done" ? activity : undefined,
+        });
+      } else if (activity.phase === "done") {
+        current.done = activity;
+      }
+    }
+
+    const syntheticTools: ChatMessage[] = [...restoredTools.values()].map(({ first, done }) => {
+      const tool: ToolCallRecord = {
+        toolCallId: first.toolCallId,
+        toolName: first.toolName,
+        input: first.input,
+        output: done?.output,
+        status: done ? "done" : options?.agentRunning ? "running" : "done",
+        isError: false,
+      };
+      return {
+        id: `server-tool-${first.toolCallId}`,
+        role: "assistant",
+        content: "",
+        timestamp: first.recordedAt,
+        toolCalls: [tool],
+        blocks: [{ type: "tool", tool }],
+        isStreaming: false,
+      };
+    });
+
+    const restoredMessages = [...converted, ...syntheticTools].sort(
+      (left, right) => left.timestamp - right.timestamp
+    );
+
     set({
-      messages: converted,
+      messages: restoredMessages,
       isStreaming: false,
       currentAssistantId: null,
       queuedSteering: [],

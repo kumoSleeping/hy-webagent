@@ -19,6 +19,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { config } from "../config.js";
 import type { BotRepository } from "../bot/repository.js";
+import { parseServerToolActivity } from "../pi/server-tool-history.js";
 
 const log = createLogger("ws:chat");
 
@@ -31,7 +32,10 @@ interface WSMessage {
  * Search all user workspace dirs for a session file and extract message history.
  * Used for guest/view-only connections when the session isn't in memory.
  */
-async function findSessionHistoryOnDisk(piSessionId: string): Promise<any[] | null> {
+async function findSessionHistoryOnDisk(piSessionId: string): Promise<{
+  messages: any[];
+  serverToolActivities: ReturnType<typeof parseServerToolActivity>[];
+} | null> {
   try {
     const root = config.workspaceRoot;
     let userDirs: string[] = [];
@@ -49,15 +53,19 @@ async function findSessionHistoryOnDisk(piSessionId: string): Promise<any[] | nu
           const content = await readFile(filePath, "utf-8");
           const lines = content.trim().split("\n");
           const messages: any[] = [];
+          const serverToolActivities: NonNullable<ReturnType<typeof parseServerToolActivity>>[] = [];
           for (let i = 1; i < lines.length; i++) {
             try {
               const entry = JSON.parse(lines[i]);
               if (entry.type === "message" && entry.message) {
                 messages.push(entry.message);
+              } else if (entry.type === "custom" && entry.customType === "pi-web-server-tool:v1") {
+                const activity = parseServerToolActivity(entry.data);
+                if (activity) serverToolActivities.push(activity);
               }
             } catch {}
           }
-          return messages;
+          return { messages, serverToolActivities };
         }
       } catch {}
     }
@@ -453,8 +461,9 @@ export function handleChatWs(
     if (!sid) return;
     try {
       const messages = sessionManager.getMessages(sid);
+      const serverToolActivities = sessionManager.getServerToolActivities(sid);
       const agentRunning = sessionManager.isAgentRunning(sid);
-      send({ type: "chat:history", payload: { messages, agentRunning } });
+      send({ type: "chat:history", payload: { messages, serverToolActivities, agentRunning } });
       if (agentRunning) startLiveUiPush();
     } catch (err) {
       log.warn(`failed to send history: ${(err as Error).message}`);
@@ -576,10 +585,10 @@ export function handleChatWs(
       try {
         // Guest/view-only mode: search disk for session file across all workspaces
         if (isViewOnly) {
-          const messages = await findSessionHistoryOnDisk(piSessionId);
-          if (messages) {
-            send({ type: "chat:history", payload: { messages, agentRunning: false } });
-            log.info("guest history served from disk", { piSessionId, count: messages.length });
+          const history = await findSessionHistoryOnDisk(piSessionId);
+          if (history) {
+            send({ type: "chat:history", payload: { ...history, agentRunning: false } });
+            log.info("guest history served from disk", { piSessionId, count: history.messages.length });
             return;
           }
           send({ type: "chat:error", payload: { message: "Session not found or expired. Start a new chat." } });

@@ -85,7 +85,7 @@ describe("buildAssistantTurnView", () => {
     expect(answering.activeIndex).toBeNull();
   });
 
-  it("hides search narration before the last web tool and keeps the answer", () => {
+  it("keeps search narration in the process before the web tool", () => {
     const view = buildAssistantTurnView([
       assistant("a1", {
         content: "正在检索剧情资料。",
@@ -107,7 +107,10 @@ describe("buildAssistantTurnView", () => {
     ]);
 
     expect(view.texts).toEqual([{ key: "a3-text-0", text: "最终回答" }]);
-    expect(view.items).toHaveLength(1);
+    expect(view.items).toEqual([
+      { kind: "status", text: "正在检索剧情资料。" },
+      expect.objectContaining({ kind: "tool" }),
+    ]);
   });
 });
 

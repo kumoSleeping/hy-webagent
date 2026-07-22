@@ -127,12 +127,20 @@ export const ProcessTrace = memo(function ProcessTrace({
             if (item.kind === "tool") {
               return <ToolStep key={item.tool.toolCallId} toolCall={item.tool} isLive={isLive} />;
             }
+            if (item.kind === "status") {
+              return <ProcessStatusStep key={`status-${index}`} text={item.text} />;
+            }
             return <ThinkingStep key={`think-${index}`} text={item.text} isLive={isLive} />;
           })}
         </div>
       )}
     </div>
   );
+});
+
+const ProcessStatusStep = memo(function ProcessStatusStep({ text }: { text: string }) {
+  if (!text.trim()) return null;
+  return <div className="pi-process-step-status">{text.trim()}</div>;
 });
 
 const ThinkingStep = memo(function ThinkingStep({ text, isLive }: { text: string; isLive: boolean }) {

@@ -1,5 +1,5 @@
 import type { ChatMessage, ContentBlock } from "../types";
-import { groupBlocksForDisplay, type ActivityItem } from "./blockGrouping";
+import { groupBlocksForDisplay, type ActivityItem, type DisplayBlock } from "./blockGrouping";
 import { getToolCategory } from "./toolDisplay";
 
 /** One row in the chat feed after coalescing consecutive assistant turns. */
@@ -81,11 +81,11 @@ export function buildAssistantTurnView(messages: ChatMessage[]): AssistantTurnVi
     if (message.error?.trim()) errors.push(message.error.trim());
 
     const blocks = rawBlocks[messageIndex]!;
-    const visibleBlocks = lastWebToolIndex >= 0
-      ? blocks.filter((block, index) =>
-          block.type !== "text" || blockOffset + index > lastWebToolIndex
-        )
-      : blocks;
+    const visibleBlocks: DisplayBlock[] = blocks.map((block, index) =>
+      lastWebToolIndex >= 0 && block.type === "text" && blockOffset + index < lastWebToolIndex
+        ? { type: "process_text", text: block.text }
+        : block
+    );
     blockOffset += blocks.length;
     const units = groupBlocksForDisplay(visibleBlocks, !!message.isStreaming);
     for (const unit of units) {
