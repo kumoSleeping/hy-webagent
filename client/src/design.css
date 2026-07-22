@@ -251,6 +251,7 @@ body {
  * ========================================================== */
 .pi-process-trace {
   min-width: 0;
+  --pi-process-content-indent: 1.225rem;
 }
 .pi-disclosure-icon {
   width: 0.875rem;
@@ -322,19 +323,16 @@ body {
   opacity: 0.7;
 }
 .pi-process-step-text {
-  padding: 0.2rem 0 0.2rem 1.225rem;
-  color: var(--pi-text-body);
+  padding: 0.2rem 0 0.2rem var(--pi-process-content-indent);
+  color: var(--pi-muted);
   font-family: var(--pi-font);
   font-size: 0.875rem;
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
 }
-.pi-process-step-text--thinking {
-  color: var(--pi-muted);
-}
 .pi-process-step-state {
-  margin: 0.1rem 0 0.25rem 1.225rem;
+  margin: 0.1rem 0 0.25rem var(--pi-process-content-indent);
   color: var(--pi-muted);
   font-family: var(--pi-font-mono);
   font-size: 0.72rem;
@@ -345,7 +343,7 @@ body {
   color: #dc2626;
 }
 .pi-process-step-body {
-  margin: 0.15rem 0 0.35rem 1.15rem;
+  margin: 0.15rem 0 0.35rem var(--pi-process-content-indent);
   max-height: 16rem;
   overflow: auto;
   color: var(--pi-muted);
@@ -2494,6 +2492,14 @@ button.pi-panel-row.pi-panel-row--selected {
      keeps scrolling under the composer's empty flanks. */
   pointer-events: none;
   isolation: isolate;
+}
+.pi-interactive-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--pi-bg);
+  pointer-events: none;
 }
 .pi-interactive-shell > * { pointer-events: auto; }
 

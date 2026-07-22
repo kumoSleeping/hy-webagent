@@ -33,6 +33,6 @@ describe("measureComposerReserveHeight", () => {
     toolbar.getBoundingClientRect = () =>
       ({ top: 148, bottom: 180, left: 200, right: 400, width: 200, height: 32, x: 200, y: 148, toJSON: () => ({}) }) as DOMRect;
 
-    expect(measureComposerReserveHeight()).toBe(152);
+    expect(measureComposerReserveHeight()).toBe(168);
   });
 });

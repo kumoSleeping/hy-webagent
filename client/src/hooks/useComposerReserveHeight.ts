@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 const DEFAULT_RESERVE = 220;
+const COMPOSER_SAFE_GAP = 16;
 
 /**
  * Keep the composer and its attached toolbar clear at the bottom so the final
@@ -18,7 +19,7 @@ export function measureComposerReserveHeight(): number {
   const clearTop = toolbarRect && toolbarRect.height > 0
     ? Math.min(composerTop, toolbarRect.top)
     : composerTop;
-  return Math.ceil(shellRect.bottom - clearTop);
+  return Math.ceil(shellRect.bottom - clearTop + COMPOSER_SAFE_GAP);
 }
 
 /** Track live composer overlay height for message-feed paddingBottom. */

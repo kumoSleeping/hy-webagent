@@ -81,8 +81,8 @@ describe("buildAssistantTurnView", () => {
         timestamp: 20,
       }),
     ], true);
-    expect(answering.processActive).toBe(true);
-    expect(answering.activeIndex).toBe(answering.items.length - 1);
+    expect(answering.processActive).toBe(false);
+    expect(answering.activeIndex).toBeNull();
 
     const finished = buildAssistantTurnView([
       assistant("a1", { blocks: [{ type: "tool", tool: tool("t1") }], timestamp: 10 }),
@@ -135,7 +135,21 @@ describe("buildAssistantTurnView", () => {
 
     expect(view.items).toContainEqual({ kind: "status", text: "继续核实几条较新的头条报道。" });
     expect(view.texts).toEqual([{ key: "a2-text-0", text: "# 今日 AI 新闻速览" }]);
-    expect(view.processActive).toBe(true);
+    expect(view.processActive).toBe(false);
+  });
+
+  it("splits process narration from a Markdown heading in the same streamed block", () => {
+    const view = buildAssistantTurnView([
+      assistant("a1", {
+        content: "再核几条重点报道的细节。 # 今日 AI 新闻速览\n\n正文",
+        blocks: [{ type: "text", text: "再核几条重点报道的细节。 # 今日 AI 新闻速览\n\n正文" }],
+        isStreaming: true,
+      }),
+    ], true);
+
+    expect(view.items).toEqual([{ kind: "status", text: "再核几条重点报道的细节。" }]);
+    expect(view.texts).toEqual([{ key: "a1-text-1", text: "# 今日 AI 新闻速览\n\n正文" }]);
+    expect(view.processActive).toBe(false);
   });
 });
 

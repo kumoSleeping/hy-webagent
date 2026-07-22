@@ -5,7 +5,7 @@ import { ProcessTrace } from "./ProcessTrace";
 afterEach(() => vi.useRealTimers());
 
 describe("ProcessTrace", () => {
-  it("keeps status narration dark and renders thinking in muted grey", () => {
+  it("uses the same process styling for status narration and thinking", () => {
     render(
       <ProcessTrace
         items={[

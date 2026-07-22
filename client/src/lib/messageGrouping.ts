@@ -51,6 +51,16 @@ export type AssistantTurnView = {
   exportMessage: ChatMessage;
 };
 
+function splitProcessPreamble(text: string): { processText: string; answerText: string } | null {
+  const boundary = /(?:^|[\r\n]|[。！？.!?]\s+)(?=#{1,6}[ \t]+|```(?:summary)?\b)/m.exec(text);
+  if (!boundary) return null;
+  const answerStart = boundary.index + boundary[0].length;
+  if (answerStart === 0) return null;
+  const processText = text.slice(0, answerStart).trim();
+  const answerText = text.slice(answerStart).trimStart();
+  return processText && answerText ? { processText, answerText } : null;
+}
+
 /**
  * Flatten consecutive assistant messages into one Working process + answer texts.
  */
@@ -83,14 +93,23 @@ export function buildAssistantTurnView(
   }
   let blockOffset = 0;
   const displayBlocks = rawBlocks.map((blocks, messageIndex) => {
-    const mapped: DisplayBlock[] = blocks.map((block, index) =>
-      block.type === "text" && (
+    const mapped = blocks.flatMap<DisplayBlock>((block, index) => {
+      if (block.type !== "text") return [block];
+      const belongsToProcess =
         messageIndex < finalTextMessageIndex ||
-        (lastToolIndex >= 0 && blockOffset + index < lastToolIndex)
-      )
-        ? { type: "process_text", text: block.text }
-        : block
-    );
+        (lastToolIndex >= 0 && blockOffset + index < lastToolIndex);
+      if (belongsToProcess) return [{ type: "process_text", text: block.text }];
+      if (messageIndex === finalTextMessageIndex) {
+        const split = splitProcessPreamble(block.text);
+        if (split) {
+          return [
+            { type: "process_text", text: split.processText },
+            { type: "text", text: split.answerText },
+          ];
+        }
+      }
+      return [block];
+    });
     blockOffset += blocks.length;
     return mapped;
   });
@@ -129,10 +148,9 @@ export function buildAssistantTurnView(
     items.push({ kind: "thinking", text: "" });
   }
 
-  // Assistant messages end before their tools execute. Keep one continuous
-  // process alive for the surrounding agent run instead of folding/restarting
-  // at every assistant_end → tool → assistant_start boundary.
-  const processActive = isStreaming && items.length > 0;
+  // The process timer stops when final answer text begins. ProcessTrace keeps
+  // its own expansion state, so stopping the timer never auto-collapses it.
+  const processActive = isStreaming && items.length > 0 && texts.length === 0;
   const activeIndex = processActive && items.length > 0 ? items.length - 1 : null;
 
   const exportMessage =
