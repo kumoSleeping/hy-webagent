@@ -213,29 +213,31 @@ body {
   overflow: visible;
 }
 
-/* Spacing between mixed content inside assistant bubbles */
+/* Spacing between mixed content inside assistant bubbles.
+   Keep activity (thinking ↔ tools) tight — badge hang uses the bubble
+   gutter, so cards must not reserve a second empty pt-8 band. */
 .pi-message-dialog-assistant .pi-thinking-block {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.35rem;
 }
 .pi-message-dialog-assistant .pi-tool-call,
 .pi-message-dialog-assistant .pi-tool-group {
-  margin-block: 1rem;
+  margin-block: 0.45rem;
 }
 .pi-message-dialog-assistant .pi-tool-call:first-child,
 .pi-message-dialog-assistant .pi-tool-group:first-child {
-  margin-top: 0.35rem;
+  margin-top: 0.2rem;
 }
 .pi-message-dialog-assistant .pi-tool-call:last-child,
 .pi-message-dialog-assistant .pi-tool-group:last-child {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 .pi-message-dialog-assistant .pi-markdown + .pi-tool-call,
 .pi-message-dialog-assistant .pi-markdown + .pi-tool-group {
-  margin-top: 1.5rem;
+  margin-top: 0.85rem;
 }
 .pi-message-dialog-assistant .pi-tool-call + .pi-markdown,
 .pi-message-dialog-assistant .pi-tool-group + .pi-markdown {
-  margin-top: 0.5rem;
+  margin-top: 0.45rem;
 }
 .pi-message-dialog-assistant .pi-markdown > :first-child {
   margin-top: 0;
@@ -1996,7 +1998,7 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-markdown .pi-md-feature,
 .pi-tool-feature {
   position: relative;
-  margin: 1.35rem 0 1.1rem;
+  margin: 0.85rem 0 0.65rem;
   padding: 0;
   overflow: visible;
 }
@@ -2044,7 +2046,7 @@ button.pi-panel-row.pi-panel-row--selected {
 
 /* Tool / API call cards — same hang as Summary */
 .pi-tool-feature {
-  margin-block: 1rem;
+  margin-block: 0.45rem;
 }
 .pi-tool-feature-body {
   border: 1px solid var(--pi-line);
@@ -2055,6 +2057,10 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-message-dialog-assistant .pi-tool-group .pi-tool-feature {
   margin-block: 0;
+}
+.pi-tool-group-body {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
 }
 
 /* Legacy class aliases kept so older markup / tests don't flash unstyled. */

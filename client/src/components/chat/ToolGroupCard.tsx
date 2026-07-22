@@ -47,7 +47,7 @@ export const ToolGroupCard = memo(function ToolGroupCard({ items, toolCount, cat
       <div className="pi-tool-feature-body">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex w-full items-center gap-2.5 px-4 pt-8 pb-2.5 text-left text-sm hover:bg-white transition-colors cursor-pointer"
+          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white transition-colors cursor-pointer"
         >
           <span className="min-w-0 flex-1 text-[var(--pi-text-body)] leading-snug truncate font-mono">
             {summary}
@@ -61,7 +61,7 @@ export const ToolGroupCard = memo(function ToolGroupCard({ items, toolCount, cat
         </button>
 
         {expanded && (
-          <div className="pi-tool-group-body border-t border-[var(--pi-line)] px-4 py-3 space-y-2.5 bg-white">
+          <div className="pi-tool-group-body border-t border-[var(--pi-line)] px-3 py-2 space-y-1.5 bg-white">
             {items.map((item, i) =>
               item.kind === "tool" ? (
                 <ToolCallCard key={item.tool.toolCallId} toolCall={item.tool} />
