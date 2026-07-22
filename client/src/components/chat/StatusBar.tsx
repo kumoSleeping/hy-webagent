@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useSessionStore } from "../../stores/sessionStore";
 import { useStatusBarStore, splitWidgetLine } from "../../stores/statusBarStore";
 
 const NBSP = "\u00A0";
@@ -44,7 +43,6 @@ export function ExtensionWidgetPanel() {
 
 /** Native pi footer + below-editor widgets — fixed row slots prevent composer jump. */
 export function StatusBar() {
-  const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
   const footer = useStatusBarStore((s) => s.footer);
   const belowEditor = useStatusBarStore(useShallow((s) => s.widgets.belowEditor ?? {}));
 
@@ -55,8 +53,6 @@ export function StatusBar() {
     }
     return null;
   }, [belowEditor]);
-
-  if (!activePiSessionId) return null;
 
   return (
     <div className="pi-status-bar-stack" aria-live="polite">

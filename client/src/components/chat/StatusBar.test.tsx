@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
-import { ExtensionWidgetPanel } from "./StatusBar";
+import { ExtensionWidgetPanel, StatusBar } from "./StatusBar";
 import { useStatusBarStore } from "../../stores/statusBarStore";
 
 function setAbove(aboveEditor: Record<string, string[]>) {
@@ -44,5 +44,18 @@ describe("ExtensionWidgetPanel", () => {
     // interior blank preserved (rendered as NBSP placeholder)
     expect(lines[1]!.textContent).toBe("\u00A0");
     expect(lines[2]!.textContent).toBe("B");
+  });
+});
+
+describe("StatusBar", () => {
+  beforeEach(() => {
+    useStatusBarStore.getState().clear();
+  });
+
+  it("keeps all reserved rows mounted before session data arrives", () => {
+    const { container } = render(<StatusBar />);
+
+    expect(container.querySelector(".pi-status-bar-stack")).not.toBeNull();
+    expect(container.querySelectorAll(".pi-status-bar")).toHaveLength(4);
   });
 });
