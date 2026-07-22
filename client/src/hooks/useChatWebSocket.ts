@@ -149,11 +149,19 @@ function dispatchWsMessage(
         useNotificationStore.getState().notify(msg.payload.message, "info");
       }
       break;
-    case "chat:error":
+    case "chat:error": {
       console.error("Chat error:", msg.payload.message);
+      const errorText = typeof msg.payload?.message === "string" && msg.payload.message.trim()
+        ? msg.payload.message.trim()
+        : "Chat error";
+      const errorMessageId = typeof msg.payload?.messageId === "string"
+        ? msg.payload.messageId
+        : store().currentAssistantId;
+      if (errorMessageId) store().setAssistantError(errorMessageId, errorText);
       store().setStreaming(false);
-      useNotificationStore.getState().notify(msg.payload.message || "Chat error", "info");
+      useNotificationStore.getState().notify(errorText, "info");
       break;
+    }
     case "chat:queue_update": {
       const steering: string[] = Array.isArray(msg.payload?.steering) ? msg.payload.steering : [];
       const followUp: string[] = Array.isArray(msg.payload?.followUp) ? msg.payload.followUp : [];

@@ -13,6 +13,7 @@ import { applyTurnUsage, budgetExceededMessage, isBudgetExceeded } from "../usag
 import { applySidecarToolUsage, isSidecarToolName } from "../usage/sidecar-usage.js";
 import { budgetSnapshot } from "../auth.js";
 import { toolResultToText } from "./tool-result-text.js";
+import { summarizeProviderError } from "../lib/provider-error.js";
 import { findSessionFilePath } from "../pi/session-files.js";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -228,6 +229,10 @@ export function handleChatWs(
             }
           }
           send({ type: "chat:assistant_end", payload: { messageId } });
+          if (evt.message.stopReason === "error" || evt.message.errorMessage) {
+            const message = summarizeProviderError(evt.message.errorMessage || "Request failed");
+            send({ type: "chat:error", payload: { message, messageId } });
+          }
           if (activeAssistantMessageId === messageId) activeAssistantMessageId = undefined;
         }
         break;
@@ -506,6 +511,10 @@ export function handleChatWs(
                   }
                 }
                 send({ type: "chat:assistant_end", payload: { messageId } });
+                if (message.stopReason === "error" || message.errorMessage) {
+                  const errText = summarizeProviderError(message.errorMessage || "Request failed");
+                  send({ type: "chat:error", payload: { message: errText, messageId } });
+                }
                 if (guestAssistantMessageId === messageId) guestAssistantMessageId = undefined;
               } else if (message?.role === "user") {
                 send({ type: "chat:user_message", payload: { message, phase: "end" } });

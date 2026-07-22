@@ -226,6 +226,14 @@ body {
 .pi-message-dialog-assistant .pi-process-trace + .pi-markdown {
   margin-top: 0.25rem;
 }
+.pi-message-error {
+  margin-top: 0.35rem;
+  color: var(--pi-theme);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .pi-message-dialog-assistant .pi-markdown > :first-child {
   margin-top: 0;
 }

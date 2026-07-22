@@ -59,6 +59,7 @@ describe("buildAssistantTurnView", () => {
     ]);
     expect(view.items).toHaveLength(3);
     expect(view.texts).toEqual([{ key: "a3-text-0", text: "answer" }]);
+    expect(view.errors).toEqual([]);
     expect(view.processActive).toBe(false);
     expect(view.durationMs).toBe(12_000);
   });

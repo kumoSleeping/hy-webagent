@@ -111,7 +111,10 @@ function AssistantTurnBubble({ messages }: { messages: ChatMessage[] }) {
 
   const turn = useMemo(() => buildAssistantTurnView(messages), [messages]);
   const exportText = useMemo(() => {
-    const parts = turn.texts.map((t) => t.text.trim()).filter(Boolean);
+    const parts = [
+      ...turn.texts.map((t) => t.text.trim()).filter(Boolean),
+      ...turn.errors,
+    ];
     if (parts.length > 0) return parts.join("\n\n");
     return messageExportText(turn.exportMessage);
   }, [turn]);
@@ -122,6 +125,7 @@ function AssistantTurnBubble({ messages }: { messages: ChatMessage[] }) {
     turn.images.length > 0 ||
     turn.items.length > 0 ||
     turn.texts.length > 0 ||
+    turn.errors.length > 0 ||
     turn.isStreaming;
 
   if (!hasVisibleContent) return null;
@@ -144,6 +148,11 @@ function AssistantTurnBubble({ messages }: { messages: ChatMessage[] }) {
         )}
         {turn.texts.map((t) => (
           <TextBlock key={t.key} text={t.text} />
+        ))}
+        {turn.errors.map((error, index) => (
+          <div key={`error-${index}`} className="pi-message-error" role="alert">
+            {error}
+          </div>
         ))}
       </GlassPanel>
       {rendering && <span className="pi-message-exporting" title="正在生成图片"><LoaderCircle size={15} /></span>}

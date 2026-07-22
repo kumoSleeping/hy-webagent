@@ -40,6 +40,8 @@ export type AssistantTurnView = {
   items: ActivityItem[];
   texts: { key: string; text: string }[];
   images: NonNullable<ChatMessage["images"]>;
+  /** Provider/API failures attached to any message in the turn. */
+  errors: string[];
   isStreaming: boolean;
   processActive: boolean;
   activeIndex: number | null;
@@ -56,11 +58,13 @@ export function buildAssistantTurnView(messages: ChatMessage[]): AssistantTurnVi
   const items: ActivityItem[] = [];
   const texts: { key: string; text: string }[] = [];
   const images: NonNullable<ChatMessage["images"]> = [];
+  const errors: string[] = [];
   let isStreaming = false;
 
   for (const message of messages) {
     if (message.isStreaming) isStreaming = true;
     if (message.images?.length) images.push(...message.images);
+    if (message.error?.trim()) errors.push(message.error.trim());
 
     const blocks = resolveBlocks(message);
     const units = groupBlocksForDisplay(blocks, !!message.isStreaming);
@@ -102,8 +106,12 @@ export function buildAssistantTurnView(messages: ChatMessage[]): AssistantTurnVi
   const activeIndex = processActive && items.length > 0 ? items.length - 1 : null;
 
   const exportMessage =
-    [...messages].reverse().find((m) => m.content.trim() || (m.blocks?.some((b) => b.type === "text" && b.text.trim()))) ??
-    messages[messages.length - 1]!;
+    [...messages].reverse().find(
+      (m) =>
+        m.content.trim() ||
+        m.error?.trim() ||
+        (m.blocks?.some((b) => b.type === "text" && b.text.trim()))
+    ) ?? messages[messages.length - 1]!;
 
   const startedAt = messages[0]?.timestamp ?? null;
   const endedAt = messages[messages.length - 1]?.timestamp ?? null;
@@ -112,7 +120,7 @@ export function buildAssistantTurnView(messages: ChatMessage[]): AssistantTurnVi
       ? Math.max(0, endedAt - startedAt)
       : null;
 
-  return { items, texts, images, isStreaming, processActive, activeIndex, durationMs, exportMessage };
+  return { items, texts, images, errors, isStreaming, processActive, activeIndex, durationMs, exportMessage };
 }
 
 function resolveBlocks(message: ChatMessage): ContentBlock[] {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ChatMessage, ChatImageAttachment, ContentBlock, ToolCallRecord } from "../types";
 import { formatToolContent, isGarbageToolOutput } from "../lib/toolDisplay";
+import { summarizeProviderError } from "../lib/providerError";
 import {
   fileNameFromAttachmentTags,
   parseHistoryImagePart,
@@ -16,6 +17,7 @@ function arraysEqual(a: string[], b: string[]): boolean {
 }
 
 function isBlankAssistantPayload(m: ChatMessage): boolean {
+  if (m.error?.trim()) return false;
   if (m.images?.length) return false;
   if (m.content.trim()) return false;
   if (m.blocks?.length) return false;
@@ -58,6 +60,8 @@ interface ChatState {
   finishAssistantMessage: (msgId: string) => void;
   /** Close one SDK assistant message without ending the surrounding agent run. */
   finishAssistantTurn: (msgId: string) => void;
+  /** Attach a provider/API failure to an assistant bubble so it is not dropped as empty. */
+  setAssistantError: (msgId: string, error: string) => void;
   /** Close the surrounding agent run and clean up any empty event placeholders. */
   finishAgentRun: () => void;
   setStreaming: (v: boolean) => void;
@@ -362,6 +366,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
+  setAssistantError: (msgId, error) => {
+    const text = error.trim();
+    if (!text) return;
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === msgId ? { ...m, error: text, isStreaming: false } : m
+      ),
+    }));
+  },
+
   finishAgentRun: () => {
     const markDone = (tc: ToolCallRecord): ToolCallRecord =>
       tc.status === "running" ? { ...tc, status: "done" as const } : tc;
@@ -535,6 +549,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         blocks: blocks.length > 0 ? blocks : undefined,
         images: images.length > 0 ? images : undefined,
         isStreaming: false,
+        error:
+          role === "assistant" && (m.stopReason === "error" || m.errorMessage)
+            ? summarizeProviderError(m.errorMessage || "Request failed")
+            : undefined,
       };
 
       // Preserve the SDK message boundary. A single agent run often contains

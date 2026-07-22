@@ -57,6 +57,8 @@ export interface ChatMessage {
   /** Vision attachments on user messages */
   images?: ChatImageAttachment[];
   isStreaming?: boolean;
+  /** Provider/API failure summarized for display (empty-content error turns). */
+  error?: string;
 }
 
 export interface ToolCallRecord {
