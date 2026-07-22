@@ -3,9 +3,8 @@ import { createPortal } from "react-dom";
 import { Clipboard, ImageDown, LoaderCircle } from "lucide-react";
 import type { ChatMessage } from "../../types";
 import { GlassPanel } from "../common/GlassPanel";
-import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard } from "./ToolCallCard";
-import { ToolGroupCard } from "./ToolGroupCard";
+import { ProcessTrace } from "./ProcessTrace";
 import { groupBlocksForDisplay } from "../../lib/blockGrouping";
 import { MarkdownContent } from "./MarkdownContent";
 import { splitTextWithMarkers } from "../../lib/compressedText";
@@ -123,17 +122,13 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
   // right now or was just replayed from history — grouping/collapsing is
   // always recomputed from the raw blocks, never a one-off side effect.
   const units = useMemo(() => groupBlocksForDisplay(blocks ?? [], isStreaming), [blocks, isStreaming]);
-  const visibleUnits = useMemo(
-    () => isPreviewMode ? units.filter((unit) => unit.kind !== "thinking") : units,
-    [isPreviewMode, units],
-  );
 
   const hasLegacyTools = !blocks && (message.toolCalls?.length ?? 0) > 0;
   const hasImages = (message.images?.length ?? 0) > 0;
   const hasVisibleContent =
     hasImages ||
     hasLegacyTools ||
-    visibleUnits.length > 0 ||
+    units.length > 0 ||
     Boolean(message.content?.trim());
 
   if (!isUser && !isStreaming && !hasVisibleContent) return null;
@@ -144,18 +139,21 @@ export const MessageBubble = memo(function MessageBubble({ message }: MessageBub
         {message.images && message.images.length > 0 && (
           <MessageImages images={message.images} />
         )}
-        {visibleUnits.length > 0
-          ? visibleUnits.map((u) => {
+        {units.length > 0
+          ? units.map((u) => {
               switch (u.kind) {
                 case "text":
                   return <TextBlock key={u.key} text={u.text} isUser={isUser} />;
-                case "thinking":
-                  if (isPreviewMode) return null;
-                  return <ThinkingBlock key={u.key} content={u.text} isActive={u.isActive} />;
-                case "tool":
-                  return <ToolCallCard key={u.key} toolCall={u.tool} />;
                 case "activity":
-                  return <ToolGroupCard key={u.key} items={u.items} toolCount={u.toolCount} category={u.category} />;
+                  return (
+                    <ProcessTrace
+                      key={u.key}
+                      items={u.items}
+                      isActive={u.isActive}
+                      activeIndex={u.activeIndex}
+                      hideThinking={isPreviewMode}
+                    />
+                  );
               }
             })
           : message.content ? (

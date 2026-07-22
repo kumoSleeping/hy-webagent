@@ -15,7 +15,7 @@ export function MessageFeed() {
   const composerReserve = useComposerReserveHeight([messages, isStreaming]);
 
   // Catch every streaming delta — ResizeObserver alone misses growth that
-  // happens inside capped inner scroll areas (e.g. ThinkingBlock max-h-80)
+  // happens inside capped inner scroll areas (e.g. process-step body)
   // and can lag one frame behind rapid text updates.
   useLayoutEffect(() => {
     scrollToBottom();

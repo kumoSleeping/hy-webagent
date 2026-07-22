@@ -214,42 +214,130 @@ body {
 }
 
 /* Spacing between mixed content inside assistant bubbles */
-.pi-message-dialog-assistant .pi-thinking-block {
-  margin-bottom: 0.2rem;
+.pi-message-dialog-assistant .pi-process-trace {
+  margin-bottom: 0.35rem;
 }
-.pi-message-dialog-assistant .pi-tool-call,
-.pi-message-dialog-assistant .pi-tool-group {
-  margin-block: 0.35rem;
+.pi-message-dialog-assistant .pi-process-trace:last-child {
+  margin-bottom: 0.65rem;
 }
-.pi-message-dialog-assistant .pi-tool-call:first-child,
-.pi-message-dialog-assistant .pi-tool-group:first-child {
-  margin-top: 0.25rem;
-}
-.pi-message-dialog-assistant .pi-tool-call:last-child,
-.pi-message-dialog-assistant .pi-tool-group:last-child {
-  margin-bottom: 0.85rem;
-}
-.pi-message-dialog-assistant .pi-markdown + .pi-tool-call,
-.pi-message-dialog-assistant .pi-markdown + .pi-tool-group {
+.pi-message-dialog-assistant .pi-markdown + .pi-process-trace {
   margin-top: 0.65rem;
 }
-.pi-message-dialog-assistant .pi-tool-call + .pi-markdown,
-.pi-message-dialog-assistant .pi-tool-group + .pi-markdown {
-  margin-top: 0.35rem;
-}
-.pi-message-dialog-assistant .pi-thinking-block + .pi-tool-call,
-.pi-message-dialog-assistant .pi-thinking-block + .pi-tool-group {
-  margin-top: 0.2rem;
+.pi-message-dialog-assistant .pi-process-trace + .pi-markdown {
+  margin-top: 0.25rem;
 }
 .pi-message-dialog-assistant .pi-markdown > :first-child {
   margin-top: 0;
 }
-/* Tool cards nested inside an expanded group manage their own rhythm via
-   .pi-tool-group-body's spacing — reset the message-level margins so they
-   don't stack on top of that (this selector is more specific, so it wins
-   regardless of source order). */
-.pi-message-dialog-assistant .pi-tool-group .pi-tool-call {
-  margin-block: 0;
+
+/* ============================================================
+ * Working process — compact grey text chain (thinking + tools)
+ * ========================================================== */
+.pi-process-trace {
+  min-width: 0;
+}
+.pi-process-trace-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0;
+  border: none;
+  background: transparent;
+  color: var(--pi-muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.pi-process-trace-toggle:hover {
+  color: var(--pi-text);
+}
+.pi-process-trace-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-top: 0.15rem;
+  padding-left: 0.15rem;
+}
+.pi-process-step {
+  min-width: 0;
+}
+.pi-process-step-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.1rem 0;
+  border: none;
+  background: transparent;
+  color: var(--pi-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.pi-process-step-toggle:hover {
+  color: var(--pi-text);
+}
+.pi-process-step-label {
+  flex-shrink: 0;
+  font-family: var(--pi-font-mono);
+  opacity: 0.85;
+}
+.pi-process-step-summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--pi-font-mono);
+  opacity: 0.75;
+}
+.pi-process-step-live {
+  flex-shrink: 0;
+  font-family: var(--pi-font-mono);
+  opacity: 0.7;
+}
+.pi-process-step-body {
+  margin: 0.15rem 0 0.35rem 1.15rem;
+  max-height: 16rem;
+  overflow: auto;
+  color: var(--pi-muted);
+  font-family: var(--pi-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.pi-process-step-body--tool {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: none;
+}
+.pi-process-step-meta {
+  margin: 0 0 0.25rem;
+  color: var(--pi-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.pi-process-step-output {
+  max-height: 12rem;
+  overflow: auto;
+  color: var(--pi-muted);
+  font-family: var(--pi-font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.pi-process-step-output--error {
+  color: #dc2626;
 }
 
 /* ============================================================
