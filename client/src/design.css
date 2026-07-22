@@ -1347,11 +1347,11 @@ body {
   0%, 100% { transform: scaleY(0.32); }
   50% { transform: scaleY(1); }
 }
-/* Badge center = composer shell top-left corner point. */
+/* Badge center = outer top-left corner of the composer shell border. */
 .pi-composer-working--shell {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: calc(-1 * var(--pi-composer-border, 1px));
+  left: calc(-1 * var(--pi-composer-border, 1px));
   transform: translate(-50%, -50%);
   z-index: 51;
 }
