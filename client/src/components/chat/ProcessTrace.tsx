@@ -129,7 +129,6 @@ export const ProcessTrace = memo(function ProcessTrace({
             return (
               <ProcessTextStep
                 key={`${item.kind}-${index}`}
-                kind={item.kind}
                 text={item.text}
                 isLive={isLive}
               />
@@ -142,11 +141,9 @@ export const ProcessTrace = memo(function ProcessTrace({
 });
 
 const ProcessTextStep = memo(function ProcessTextStep({
-  kind,
   text,
   isLive,
 }: {
-  kind: "thinking";
   text: string;
   isLive: boolean;
 }) {
@@ -168,7 +165,7 @@ const ProcessTextStep = memo(function ProcessTextStep({
   }
 
   return (
-    <div className={`pi-process-step-text pi-process-step-text--${kind}`}>
+    <div className="pi-process-step-text pi-process-step-text--thinking">
       {text.trim()}
     </div>
   );

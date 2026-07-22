@@ -33,6 +33,7 @@ export const GROK_SERVER_TOOL_ENTRY = "pi-web-server-tool:v1";
 
 function isGrokModel(model?: { id?: string; provider?: string } | null): boolean {
   if (!model) return false;
+  if (process.env.PI_GROK_STANDARD_TOOLS === "1") return false;
   return !!(model.id?.includes("grok") || model.provider === "xai");
 }
 
@@ -184,7 +185,8 @@ async function sniffSse(body: ReadableStream<Uint8Array>, registration: SinkRegi
     if (!desc) return;
     const mark = phase === "start" ? "→" : "✓";
     const line = `${mark} ${desc}`;
-    const key = `${phase}:${desc}`;
+    const itemId = String(item.id || item.call_id || desc);
+    const key = `${phase}:${itemId}`;
     if (seen.has(key)) return;
     seen.add(key);
 
@@ -195,7 +197,7 @@ async function sniffSse(body: ReadableStream<Uint8Array>, registration: SinkRegi
     try {
       const rawType = String(item.type || "server_tool");
       const toolName = rawType.endsWith("_call") ? rawType.slice(0, -"_call".length) : rawType;
-      const toolCallId = String(item.id || item.call_id || `${toolName}:${desc}`);
+      const toolCallId = itemId;
       const action = item.action && typeof item.action === "object"
         ? item.action as Record<string, unknown>
         : {};

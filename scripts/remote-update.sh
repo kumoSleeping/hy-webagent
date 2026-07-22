@@ -35,6 +35,12 @@ set -e
 cd ${APP_ROOT}
 echo "==> git pull"
 git pull origin main
+echo "==> route Sorux through PI built-in xAI provider"
+node scripts/migrate-sorux-provider-to-xai.mjs /root/.pi/agent
+for agent_dir in /opt/hy-webagent/workspaces/*/.pi/agent; do
+  [[ -d "\$agent_dir" ]] || continue
+  node scripts/migrate-sorux-provider-to-xai.mjs "\$agent_dir"
+done
 echo "==> install deps"
 npm run install:all
 echo "==> ensure host npm:pi-subagents"

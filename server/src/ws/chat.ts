@@ -78,6 +78,17 @@ async function findSessionHistoryOnDisk(piSessionId: string): Promise<{
 const HEARTBEAT_INTERVAL_MS = 30_000;  // Send ping every 30s
 const HEARTBEAT_TIMEOUT_MS = 10_000;    // Client has 10s to respond with pong
 
+function assistantTextSignatures(message: any): Record<string, string> {
+  const signatures: Record<string, string> = {};
+  if (!Array.isArray(message?.content)) return signatures;
+  message.content.forEach((part: any, contentIndex: number) => {
+    if (part?.type === "text" && typeof part.textSignature === "string") {
+      signatures[String(contentIndex)] = part.textSignature;
+    }
+  });
+  return signatures;
+}
+
 export function handleChatWs(
   ws: WebSocket,
   sessionManager: PISessionManager,
@@ -141,10 +152,10 @@ export function handleChatWs(
         const messageId = assistantMessageId((event as any).message);
         activeAssistantMessageId = messageId;
         if (ame.type === "text_delta" && ame.delta) {
-          send({ type: "chat:text_delta", payload: { messageId, delta: ame.delta } });
+          send({ type: "chat:text_delta", payload: { messageId, contentIndex: ame.contentIndex, delta: ame.delta } });
         }
         if (ame.type === "thinking_delta" && ame.delta) {
-          send({ type: "chat:thinking_delta", payload: { messageId, delta: ame.delta } });
+          send({ type: "chat:thinking_delta", payload: { messageId, contentIndex: ame.contentIndex, delta: ame.delta } });
         }
         break;
       }
@@ -236,7 +247,14 @@ export function handleChatWs(
               }
             }
           }
-          send({ type: "chat:assistant_end", payload: { messageId } });
+          send({
+            type: "chat:assistant_end",
+            payload: {
+              messageId,
+              stopReason: evt.message.stopReason,
+              textSignatures: assistantTextSignatures(evt.message),
+            },
+          });
           if (evt.message.stopReason === "error" || evt.message.errorMessage) {
             const message = summarizeProviderError(evt.message.errorMessage || "Request failed");
             send({ type: "chat:error", payload: { message, messageId } });
@@ -503,10 +521,10 @@ export function handleChatWs(
               const messageId = guestMessageId((evt as any).message);
               guestAssistantMessageId = messageId;
               if (ame?.type === "text_delta" && ame.delta) {
-                send({ type: "chat:text_delta", payload: { messageId, delta: ame.delta } });
+                send({ type: "chat:text_delta", payload: { messageId, contentIndex: ame.contentIndex, delta: ame.delta } });
               }
               if (ame?.type === "thinking_delta" && ame.delta) {
-                send({ type: "chat:thinking_delta", payload: { messageId, delta: ame.delta } });
+                send({ type: "chat:thinking_delta", payload: { messageId, contentIndex: ame.contentIndex, delta: ame.delta } });
               }
               break;
             }
@@ -519,7 +537,14 @@ export function handleChatWs(
                     if (part?.type === "toolCall" && part.id) guestToolOwners.set(String(part.id), messageId);
                   }
                 }
-                send({ type: "chat:assistant_end", payload: { messageId } });
+                send({
+                  type: "chat:assistant_end",
+                  payload: {
+                    messageId,
+                    stopReason: message.stopReason,
+                    textSignatures: assistantTextSignatures(message),
+                  },
+                });
                 if (message.stopReason === "error" || message.errorMessage) {
                   const errText = summarizeProviderError(message.errorMessage || "Request failed");
                   send({ type: "chat:error", payload: { message: errText, messageId } });

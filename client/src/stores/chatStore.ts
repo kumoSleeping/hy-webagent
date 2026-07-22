@@ -53,15 +53,19 @@ interface ChatState {
   /** Show the user's turn immediately (with images) before the server echoes it. */
   appendOptimisticUserMessage: (content: string, images?: ChatImageAttachment[]) => void;
   startAssistantMessage: (serverId?: string) => string;
-  appendTextDelta: (msgId: string, delta: string) => void;
-  appendThinkingDelta: (msgId: string, delta: string) => void;
+  appendTextDelta: (msgId: string, delta: string, contentIndex?: number) => void;
+  appendThinkingDelta: (msgId: string, delta: string, contentIndex?: number) => void;
   addToolCall: (msgId: string, tool: ToolCallRecord) => void;
   updateToolCall: (msgId: string, toolCallId: string, output: string) => void;
   endToolCall: (msgId: string, toolCallId: string, isError: boolean, details?: unknown, outputFromEnd?: string) => void;
   finalizeRunningToolCalls: (msgId: string) => void;
   finishAssistantMessage: (msgId: string) => void;
   /** Close one SDK assistant message without ending the surrounding agent run. */
-  finishAssistantTurn: (msgId: string) => void;
+  finishAssistantTurn: (
+    msgId: string,
+    stopReason?: string,
+    textSignatures?: Record<string, string>,
+  ) => void;
   /** Attach a provider/API failure to an assistant bubble so it is not dropped as empty. */
   setAssistantError: (msgId: string, error: string) => void;
   /** Close the surrounding agent run and clean up any empty event placeholders. */
@@ -245,17 +249,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return id;
   },
 
-  appendTextDelta: (msgId, delta) => {
+  appendTextDelta: (msgId, delta, contentIndex) => {
     set((s) => ({
       messages: s.messages.map((m) => {
         if (m.id !== msgId) return m;
         const blocks = m.blocks ?? [];
-        const last = blocks.at(-1);
-        // extend last text block if it exists, else push new one
-        if (last && last.type === "text") {
-          return { ...m, content: m.content + delta, blocks: [...blocks.slice(0, -1), { type: "text", text: last.text + delta }] };
+        const target = contentIndex == null
+          ? blocks.length - 1
+          : blocks.findIndex((block) => block.contentIndex === contentIndex);
+        const existing = target >= 0 ? blocks[target] : undefined;
+        if (existing?.type === "text") {
+          const nextBlocks = [...blocks];
+          nextBlocks[target] = { ...existing, text: existing.text + delta };
+          return { ...m, content: m.content + delta, blocks: nextBlocks };
         }
-        return { ...m, content: m.content + delta, blocks: [...blocks, { type: "text", text: delta }] };
+        const nextBlocks = [...blocks, {
+          type: "text" as const,
+          text: delta,
+          ...(contentIndex == null ? {} : { contentIndex }),
+        }]
+          .sort((left, right) => (left.contentIndex ?? Number.MAX_SAFE_INTEGER) - (right.contentIndex ?? Number.MAX_SAFE_INTEGER));
+        return { ...m, content: m.content + delta, blocks: nextBlocks };
       }),
     }));
   },
@@ -264,16 +278,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // "thinking → tool → thinking → tool → text" turn renders (and later
   // regroups) in the order it actually happened instead of being hoisted
   // to the top of the message as one lump.
-  appendThinkingDelta: (msgId, delta) => {
+  appendThinkingDelta: (msgId, delta, contentIndex) => {
     set((s) => ({
       messages: s.messages.map((m) => {
         if (m.id !== msgId) return m;
         const blocks = m.blocks ?? [];
-        const last = blocks.at(-1);
-        if (last && last.type === "thinking") {
-          return { ...m, blocks: [...blocks.slice(0, -1), { type: "thinking", text: last.text + delta }] };
+        const target = contentIndex == null
+          ? blocks.length - 1
+          : blocks.findIndex((block) => block.contentIndex === contentIndex);
+        const existing = target >= 0 ? blocks[target] : undefined;
+        if (existing?.type === "thinking") {
+          const nextBlocks = [...blocks];
+          nextBlocks[target] = { ...existing, text: existing.text + delta };
+          return { ...m, blocks: nextBlocks };
         }
-        return { ...m, blocks: [...blocks, { type: "thinking", text: delta }] };
+        const nextBlocks = [...blocks, {
+          type: "thinking" as const,
+          text: delta,
+          ...(contentIndex == null ? {} : { contentIndex }),
+        }]
+          .sort((left, right) => (left.contentIndex ?? Number.MAX_SAFE_INTEGER) - (right.contentIndex ?? Number.MAX_SAFE_INTEGER));
+        return { ...m, blocks: nextBlocks };
       }),
     }));
   },
@@ -300,7 +325,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ),
           blocks: (m.blocks ?? []).map((b) =>
             b.type === "tool" && b.tool.toolCallId === toolCallId
-              ? { type: "tool", tool: { ...b.tool, output } }
+              ? { ...b, tool: { ...b.tool, output } }
               : b
           ),
         } : m
@@ -335,7 +360,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           toolCalls: m.toolCalls?.map(mergeTool),
           blocks: (m.blocks ?? []).map((b) =>
             b.type === "tool" && b.tool.toolCallId === toolCallId
-              ? { type: "tool", tool: mergeTool(b.tool) }
+              ? { ...b, tool: mergeTool(b.tool) }
               : b
           ),
         } : m
@@ -353,7 +378,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ...m,
               toolCalls: m.toolCalls?.map(markDone),
               blocks: (m.blocks ?? []).map((b) =>
-                b.type === "tool" ? { type: "tool", tool: markDone(b.tool) } : b
+                b.type === "tool" ? { ...b, tool: markDone(b.tool) } : b
               ),
             }
           : m
@@ -371,9 +396,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
-  finishAssistantTurn: (msgId) => {
+  finishAssistantTurn: (msgId, stopReason, textSignatures) => {
     set((s) => ({
-      messages: s.messages.map((m) => (m.id === msgId ? { ...m, isStreaming: false } : m)),
+      messages: s.messages.map((m) => {
+        if (m.id !== msgId) return m;
+        const blocks = m.blocks?.map((block) =>
+          block.type === "text" && textSignatures?.[String(block.contentIndex)]
+            ? { ...block, textSignature: textSignatures[String(block.contentIndex)] }
+            : block
+        );
+        return { ...m, blocks, stopReason, isStreaming: false };
+      }),
       currentAssistantId: s.currentAssistantId === msgId ? null : s.currentAssistantId,
       // The agent may now execute tools and start another assistant message.
       isStreaming: true,
@@ -399,7 +432,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...m,
           isStreaming: false,
           toolCalls: m.toolCalls?.map(markDone),
-          blocks: m.blocks?.map((b) => b.type === "tool" ? { type: "tool" as const, tool: markDone(b.tool) } : b),
+          blocks: m.blocks?.map((b) => b.type === "tool" ? { ...b, tool: markDone(b.tool) } : b),
         }))
         .filter((m) => !isEmptyAssistantMessage(m)),
       isStreaming: false,
@@ -490,13 +523,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       let skillInvocation: ChatMessage["skillInvocation"];
       let rawTextForTags = "";
       if (Array.isArray(m.content)) {
-        for (const p of m.content) {
+        for (let contentIndex = 0; contentIndex < m.content.length; contentIndex += 1) {
+          const p = m.content[contentIndex];
           if (p.type === "text") {
             content += p.text;
             rawTextForTags += p.text;
-            blocks.push({ type: "text", text: p.text });
+            blocks.push({ type: "text", text: p.text, textSignature: p.textSignature, contentIndex });
           }
-          else if (p.type === "thinking") { blocks.push({ type: "thinking", text: p.thinking || "" }); }
+          else if (p.type === "thinking") { blocks.push({ type: "thinking", text: p.thinking || "", contentIndex }); }
           else if (p.type === "image") {
             const parsed = parseHistoryImagePart(p);
             if (parsed) {
@@ -515,7 +549,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               isError: saved?.isError,
             };
             toolCalls.push(tc);
-            blocks.push({ type: "tool", tool: tc });
+            blocks.push({ type: "tool", tool: tc, contentIndex });
           } else if (p.type === "toolResult") {
             const mt = toolCalls.find((t) => t.toolCallId === p.toolCallId);
             if (mt) {
@@ -577,6 +611,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           role === "assistant" && (m.stopReason === "error" || m.errorMessage)
             ? summarizeProviderError(m.errorMessage || "Request failed")
             : undefined,
+        stopReason: typeof m.stopReason === "string" ? m.stopReason : undefined,
       };
 
       // Preserve the SDK message boundary. A single agent run often contains

@@ -83,7 +83,7 @@ export function buildAssistantTurnView(
     ) ?? messages[messages.length - 1]!;
 
   const startedAt = messages[0]?.timestamp ?? null;
-  const endedAt = projection.answerStartedAt ?? messages[messages.length - 1]?.timestamp ?? null;
+  const endedAt = projection.processEndedAt ?? projection.answerStartedAt ?? messages[messages.length - 1]?.timestamp ?? null;
   const durationMs =
     !processActive && startedAt != null && endedAt != null
       ? Math.max(0, endedAt - startedAt)

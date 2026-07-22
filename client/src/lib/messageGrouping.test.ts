@@ -54,6 +54,7 @@ describe("buildAssistantTurnView", () => {
       assistant("a3", {
         content: "answer",
         blocks: [{ type: "text", text: "answer" }],
+        stopReason: "stop",
         timestamp: 22_000,
       }),
     ]);
@@ -61,7 +62,7 @@ describe("buildAssistantTurnView", () => {
     expect(view.texts).toEqual([{ key: "a3-text-0", text: "answer" }]);
     expect(view.errors).toEqual([]);
     expect(view.processActive).toBe(false);
-    expect(view.durationMs).toBe(12_000);
+    expect(view.durationMs).toBe(10_000);
   });
 
   it("keeps the process active across assistant/tool boundaries for the whole agent run", () => {
@@ -75,8 +76,8 @@ describe("buildAssistantTurnView", () => {
     const answering = buildAssistantTurnView([
       assistant("a1", { blocks: [{ type: "tool", tool: tool("t1") }], timestamp: 10 }),
       assistant("a2", {
-        content: "hi",
-        blocks: [{ type: "text", text: "hi" }],
+        content: "# hi",
+        blocks: [{ type: "text", text: "# hi" }],
         isStreaming: true,
         timestamp: 20,
       }),
@@ -140,7 +141,7 @@ describe("buildAssistantTurnView", () => {
     expect(view.processActive).toBe(false);
   });
 
-  it("never splits one text block with Markdown heuristics", () => {
+  it("splits a contracted answer marker without reclassifying its narration prefix", () => {
     const view = buildAssistantTurnView([
       assistant("a1", {
         content: "再核几条重点报道的细节。 # 今日 AI 新闻速览\n\n正文",
@@ -149,15 +150,15 @@ describe("buildAssistantTurnView", () => {
       }),
     ], true);
 
-    expect(view.items).toEqual([]);
+    expect(view.items).toEqual([{ kind: "narration", text: "再核几条重点报道的细节。" }]);
     expect(view.texts).toEqual([{
       key: "a1-text-0",
-      text: "再核几条重点报道的细节。 # 今日 AI 新闻速览\n\n正文",
+      text: "# 今日 AI 新闻速览\n\n正文",
     }]);
     expect(view.processActive).toBe(false);
   });
 
-  it("does not move live text behind a preceding tool", () => {
+  it("keeps post-tool narration in process until an answer marker arrives", () => {
     const view = buildAssistantTurnView([
       assistant("a1", { blocks: [{ type: "tool", tool: tool("web-1") }] }),
       assistant("a2", {
@@ -167,12 +168,12 @@ describe("buildAssistantTurnView", () => {
       }),
     ], true);
 
-    expect(view.items).toEqual([expect.objectContaining({ kind: "tool" })]);
-    expect(view.texts).toEqual([{
-      key: "a2-text-0",
-      text: "I got results; let me verify another source.",
-    }]);
-    expect(view.processActive).toBe(false);
+    expect(view.items).toEqual([
+      expect.objectContaining({ kind: "tool" }),
+      { kind: "narration", text: "I got results; let me verify another source." },
+    ]);
+    expect(view.texts).toEqual([]);
+    expect(view.processActive).toBe(true);
   });
 });
 

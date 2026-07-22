@@ -124,6 +124,18 @@ async function syncModelsJsonFromGlobal(target: string, source: string): Promise
   await fs.chmod(target, 0o600);
 }
 
+async function migrateSoruxDefaultProvider(settingsPath: string): Promise<void> {
+  let settings: Record<string, unknown>;
+  try {
+    settings = JSON.parse(await fs.readFile(settingsPath, "utf-8")) as Record<string, unknown>;
+  } catch {
+    return;
+  }
+  if (settings.defaultProvider !== "soruxgpt") return;
+  settings.defaultProvider = "xai";
+  await fs.writeFile(settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf-8");
+}
+
 /** Seed auth.json when missing or empty ({}), e.g. after a failed first deploy. */
 async function seedAgentAuthFromGlobal(agentAuthPath: string, globalAuthPath: string): Promise<void> {
   if (await authJsonHasCredentials(agentAuthPath)) return;
@@ -414,6 +426,7 @@ export async function ensureUserAgentDir(
     }
     await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2));
   }
+  await migrateSoruxDefaultProvider(settingsPath);
   await mergeBundledPackagesIntoSettings(settingsPath);
 
   return agentDir;

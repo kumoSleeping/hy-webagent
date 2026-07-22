@@ -213,6 +213,28 @@ describe("ensureUserAgentDir", () => {
       await fs.rm(root, { recursive: true, force: true });
     }
   });
+
+  it("migrates the legacy Sorux default onto the built-in xAI provider", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-agent-sorux-"));
+    try {
+      const agentDir = path.join(root, ".pi", "agent");
+      await fs.mkdir(agentDir, { recursive: true });
+      await fs.writeFile(
+        path.join(agentDir, "settings.json"),
+        JSON.stringify({ defaultProvider: "soruxgpt", defaultModel: "grok-4.5" })
+      );
+
+      await ensureUserAgentDir(root);
+
+      const settings = JSON.parse(
+        await fs.readFile(path.join(agentDir, "settings.json"), "utf-8")
+      );
+      expect(settings.defaultProvider).toBe("xai");
+      expect(settings.defaultModel).toBe("grok-4.5");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("syncAgentExtensionsFromGlobal", () => {

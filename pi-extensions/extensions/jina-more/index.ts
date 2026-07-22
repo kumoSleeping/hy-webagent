@@ -5,6 +5,7 @@ import { resolveJinaApiKey } from "../_lib/jina-auth.ts";
 /** Grok models use xAI native server-side search tools — keep Jina off. */
 function isGrokModel(model?: { id?: string; provider?: string } | null): boolean {
   if (!model) return false;
+  if (process.env.PI_GROK_STANDARD_TOOLS === "1") return false;
   return !!(model.id?.includes("grok") || model.provider === "xai");
 }
 

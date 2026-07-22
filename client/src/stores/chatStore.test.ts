@@ -99,6 +99,29 @@ describe("chatStore transcript sync", () => {
     ]);
   });
 
+  it("preserves PI content indexes and final text signatures", () => {
+    const messageId = useChatStore.getState().startAssistantMessage("indexed-assistant");
+    useChatStore.getState().appendThinkingDelta(messageId, "分析", 0);
+    useChatStore.getState().appendTextDelta(messageId, "# 结", 1);
+    useChatStore.getState().appendTextDelta(messageId, "论", 1);
+    useChatStore.getState().finishAssistantTurn(messageId, "stop", {
+      "1": '{"v":1,"id":"final","phase":"final_answer"}',
+    });
+
+    expect(useChatStore.getState().messages[0]).toMatchObject({
+      stopReason: "stop",
+      blocks: [
+        { type: "thinking", text: "分析", contentIndex: 0 },
+        {
+          type: "text",
+          text: "# 结论",
+          contentIndex: 1,
+          textSignature: '{"v":1,"id":"final","phase":"final_answer"}',
+        },
+      ],
+    });
+  });
+
   it("finishAssistantMessage drops empty assistant orphans", () => {
     const assistantId = useChatStore.getState().startAssistantMessage();
     useChatStore.getState().finishAssistantMessage(assistantId);

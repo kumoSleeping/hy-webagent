@@ -36,9 +36,9 @@ export interface FileEntry {
 }
 
 export type ContentBlock =
-  | { type: "text"; text: string }
-  | { type: "thinking"; text: string }
-  | { type: "tool"; tool: ToolCallRecord };
+  | { type: "text"; text: string; textSignature?: string; contentIndex?: number }
+  | { type: "thinking"; text: string; contentIndex?: number }
+  | { type: "tool"; tool: ToolCallRecord; contentIndex?: number };
 
 export interface ChatImageAttachment {
   mediaType: string;
@@ -61,6 +61,8 @@ export interface ChatMessage {
   isStreaming?: boolean;
   /** Provider/API failure summarized for display (empty-content error turns). */
   error?: string;
+  /** Final PI provider reason for this assistant message. */
+  stopReason?: "stop" | "length" | "toolUse" | "error" | "aborted" | string;
 }
 
 export interface ToolCallRecord {

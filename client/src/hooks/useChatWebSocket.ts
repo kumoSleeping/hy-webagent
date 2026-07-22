@@ -87,13 +87,13 @@ function dispatchWsMessage(
     case "chat:text_delta": {
       const messageId = typeof msg.payload?.messageId === "string" ? msg.payload.messageId : undefined;
       const aid = messageId ? store().startAssistantMessage(messageId) : store().ensureStreamingAssistant();
-      store().appendTextDelta(aid, msg.payload.delta);
+      store().appendTextDelta(aid, msg.payload.delta, msg.payload.contentIndex);
       break;
     }
     case "chat:thinking_delta": {
       const messageId = typeof msg.payload?.messageId === "string" ? msg.payload.messageId : undefined;
       const aid = messageId ? store().startAssistantMessage(messageId) : store().ensureStreamingAssistant();
-      store().appendThinkingDelta(aid, msg.payload.delta);
+      store().appendThinkingDelta(aid, msg.payload.delta, msg.payload.contentIndex);
       break;
     }
     case "chat:tool_start": {
@@ -133,7 +133,13 @@ function dispatchWsMessage(
       const messageId = typeof msg.payload?.messageId === "string"
         ? msg.payload.messageId
         : store().currentAssistantId;
-      if (messageId) store().finishAssistantTurn(messageId);
+      if (messageId) {
+        store().finishAssistantTurn(
+          messageId,
+          typeof msg.payload?.stopReason === "string" ? msg.payload.stopReason : undefined,
+          msg.payload?.textSignatures,
+        );
+      }
       break;
     }
     case "chat:agent_start":
