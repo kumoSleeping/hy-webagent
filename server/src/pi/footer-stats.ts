@@ -102,7 +102,7 @@ export function computeFooterSnapshot(
   if ((totalCacheRead > 0 || totalCacheWrite > 0) && latestCacheHitRate !== undefined) {
     statsParts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
   }
-  const usingSubscription = state.model ? session.modelRegistry.isUsingOAuth(state.model) : false;
+  const usingSubscription = state.model ? session.modelRuntime.isUsingOAuth(state.model.provider) : false;
   if (totalCost || usingSubscription) {
     statsParts.push(`$${totalCost.toFixed(3)}${usingSubscription ? " (sub)" : ""}`);
   }
@@ -122,7 +122,7 @@ export function computeFooterSnapshot(
     modelRight = `${modelName} • ${formatThinkingLevel(thinkingLevel)}`;
   }
 
-  const providers = new Set(session.modelRegistry.getAvailable().map((m) => m.provider));
+  const providers = new Set(session.modelRuntime.getAvailableSnapshot().map((m) => m.provider));
   if (providers.size > 1 && state.model) {
     modelRight = `(${state.model.provider}) ${modelRight}`;
   }

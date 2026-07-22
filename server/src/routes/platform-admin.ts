@@ -227,15 +227,15 @@ export function createPlatformAdminRouter(
     res.json({ templates: listModelTemplates() });
   });
 
-  router.get("/models", ...guard, (_req, res) => {
-    const models = listPlatformModels();
+  router.get("/models", ...guard, async (_req, res) => {
+    const models = await listPlatformModels();
     res.json({
       models,
       hint: "Use PUT /users/{username}/model-filter with { models: [\"provider/modelId\", ...] } or { allow: null } to clear.",
     });
   });
 
-  router.put("/users/:userId/model-filter", ...guard, (req, res) => {
+  router.put("/users/:userId/model-filter", ...guard, async (req, res) => {
     try {
       const user = resolveUser(authSystem, routeParam(req.params.userId));
       if (!user) {
@@ -243,7 +243,7 @@ export function createPlatformAdminRouter(
         return;
       }
 
-      const allow = parseModelFilterBody(req.body);
+      const allow = await parseModelFilterBody(req.body);
       const updated = authSystem.updateUser(user.userId, {
         modelAllow: allow ?? undefined,
         ...(allow ? { modelTemplateId: null } : {}),

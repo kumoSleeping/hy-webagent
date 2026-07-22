@@ -21,6 +21,7 @@ import {
   createWebExtensionUIContext,
   type StatusUpdatePayload,
   type WorkingUpdatePayload,
+  type ServerToolActivityPayload,
 } from "./web-ui-context.js";
 import { ExtensionUIBridge } from "./extension-ui-bridge.js";
 import type { ExtensionUIRequest, ExtensionUIResponse } from "./extension-ui-types.js";
@@ -192,7 +193,7 @@ export class PISessionManager {
     let updated = 0;
     for (const ps of this.sessions.values()) {
       if (ps.userId !== userId) continue;
-      injectSharedProviderKeys(ps.session.modelRegistry.authStorage);
+      await injectSharedProviderKeys(ps.session.modelRuntime);
       await this.applySessionModelPolicy(ps);
       updated += 1;
     }
@@ -204,11 +205,11 @@ export class PISessionManager {
   }
 
   private async applySessionModelPolicy(ps: UserPISession): Promise<void> {
-    injectSharedProviderKeys(ps.session.modelRegistry.authStorage);
+    await injectSharedProviderKeys(ps.session.modelRuntime);
     const policy = this.policyForSession(ps);
     if (policy.unrestricted) return;
 
-    injectRuntimeProviderKeys(ps.session.modelRegistry.authStorage, policy.providers);
+    await injectRuntimeProviderKeys(ps.session.modelRuntime, policy.providers);
     await this.ensureAllowedCurrentModel(ps, policy);
   }
 
@@ -221,7 +222,7 @@ export class PISessionManager {
 
     const allowed = filterModels(
       policy,
-      ps.session.modelRegistry.getAvailable().map((m) => ({
+      ps.session.modelRuntime.getAvailableSnapshot().map((m) => ({
         provider: m.provider,
         id: m.id,
         name: m.name,
@@ -233,7 +234,7 @@ export class PISessionManager {
         `No models available for template "${policy.templateId ?? "full"}". Check platform credentials.`
       );
     }
-    const model = ps.session.modelRegistry.find(fallback.provider, fallback.id);
+    const model = ps.session.modelRuntime.getModel(fallback.provider, fallback.id);
     if (!model) {
       throw new Error(`Model not found: ${fallback.provider}/${fallback.id}`);
     }
@@ -253,6 +254,25 @@ export class PISessionManager {
       message: ps.workingMessage,
       visible: !!ps.workingMessage,
     });
+  }
+
+  private applyServerToolActivity(ps: UserPISession, activity: ServerToolActivityPayload) {
+    if (activity.phase === "start") {
+      ps.onEvent(ps.userId, {
+        type: "tool_execution_start",
+        toolCallId: activity.toolCallId,
+        toolName: activity.toolName,
+        args: activity.input,
+      } as AgentSessionEvent);
+      return;
+    }
+    ps.onEvent(ps.userId, {
+      type: "tool_execution_end",
+      toolCallId: activity.toolCallId,
+      toolName: activity.toolName,
+      result: activity.output ? { content: [{ type: "text", text: activity.output }] } : undefined,
+      isError: false,
+    } as AgentSessionEvent);
   }
 
   getWorkingMessage(sessionId: string): string | null {
@@ -370,6 +390,7 @@ export class PISessionManager {
       widgetHost: ps.widgetHost,
       onStatus: (update) => this.applyExtensionStatus(ps, update.key, update.text),
       onWorking: (update) => this.applyWorkingMessage(ps, update),
+      onServerTool: (activity) => this.applyServerToolActivity(ps, activity),
     });
 
     await ps.session.bindExtensions({
@@ -824,7 +845,7 @@ export class PISessionManager {
     if (!ps) throw new Error("No active PI session");
     ps.lastActivity = Date.now();
     const policy = this.policyForSession(ps);
-    const models = ps.session.modelRegistry.getAvailable().map((m) => ({
+    const models = ps.session.modelRuntime.getAvailableSnapshot().map((m) => ({
       provider: m.provider,
       id: m.id,
       name: m.name,
@@ -840,7 +861,7 @@ export class PISessionManager {
     if (!isModelAllowed(policy, provider, modelId)) {
       throw new Error(modelPolicyError(provider, modelId, policy.templateId));
     }
-    const model = ps.session.modelRegistry.find(provider, modelId);
+    const model = ps.session.modelRuntime.getModel(provider, modelId);
     if (!model) throw new Error(`Model not found: ${provider}/${modelId}`);
     await ps.session.setModel(model);
   }
@@ -876,7 +897,7 @@ export class PISessionManager {
       if (!isModelAllowed(policy, m.provider, m.id)) {
         throw new Error(modelPolicyError(m.provider, m.id, policy.templateId));
       }
-      const model = ps.session.modelRegistry.find(m.provider, m.id);
+      const model = ps.session.modelRuntime.getModel(m.provider, m.id);
       if (!model) throw new Error(`Model not found: ${m.provider}/${m.id}`);
       return { model, thinkingLevel: m.thinkingLevel };
     });

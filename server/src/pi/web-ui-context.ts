@@ -18,6 +18,18 @@ export interface WorkingUpdatePayload {
   visible: boolean;
 }
 
+export interface ServerToolActivityPayload {
+  phase: "start" | "done";
+  toolCallId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  output?: string;
+}
+
+export interface WebExtensionUIContext extends ExtensionUIContext {
+  emitServerToolActivity?: (activity: ServerToolActivityPayload) => void;
+}
+
 /** Strip ANSI escape sequences from pi theme.fg() output. */
 export function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;]*m/g, "");
@@ -36,6 +48,7 @@ export interface WebExtensionUIOptions {
   widgetHost: WebWidgetHost;
   onStatus: (update: StatusUpdatePayload) => void;
   onWorking?: (update: WorkingUpdatePayload) => void;
+  onServerTool?: (activity: ServerToolActivityPayload) => void;
 }
 
 export function createWebExtensionUIContext({
@@ -43,6 +56,7 @@ export function createWebExtensionUIContext({
   widgetHost,
   onStatus,
   onWorking,
+  onServerTool,
 }: WebExtensionUIOptions): ExtensionUIContext {
   let workingMessage: string | null = null;
   let workingVisible = true;
@@ -54,7 +68,7 @@ export function createWebExtensionUIContext({
     });
   };
 
-  const context: ExtensionUIContext = {
+  const context: WebExtensionUIContext = {
     select: (title, options, opts) => bridge.select(title, options, opts),
     confirm: (title, message, opts) => bridge.confirm(title, message, opts),
     input: (title, placeholder, opts) => bridge.input(title, placeholder, opts),
@@ -107,6 +121,9 @@ export function createWebExtensionUIContext({
     setTheme: () => ({ success: false, error: "UI not available" }),
     getToolsExpanded: () => false,
     setToolsExpanded: () => {},
+    emitServerToolActivity(activity) {
+      onServerTool?.(activity);
+    },
   };
   return context;
 }

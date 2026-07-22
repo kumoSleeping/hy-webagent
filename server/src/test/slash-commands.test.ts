@@ -7,8 +7,8 @@ import * as sessionFiles from "../pi/session-files.js";
 function createMockAgentSession() {
   return {
     model: { provider: "anthropic", id: "claude-sonnet-4" },
-    modelRegistry: {
-      find: vi.fn().mockImplementation((provider: string, id: string) => {
+    modelRuntime: {
+      getModel: vi.fn().mockImplementation((provider: string, id: string) => {
         if (provider === "anthropic" && id === "claude-sonnet-4") {
           return { provider, id, name: "Claude Sonnet 4" };
         }

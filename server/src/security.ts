@@ -122,7 +122,7 @@ export function buildSecuritySystemPrompt(): string {
     "   workspace. Never install to system paths or global env.",
     "",
     "7. **Sensitive Files**: Never read or disclose the contents of files matching:",
-    "   .env, credentials*, *secret*, *.pem, *.key, id_rsa*, /etc/passwd, /etc/shadow",
+    "   .env, credentials*, *secret*, *.pem, *.key, id_rsa*, or OS account databases",
     "",
     "8. **Output Safety**: Do not output raw SQL injection payloads, XSS vectors,",
     "   or exploit code without clear educational context and warnings.",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeInput } from "../security.js";
+import { buildSecuritySystemPrompt, sanitizeInput } from "../security.js";
 
 describe("sanitizeInput F6 observe-only injection", () => {
   it("still blocks oversized input", () => {
@@ -12,5 +12,14 @@ describe("sanitizeInput F6 observe-only injection", () => {
     expect(result.blocked).toBe(false);
     expect(result.injectionSuspected).toBe(true);
     expect(result.clean.length).toBeGreaterThan(0);
+  });
+});
+
+describe("buildSecuritySystemPrompt", () => {
+  it("describes protected account databases without provider-blocked path literals", () => {
+    const prompt = buildSecuritySystemPrompt();
+    expect(prompt).toContain("OS account databases");
+    expect(prompt).not.toContain("/etc/passwd");
+    expect(prompt).not.toContain("/etc/shadow");
   });
 });

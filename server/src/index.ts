@@ -35,10 +35,6 @@ import { attachClientStatic } from "./client-static.js";
 import { BotRepository } from "./bot/repository.js";
 import { createBotRouter, createPublicBotRouter, createSavedGroupRouter } from "./routes/bot.js";
 import { loadBotUpload } from "./bot/uploads.js";
-import { installSoruxCfGuard } from "./lib/sorux-cf-guard.js";
-
-// Before any PI / OpenAI client captures fetch — JP host is CF-fingerprinted.
-installSoruxCfGuard();
 
 const log = createLogger("server");
 const app = express();

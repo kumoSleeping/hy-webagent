@@ -23,7 +23,7 @@ export async function setModel(
   }
 
   const ps = getUserSession(ctx);
-  const model = ps.session.modelRegistry.find(provider, modelId);
+  const model = ps.session.modelRuntime.getModel(provider, modelId);
   if (!model) {
     return { ok: false, message: `Model not found: ${provider}/${modelId}` };
   }
@@ -90,7 +90,7 @@ export async function setScopedModels(
     if (!provider || !modelId) {
       return { ok: false, message: "Each model entry needs provider and modelId" };
     }
-    const model = ps.session.modelRegistry.find(provider, modelId);
+    const model = ps.session.modelRuntime.getModel(provider, modelId);
     if (!model) {
       return { ok: false, message: `Model not found: ${provider}/${modelId}` };
     }

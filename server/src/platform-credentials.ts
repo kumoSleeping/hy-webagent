@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AuthStorage } from "@earendil-works/pi-coding-agent";
+import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 
 /** PI built-in provider id → environment variable (subset used by templates). */
 const PROVIDER_ENV: Record<string, string> = {
@@ -86,31 +86,31 @@ function loadPlatformProviderKeyFromSource(
 }
 
 /** Inject runtime keys for template providers — never written to user workspace auth.json. */
-export function injectRuntimeProviderKeys(
-  authStorage: AuthStorage,
+export async function injectRuntimeProviderKeys(
+  modelRuntime: ModelRuntime,
   providers: string[] | null | undefined
-): string[] {
+): Promise<string[]> {
   if (!providers?.length) return [];
   const injected: string[] = [];
   const auth = loadGlobalAuthJson();
   for (const provider of providers) {
     const key = loadPlatformProviderKeyFromSource(provider, auth);
     if (!key) continue;
-    authStorage.setRuntimeApiKey(provider, key);
+    await modelRuntime.setRuntimeApiKey(provider, key);
     injected.push(provider);
   }
   return injected;
 }
 
 /** Inject shared platform keys (e.g. Jina search) into every live session. */
-export function injectSharedProviderKeys(authStorage: AuthStorage): string[] {
+export async function injectSharedProviderKeys(modelRuntime: ModelRuntime): Promise<string[]> {
   invalidatePlatformCredentialsCache();
   const auth = readGlobalAuthJsonFromDisk();
   const injected: string[] = [];
   for (const provider of SHARED_RUNTIME_PROVIDERS) {
     const key = loadPlatformProviderKeyFromSource(provider, auth);
     if (!key) continue;
-    authStorage.setRuntimeApiKey(provider, key);
+    await modelRuntime.setRuntimeApiKey(provider, key);
     injected.push(provider);
   }
   return injected;

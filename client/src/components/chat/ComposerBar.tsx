@@ -20,7 +20,6 @@ import { useComposerFocusStore } from "../../stores/composerFocusStore";
 import { useComposerPanelStore, type ComposerPanelKind } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { useSessionStore } from "../../stores/sessionStore";
-import { useStatusBarStore } from "../../stores/statusBarStore";
 import { FileTree } from "../files/FileTree";
 import { PanelFilterBar } from "../common/PanelFilterBar";
 import { PanelBody, PanelListRow } from "../common/panel";
@@ -1115,15 +1114,11 @@ export function ComposerBar({
   );
 
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
-  const workingMessage = useStatusBarStore((s) => s.workingMessage);
   const elevatedPanel = isElevatedPanel(panel, isMobileLayout);
   const toolbarActive = panel !== null && !elevatedPanel && !(previewOpen && panel === "files" && !isMobileLayout);
   const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
   const showInlinePanel = panel !== null && !elevatedPanel;
   const hasDraft = text.trim().length > 0 || pendingAttachments.length > 0;
-  // Working text only while streaming — connecting is just the red corner badge.
-  const showWorkingLine = isStreaming && !isConnecting;
-  const workingLineText = workingMessage?.trim() || "Working...";
 
   function renderPanelBody(): ReactNode {
     if (!panel) return null;
@@ -1203,13 +1198,8 @@ export function ComposerBar({
           <span className="pi-composer-connecting-block" />
         </div>
       )}
-      {(showWorkingLine || badgeRow) && (
+      {badgeRow && (
         <div className="pi-composer-working-row" onClick={(e) => e.stopPropagation()}>
-          {showWorkingLine && (
-            <div className="pi-composer-working-msg" aria-live="polite">
-              {workingLineText}
-            </div>
-          )}
           {badgeRow}
         </div>
       )}

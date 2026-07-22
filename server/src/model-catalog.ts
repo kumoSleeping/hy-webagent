@@ -1,7 +1,6 @@
 import path from "node:path";
 import {
-  AuthStorage,
-  ModelRegistry,
+  ModelRuntime,
   getAgentDir,
 } from "@earendil-works/pi-coding-agent";
 import type { ModelAllowRule } from "./model-policy.js";
@@ -17,35 +16,37 @@ export interface PlatformModelEntry {
   providerName: string;
 }
 
-let cachedRegistry: ModelRegistry | null = null;
+let cachedRuntime: Promise<ModelRuntime> | null = null;
 
 function platformModelsJsonPath(): string {
   return path.join(getAgentDir(), "models.json");
 }
 
-function getRegistry(): ModelRegistry {
-  if (!cachedRegistry) {
-    const authStorage = AuthStorage.create(path.join(getAgentDir(), "auth.json"));
-    cachedRegistry = ModelRegistry.create(authStorage, platformModelsJsonPath());
+function getRuntime(): Promise<ModelRuntime> {
+  if (!cachedRuntime) {
+    cachedRuntime = ModelRuntime.create({
+      authPath: path.join(getAgentDir(), "auth.json"),
+      modelsPath: platformModelsJsonPath(),
+    });
   }
-  return cachedRegistry;
+  return cachedRuntime;
 }
 
 export function resetModelCatalogCacheForTests(): void {
-  cachedRegistry = null;
+  cachedRuntime = null;
 }
 
 /** All platform-known models (built-in + models.json), regardless of auth. */
-export function listPlatformModels(): PlatformModelEntry[] {
-  const registry = getRegistry();
-  return registry
-    .getAll()
+export async function listPlatformModels(): Promise<PlatformModelEntry[]> {
+  const runtime = await getRuntime();
+  return runtime
+    .getModels()
     .map((model) => ({
       key: `${model.provider}/${model.id}`,
       provider: model.provider,
       modelId: model.id,
       name: model.name?.trim() || model.id,
-      providerName: registry.getProviderDisplayName(model.provider),
+      providerName: runtime.getProvider(model.provider)?.name?.trim() || model.provider,
     }))
     .sort((a, b) => a.key.localeCompare(b.key));
 }
@@ -62,8 +63,8 @@ export function parseModelKey(key: string): { provider: string; modelId: string 
   };
 }
 
-export function assertKnownModelRules(rules: ModelAllowRule[]): void {
-  const known = new Set(listPlatformModels().map((m) => m.key));
+export async function assertKnownModelRules(rules: ModelAllowRule[]): Promise<void> {
+  const known = new Set((await listPlatformModels()).map((m) => m.key));
   for (const rule of rules) {
     if (rule.modelId === "*") continue;
     const key = `${rule.provider}/${rule.modelId}`;
@@ -73,7 +74,7 @@ export function assertKnownModelRules(rules: ModelAllowRule[]): void {
   }
 }
 
-export function parseModelFilterBody(body: unknown): ModelAllowRule[] | null {
+export async function parseModelFilterBody(body: unknown): Promise<ModelAllowRule[] | null> {
   if (body === null || body === undefined) {
     throw new Error("Request body required");
   }
@@ -98,7 +99,7 @@ export function parseModelFilterBody(body: unknown): ModelAllowRule[] | null {
       const { provider, modelId } = parseModelKey(entry);
       return { provider, modelId };
     });
-    assertKnownModelRules(rules);
+    await assertKnownModelRules(rules);
     if (rules.length === 0) {
       throw new Error("models must include at least one entry (use allow:null to clear filter)");
     }
@@ -122,7 +123,7 @@ export function parseModelFilterBody(body: unknown): ModelAllowRule[] | null {
       }
       return { provider: rule.provider.trim(), modelId: rule.modelId.trim() };
     });
-    assertKnownModelRules(rules);
+    await assertKnownModelRules(rules);
     if (rules.length === 0) {
       throw new Error("allow must include at least one rule (use allow:null to clear filter)");
     }

@@ -14,7 +14,7 @@
     "admin": "tsx src/cli/pi-admin.ts"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.80.2",
+    "@earendil-works/pi-coding-agent": "^0.81.1",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.11.1",
     "chokidar": "^4.0.0",

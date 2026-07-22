@@ -15,9 +15,9 @@ describe("parseModelKey", () => {
 });
 
 describe("parseModelFilterBody", () => {
-  it("accepts models shorthand array", () => {
+  it("accepts models shorthand array", async () => {
     expect(
-      parseModelFilterBody({
+      await parseModelFilterBody({
         models: ["deepseek/deepseek-v4-flash", "xiaomi/mimo-v2-flash"],
       })
     ).toEqual([
@@ -26,20 +26,20 @@ describe("parseModelFilterBody", () => {
     ]);
   });
 
-  it("accepts allow rule objects", () => {
+  it("accepts allow rule objects", async () => {
     expect(
-      parseModelFilterBody({
+      await parseModelFilterBody({
         allow: [{ provider: "deepseek", modelId: "deepseek-v4-flash" }],
       })
     ).toEqual([{ provider: "deepseek", modelId: "deepseek-v4-flash" }]);
   });
 
-  it("clears filter with null", () => {
-    expect(parseModelFilterBody({ allow: null })).toBeNull();
-    expect(parseModelFilterBody({ models: null })).toBeNull();
+  it("clears filter with null", async () => {
+    expect(await parseModelFilterBody({ allow: null })).toBeNull();
+    expect(await parseModelFilterBody({ models: null })).toBeNull();
   });
 
-  it("rejects empty allowlists", () => {
-    expect(() => parseModelFilterBody({ models: [] })).toThrow(/at least one/i);
+  it("rejects empty allowlists", async () => {
+    await expect(parseModelFilterBody({ models: [] })).rejects.toThrow(/at least one/i);
   });
 });

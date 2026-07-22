@@ -3,10 +3,9 @@
  *
  * - before_provider_request: inject native tools when model is Grok
  * - fetch wrapper: parse Responses SSE for web_search_call / x_search_call / …
- *   and show them via setWorkingMessage + globalThis (bar badge is kumoSleeping-jina-bar)
+ *   and emit structured web tool activity when the host supports it
  *
  * Bar badge: "grok-native-tools ✓" (Grok only, drawn by kumoSleeping-jina-bar)
- * Rotating working/thinking message: "hyw?" (+ tool activity while searching)
  *
  * Injected (no extra config):
  *   web_search, x_search, code_interpreter, view_image, view_x_video
@@ -30,9 +29,6 @@ export const GROK_NATIVE_TOOLS = [
 
 /** Bottom status bar — keep in sync with kumoSleeping-jina-bar.ts */
 export const GROK_NATIVE_TOOLS_LABEL = "grok-native-tools ✓";
-
-/** Rotating working/thinking spinner text (short; not the bar label). */
-export const HYW_WORKING_LABEL = "hyw?";
 
 function isGrokModel(model?: { id?: string; provider?: string } | null): boolean {
   if (!model) return false;
@@ -105,11 +101,30 @@ function publishActivity(line: string, fullLog: string) {
 
 type UiSink = {
   setStatus?: (key: string, value?: string) => void;
-  setWorkingMessage?: (message?: string) => void;
   notify?: (message: string, level?: "info" | "warning" | "error") => void;
+  emitServerToolActivity?: (activity: {
+    phase: "start" | "done";
+    toolCallId: string;
+    toolName: string;
+    input: Record<string, unknown>;
+    output?: string;
+  }) => void;
 };
 
-function installFetchSniffer(getUi: () => UiSink | null, isActive: () => boolean) {
+type SinkRegistration = { getUi: () => UiSink | null; isActive: () => boolean };
+
+function sinkRegistry(): Map<string, SinkRegistration> {
+  const g = globalThis as typeof globalThis & { __grokNativeToolSinks?: Map<string, SinkRegistration> };
+  if (!g.__grokNativeToolSinks) g.__grokNativeToolSinks = new Map();
+  return g.__grokNativeToolSinks;
+}
+
+function requestSessionId(input: RequestInfo | URL, init?: RequestInit): string | null {
+  const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+  return headers.get("session_id") || headers.get("x-client-request-id");
+}
+
+function installFetchSniffer() {
   const g = globalThis as typeof globalThis & {
     fetch: typeof fetch;
     __grokNativeFetchWrapped?: boolean;
@@ -121,8 +136,9 @@ function installFetchSniffer(getUi: () => UiSink | null, isActive: () => boolean
 
   g.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const response = await originalFetch(input, init);
-
-    if (!isActive()) return response;
+    const sessionId = requestSessionId(input, init);
+    const registration = sessionId ? sinkRegistry().get(sessionId) : undefined;
+    if (!registration?.isActive()) return response;
 
     const url = typeof input === "string"
       ? input
@@ -141,7 +157,7 @@ function installFetchSniffer(getUi: () => UiSink | null, isActive: () => boolean
     }
 
     const [forClient, forSniff] = response.body.tee();
-    void sniffSse(forSniff, getUi);
+    void sniffSse(forSniff, registration.getUi);
 
     return new Response(forClient, {
       status: response.status,
@@ -172,8 +188,26 @@ async function sniffSse(body: ReadableStream<Uint8Array>, getUi: () => UiSink | 
 
     const ui = getUi();
     try {
-      // Bottom status stays static; only the rotating thinking/working line updates
-      ui?.setWorkingMessage?.(`${HYW_WORKING_LABEL} ${line}`);
+      const rawType = String(item.type || "server_tool");
+      const toolName = rawType.endsWith("_call") ? rawType.slice(0, -"_call".length) : rawType;
+      const toolCallId = String(item.id || item.call_id || `${toolName}:${desc}`);
+      const action = item.action && typeof item.action === "object"
+        ? item.action as Record<string, unknown>
+        : {};
+      const input = Object.keys(action).length > 0
+        ? action
+        : typeof item.code === "string"
+          ? { code: item.code }
+          : typeof item.server_label === "string"
+            ? { server_label: item.server_label }
+            : {};
+      ui?.emitServerToolActivity?.({
+        phase,
+        toolCallId,
+        toolName,
+        input,
+        output: phase === "done" ? "Completed" : undefined,
+      });
     } catch {
       // UI may be unavailable mid-shutdown
     }
@@ -251,19 +285,23 @@ export default function (pi: ExtensionAPI) {
 
   let grokActive = false;
   let uiRef: UiSink | null = null;
+  let sessionId = "";
 
   const setActiveFlag = (model?: { id?: string; provider?: string } | null) => {
     grokActive = isGrokModel(model);
     g.__grokNativeToolsActive = grokActive;
   };
 
-  installFetchSniffer(
-    () => uiRef,
-    () => grokActive,
-  );
+  installFetchSniffer();
+
+  const registerSink = (ctx: { sessionManager: { getSessionId(): string } }) => {
+    sessionId = ctx.sessionManager.getSessionId();
+    sinkRegistry().set(sessionId, { getUi: () => uiRef, isActive: () => grokActive });
+  };
 
   pi.on("session_start", async (_event, ctx) => {
     uiRef = ctx.ui;
+    registerSink(ctx);
     setActiveFlag(ctx.model);
     // Badge is drawn by kumoSleeping-jina-bar only — clear any leftover setStatus line
     ctx.ui.setStatus?.("grok-native-tools", undefined);
@@ -273,7 +311,8 @@ export default function (pi: ExtensionAPI) {
     uiRef = ctx.ui;
     setActiveFlag(event.model);
     if (!grokActive) {
-      ctx.ui.setWorkingMessage?.();
+      g.__grokNativeToolLast = "";
+      g.__grokNativeToolLog = "";
     }
   });
 
@@ -283,16 +322,15 @@ export default function (pi: ExtensionAPI) {
     g.__grokNativeToolLog = "";
     if (!isGrokModel(ctx.model)) return;
     grokActive = true;
-    // Spinner only (hyw); footer badge comes from the bar widget
-    ctx.ui.setWorkingMessage?.(HYW_WORKING_LABEL);
   });
 
-  pi.on("agent_end", async (_event, ctx) => {
-    ctx.ui.setWorkingMessage?.();
+  pi.on("session_shutdown", async () => {
+    if (sessionId) sinkRegistry().delete(sessionId);
   });
 
   pi.on("before_provider_request", (event, ctx) => {
     uiRef = ctx.ui;
+    registerSink(ctx);
     if (!isGrokModel(ctx.model)) {
       g.__grokNativeToolsActive = false;
       grokActive = false;

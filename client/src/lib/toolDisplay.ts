@@ -5,7 +5,7 @@
  */
 export type ToolCategory = "web" | "tools";
 
-const WEB_TOOLS = new Set(["read_url", "fetch_url", "web_fetch", "parallel_search_web", "search_web", "web_search"]);
+const WEB_TOOLS = new Set(["read_url", "fetch_url", "web_fetch", "parallel_search_web", "search_web", "web_search", "x_search"]);
 
 export function getToolCategory(toolName: string): ToolCategory {
   const normalized = toolName.toLowerCase().replace(/-/g, "_");
