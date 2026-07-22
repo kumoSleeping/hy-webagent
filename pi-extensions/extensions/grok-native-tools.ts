@@ -17,6 +17,7 @@
  */
 
 import type { ExtensionAPI, ModelSelectEvent } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 
 /** Exported for status bar / other extensions. */
 export const GROK_NATIVE_TOOLS = [
@@ -28,8 +29,14 @@ export const GROK_NATIVE_TOOLS = [
 ] as const;
 
 /** Bottom status bar — keep in sync with kumoSleeping-jina-bar.ts */
-export const GROK_NATIVE_TOOLS_LABEL = "grok-native-tools ✓";
+export const GROK_NATIVE_TOOLS_LABEL = "grok-native-tools ✓ · via Sorux";
 export const GROK_SERVER_TOOL_ENTRY = "pi-web-server-tool:v1";
+
+const GROK_OUTPUT_RULES = [
+  "When using server-side tools, keep search/open progress narration in reasoning only.",
+  "Do not emit progress narration in output_text.",
+  "After all tools finish, begin the final answer directly and do not use horizontal-rule separators.",
+].join(" ");
 
 function isGrokModel(model?: { id?: string; provider?: string } | null): boolean {
   if (!model) return false;
@@ -60,7 +67,19 @@ function injectNativeTools(payload: unknown): unknown {
   }
 
   next.tools = tools;
+  if (typeof next.instructions === "string") {
+    next.instructions = `${next.instructions.trim()}\n\n${GROK_OUTPUT_RULES}`;
+  } else if (next.instructions == null) {
+    next.instructions = GROK_OUTPUT_RULES;
+  }
   return next;
+}
+
+function activityTarget(input: Record<string, unknown>): string {
+  if (typeof input.query === "string" && input.query.trim()) return input.query.trim();
+  if (typeof input.url === "string" && input.url.trim()) return input.url.trim();
+  if (typeof input.code === "string" && input.code.trim()) return input.code.trim().replace(/\s+/g, " ").slice(0, 100);
+  return typeof input.type === "string" ? input.type : "";
 }
 
 // ─── Server-tool activity (SSE sniff via fetch wrap) ─────
@@ -298,6 +317,19 @@ export default function (pi: ExtensionAPI) {
   let grokActive = false;
   let uiRef: UiSink | null = null;
   let sessionId = "";
+
+  pi.registerEntryRenderer<{
+    phase?: "start" | "done";
+    toolName?: string;
+    input?: Record<string, unknown>;
+  }>(GROK_SERVER_TOOL_ENTRY, (entry, _options, theme) => {
+    const data = entry.data;
+    if (data?.phase !== "done") return undefined;
+    const toolName = data.toolName === "web_search" ? "Web Search" : data.toolName || "Server Tool";
+    const target = activityTarget(data.input ?? {});
+    const suffix = target ? ` · ${target}` : "";
+    return new Text(theme.fg("muted", `✓ ${toolName}${suffix}`), 0, 0);
+  });
 
   const setActiveFlag = (model?: { id?: string; provider?: string } | null) => {
     grokActive = isGrokModel(model);

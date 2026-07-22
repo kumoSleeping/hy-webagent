@@ -25,7 +25,7 @@ function isGrokModel(model?: { id?: string; provider?: string }): boolean {
 }
 
 /** Status label — keep in sync with extensions/grok-native-tools.ts */
-const GROK_NATIVE_TOOLS_LABEL = "grok-native-tools ✓";
+const GROK_NATIVE_TOOLS_LABEL = "grok-native-tools ✓ · via Sorux";
 
 function formatMs(ms: number): string {
   if (ms < 10000) return `${(ms / 1000).toFixed(1)}s`;
