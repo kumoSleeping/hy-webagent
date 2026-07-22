@@ -142,22 +142,30 @@ body {
 
 /* ============================================================
  * Message bubbles — flat, editorial, sharp
+ *
+ * Match HYW card-ui composition:
+ *   - App bg is gray (#f2f2f2). Assistant copy sits on that bg (no white
+ *     dialog frame) so ordinary text “blends into the background”.
+ *   - Distinctive islands (Summary / Code / Table / tools) keep the white
+ *     panel + corner badge treatment.
+ *   - User messages stay white speech cards on the right.
  * ========================================================== */
 .pi-message-dialog {
-  position: relative; z-index: 1;
+  position: relative;
+  z-index: 1;
+  border-radius: 0;
+  color: var(--pi-text-body);
+}
+.pi-message-dialog-user {
   border-top: 1px solid var(--pi-line);
   border-right: 1px solid var(--pi-line);
   border-bottom: 1px solid var(--pi-line);
   border-left: none;
-  border-radius: 0;
   background-color: var(--pi-panel);
   padding: 0.85rem 1rem 0.95rem;
-  color: var(--pi-text-body);
   box-shadow: var(--pi-shadow);
-}
-.pi-message-dialog-user {
-  background-color: var(--pi-panel);
-  width: max-content; max-width: var(--pi-user-max);
+  width: max-content;
+  max-width: var(--pi-user-max);
   margin-left: auto;
   display: flex;
   flex-direction: column;
@@ -172,7 +180,14 @@ body {
   margin-left: auto;
 }
 .pi-message-dialog-assistant {
-  min-width: 0; width: fit-content; max-width: var(--pi-assistant-max);
+  /* No white frame — text lives on --pi-bg like HYW markdown sections. */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0.2rem 0 0.55rem;
+  min-width: 0;
+  width: fit-content;
+  max-width: var(--pi-assistant-max);
   margin-right: auto;
 }
 
@@ -1944,7 +1959,7 @@ button.pi-panel-row.pi-panel-row--selected {
 
 /* ============================================================
  * HYW-style cards — Summary / Code / Table (corner badge)
- * Matches entari_plugin_hyw card-ui section cards.
+ * White islands on the gray feed — these are the “特色部分”.
  * ========================================================== */
 .pi-markdown .pi-md-card {
   position: relative;
@@ -1978,8 +1993,7 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel);
 }
 .pi-markdown .pi-md-card--table {
-  /* Same corner-badge card as Summary — top padding clears the badge so it
-     sits on the card, not on top of the first row. */
+  /* Top padding clears the badge so it sits on the card, not on cells. */
   padding: 1.65rem 0 0;
   overflow: visible;
 }
