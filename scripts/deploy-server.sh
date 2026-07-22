@@ -46,6 +46,8 @@ Environment=WORKSPACE_ROOT=${APP_ROOT}/workspaces
 Environment=DATABASE_PATH=${APP_ROOT}/data/platform.db
 Environment=PI_EXTENSIONS_ROOT=${APP_ROOT}/pi-extensions
 Environment=CORS_ORIGIN=http://127.0.0.1:${PORT}
+# Prefer IPv4 — SoruxGPT AAAA often fails from this host and CF is flaky on v6 paths.
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
 ExecStart=$(command -v node) dist/index.js
 Restart=on-failure
 RestartSec=5
