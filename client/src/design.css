@@ -189,6 +189,7 @@ body {
   width: fit-content;
   max-width: var(--pi-assistant-max);
   margin-right: auto;
+  overflow: visible;
 }
 
 /* Per-message virtualisation hint — tells the browser this subtree can be
@@ -197,6 +198,7 @@ body {
 .pi-message-bubble {
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
+  overflow: visible;
 }
 
 /* Spacing between mixed content inside assistant bubbles */
@@ -1958,22 +1960,29 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 
 /* ============================================================
- * HYW-style cards — Summary / Code / Table (corner badge)
- * White islands on the gray feed — these are the “特色部分”.
+ * HYW-style feature cards — Summary / Code / Table
+ *
+ * Structure mirrors HYW App.vue:
+ *   .pi-md-feature (relative wrap, room for badge overhang)
+ *     .pi-corner-badge  absolute -top-2 -left-2
+ *     .pi-md-feature-body  white island
  * ========================================================== */
-.pi-markdown .pi-md-card {
+.pi-markdown .pi-md-feature {
   position: relative;
-  margin: 1.1rem 0;
+  /* Leave room so -8px badge overhang is not clipped by the feed edge. */
+  margin: 1.35rem 0 1.1rem 0.5rem;
+  overflow: visible;
+}
+.pi-markdown .pi-md-feature > .pi-corner-badge {
+  top: -8px;   /* Tailwind -top-2 */
+  left: -8px;  /* Tailwind -left-2 */
+}
+.pi-markdown .pi-md-feature-body {
   background: var(--pi-panel);
   box-shadow: var(--pi-shadow);
 }
-.pi-markdown .pi-md-card > .pi-corner-badge {
-  /* sit on the card corner like HYW absolute -top/-left badge */
-  top: -10px;
-  left: -10px;
-}
-.pi-markdown .pi-md-card--summary {
-  padding: 1.65rem 1.15rem 1rem;
+.pi-markdown .pi-md-feature--summary .pi-md-feature-body {
+  padding: 2rem 1.15rem 1rem; /* pt-8 */
 }
 .pi-markdown .pi-md-summary-body {
   font-size: 1.05rem;
@@ -1983,25 +1992,38 @@ button.pi-panel-row.pi-panel-row--selected {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.pi-markdown .pi-md-card--code {
-  padding-top: 0.85rem;
+.pi-markdown .pi-md-feature--code .pi-md-feature-body {
+  padding-top: 1.75rem; /* pt-7 */
+  padding-bottom: 0.5rem;
 }
-.pi-markdown .pi-md-card--code .pi-md-pre {
+.pi-markdown .pi-md-feature--code .pi-md-pre {
   margin: 0;
   border: none;
   border-top: 1px solid var(--pi-line-soft);
   background: var(--pi-panel);
 }
-.pi-markdown .pi-md-card--table {
-  /* Top padding clears the badge so it sits on the card, not on cells. */
-  padding: 1.65rem 0 0;
+.pi-markdown .pi-md-feature--table .pi-md-feature-body {
+  padding-top: 1.25rem; /* pt-5 */
   overflow: visible;
 }
-.pi-markdown .pi-md-card--table .pi-md-table-wrap {
+.pi-markdown .pi-md-feature--table .pi-md-table-wrap {
   margin: 0;
   border: none;
   border-top: 1px solid var(--pi-line-soft);
   background: var(--pi-panel);
+}
+
+/* Legacy class aliases kept so older markup / tests don't flash unstyled. */
+.pi-markdown .pi-md-card {
+  position: relative;
+  margin: 1.35rem 0 1.1rem 0.5rem;
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow);
+  overflow: visible;
+}
+.pi-markdown .pi-md-card > .pi-corner-badge {
+  top: -8px;
+  left: -8px;
 }
 
 /* Fenced code blocks */
@@ -2029,12 +2051,14 @@ button.pi-panel-row.pi-panel-row--selected {
   color: var(--pi-muted);
 }
 /* Language is already shown on the corner badge — keep bar for copy only. */
+.pi-markdown .pi-md-feature--code .pi-md-pre-bar,
 .pi-markdown .pi-md-card--code .pi-md-pre-bar {
   justify-content: flex-end;
   border-bottom: none;
   padding-bottom: 0;
   background: transparent;
 }
+.pi-markdown .pi-md-feature--code .pi-md-pre-lang,
 .pi-markdown .pi-md-card--code .pi-md-pre-lang { display: none; }
 .pi-markdown .pi-md-pre-lang { text-transform: lowercase; }
 .pi-markdown .pi-md-pre pre {
@@ -2391,16 +2415,20 @@ button.pi-panel-row.pi-panel-row--selected {
  * ========================================================== */
 .pi-corner-badge {
   position: absolute;
-  top: -10px; left: -10px;
-  height: 1.75rem;
-  padding: 0 0.625rem;
+  /* HYW: -top-2 -left-2 */
+  top: -8px; left: -8px;
+  height: 1.75rem; /* h-7 */
+  padding: 0 0.625rem; /* px-2.5 */
   background-color: var(--pi-theme);
   color: var(--pi-theme-ink);
-  display: flex; align-items: center; gap: 0.375rem;
-  font-size: 0.68rem; font-weight: 800;
-  text-transform: uppercase; letter-spacing: 0.5px;
+  display: flex; align-items: center; justify-content: center; gap: 0.375rem; /* gap-1.5 */
+  font-size: 0.75rem; /* text-[12px] */
+  font-weight: 700; /* font-bold */
+  text-transform: uppercase;
+  letter-spacing: 0.025em; /* tracking-wide */
   box-shadow: var(--pi-shadow-badge);
   z-index: 10;
+  line-height: 1;
 }
 
 /* ============================================================

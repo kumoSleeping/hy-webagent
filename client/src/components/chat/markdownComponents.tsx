@@ -1,5 +1,6 @@
 import { isValidElement, useRef, type ReactNode } from "react";
 import type { Components } from "react-markdown";
+import { Code2, Table2, TextQuote } from "lucide-react";
 import { downloadAuthenticatedFile } from "../../lib/api";
 import { CodeCopyButton } from "../common/CodeCopyButton";
 
@@ -25,17 +26,56 @@ function extractText(node: ReactNode): string {
   return "";
 }
 
-function CornerBadge({ label }: { label: string }) {
-  return <div className="pi-corner-badge">{label}</div>;
+/** HYW card-ui corner badge — hangs off the white body, not inside it. */
+function CornerBadge({
+  label,
+  icon,
+}: {
+  label: string;
+  icon?: ReactNode;
+}) {
+  return (
+    <div className="pi-corner-badge">
+      {icon}
+      <span>{label}</span>
+    </div>
+  );
+}
+
+/**
+ * Match HYW App.vue card structure:
+ *   relative wrap → absolute badge (-top/-left) → white body
+ * so the red label sits on the body's corner, not flush in the text.
+ */
+function FeatureCard({
+  kind,
+  label,
+  icon,
+  children,
+}: {
+  kind: "summary" | "code" | "table";
+  label: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className={`pi-md-feature pi-md-feature--${kind}`}>
+      <CornerBadge label={label} icon={icon} />
+      <div className="pi-md-feature-body">{children}</div>
+    </div>
+  );
 }
 
 function SummaryCard({ children }: { children?: ReactNode }) {
   const text = extractText(children).trim();
   return (
-    <div className="pi-md-card pi-md-card--summary">
-      <CornerBadge label="Summary" />
+    <FeatureCard
+      kind="summary"
+      label="Summary"
+      icon={<TextQuote size={14} strokeWidth={2.5} aria-hidden="true" />}
+    >
       <div className="pi-md-summary-body">{text}</div>
-    </div>
+    </FeatureCard>
   );
 }
 
@@ -58,8 +98,11 @@ function PreBlock({ children }: { children?: ReactNode }) {
     : "Code";
 
   return (
-    <div className="pi-md-card pi-md-card--code">
-      <CornerBadge label={label} />
+    <FeatureCard
+      kind="code"
+      label={label}
+      icon={<Code2 size={14} strokeWidth={2.5} aria-hidden="true" />}
+    >
       <div className="pi-md-pre">
         <div className="pi-md-pre-bar">
           <span className="pi-md-pre-lang">{language}</span>
@@ -67,7 +110,7 @@ function PreBlock({ children }: { children?: ReactNode }) {
         </div>
         <pre ref={preRef}>{children}</pre>
       </div>
-    </div>
+    </FeatureCard>
   );
 }
 
@@ -75,12 +118,15 @@ export const markdownComponents: Components = {
   hr: () => <div className="pi-md-hr" role="separator" />,
   pre: ({ children }) => <PreBlock>{children}</PreBlock>,
   table: ({ children }) => (
-    <div className="pi-md-card pi-md-card--table">
-      <CornerBadge label="Table" />
+    <FeatureCard
+      kind="table"
+      label="Table"
+      icon={<Table2 size={14} strokeWidth={2.5} aria-hidden="true" />}
+    >
       <div className="pi-md-table-wrap">
         <table>{children}</table>
       </div>
-    </div>
+    </FeatureCard>
   ),
   a: ({ href, children }) => {
     if (isFileDownloadHref(href)) {
