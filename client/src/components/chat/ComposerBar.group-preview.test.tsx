@@ -30,13 +30,15 @@ describe("ComposerBar group preview", () => {
       />,
     );
 
-    const textarea = screen.getByPlaceholderText("Preparing...");
-    expect(textarea).toBeEnabled();
-    textarea.focus();
-    expect(textarea).toHaveFocus();
-    fireEvent.input(textarea, { target: { value: "第一个字" }, inputType: "insertText" });
-    expect(textarea).toHaveValue("第一个字");
-    expect(textarea).toHaveFocus();
+    const editor = screen.getByRole("textbox");
+    expect(editor).toHaveAttribute("data-placeholder", "Preparing...");
+    expect(editor).not.toHaveAttribute("aria-disabled", "true");
+    editor.focus();
+    expect(editor).toHaveFocus();
+    editor.textContent = "第一个字";
+    fireEvent.input(editor, { inputType: "insertText" });
+    expect(editor).toHaveTextContent("第一个字");
+    expect(editor).toHaveFocus();
     expect(screen.getByLabelText("Send message")).toBeDisabled();
   });
 
@@ -61,7 +63,7 @@ describe("ComposerBar group preview", () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText("Group chat only...")).toBeDisabled();
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-disabled", "true");
     expect(screen.getAllByRole("button").filter((button) =>
       ["Toggle model selector", "Toggle history", "Toggle files", "Toggle account panel", "返回正常聊天"]
         .includes(button.getAttribute("aria-label") ?? ""),

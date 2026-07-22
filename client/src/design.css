@@ -1050,25 +1050,27 @@ body {
 
 .pi-composer-input {
   display: block;
+  min-height: calc(var(--pi-composer-line) + 0.75rem);
   font-family: var(--pi-font);
   font-size: var(--pi-composer-font);
   line-height: var(--pi-composer-line);
-  field-sizing: content; /* native auto-grow where supported */
   max-height: calc(var(--pi-composer-line) * 8 + 0.75rem); /* 8 rows + py padding */
   overflow: hidden auto; /* block horizontal scrollbar (overflow-y alone implies overflow-x: auto) */
   overflow-wrap: break-word;
+  white-space: pre-wrap;
   scrollbar-width: thin;
   scrollbar-color: rgba(60, 60, 67, 0.3) transparent;
   border: none;
   border-radius: 0;
   outline: none;
   box-shadow: none;
-  /* Signature caret: red accent, default bar shape — block caret would
-     paint over the glyph/placeholder at the insertion point (e.g. the
-     leading "T" in "Type / for commands..."). */
   caret-color: var(--pi-theme);
 }
-.pi-composer-input::placeholder {
+.pi-composer-input:empty::before {
+  content: attr(data-placeholder);
+  display: block;
+  color: #a8b0bc;
+  pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
@@ -1085,13 +1087,10 @@ body {
 }
 .pi-composer-input::-webkit-scrollbar-track { background: transparent; }
 
-/* iOS/WebKit caret rendering is unreliable with custom line-height and
-   content-sized textareas, especially while Chinese/Japanese IME is active. */
+/* Keep WebKit text metrics native while retaining the signature caret. */
 @supports (-webkit-touch-callout: none) {
   .pi-composer-input {
-    field-sizing: fixed;
     line-height: normal;
-    caret-color: auto;
     text-size-adjust: 100%;
   }
 }

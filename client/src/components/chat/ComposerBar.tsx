@@ -45,7 +45,7 @@ import {
   findMarkerBounds,
   createCompressedMarker,
 } from "../../lib/compressedText";
-import { StableComposerTextarea } from "./StableComposerTextarea";
+import { StableComposerEditor, type ComposerEditorHandle } from "./StableComposerEditor";
 
 interface ComposerBarProps {
   disabled?: boolean;
@@ -89,7 +89,6 @@ interface ComposerBarProps {
   isMobileLayout?: boolean;
 }
 
-const MIN_ROWS = 1;
 const COMPRESSED_PASTE_THRESHOLD = 300;
 const DRAFT_CACHE_PREFIX = "pi-composer-draft-v1:";
 
@@ -235,7 +234,7 @@ export function ComposerBar({
   const [historyQuery, setHistoryQuery] = useState("");
   const historyRowRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const taRef = useRef<ComposerEditorHandle>(null);
   const textRef = useRef(text);
   const draftWriteTimerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -267,7 +266,10 @@ export function ComposerBar({
     persistDraft(value);
     setTextState(value);
   }, [persistDraft]);
-  const { imeProps, isComposing, composingRef } = useImeComposition(mirrorComposerText);
+  const { imeProps, isComposing, composingRef } = useImeComposition<HTMLDivElement>(
+    mirrorComposerText,
+    (target) => target.textContent ?? "",
+  );
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const argsLockRef = useRef<string | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
@@ -397,7 +399,7 @@ export function ComposerBar({
     if (pendingCaretRef.current === null) return;
     // Never reposition the cursor during IME composition or iOS dictation —
     // let the browser manage caret placement entirely while the IME owns
-    // the textarea, otherwise the first dictated character lands at the
+    // the editor, otherwise the first dictated character lands at the
     // wrong position (at the text end) while remaining characters arrive
     // at the correct insertion point.
     if (composingRef.current) return;
@@ -559,7 +561,7 @@ export function ComposerBar({
       if (text.length > 0) return;
 
       const target = e.target as HTMLElement | null;
-      if (target === taRef.current) return;
+      if (target === taRef.current?.element) return;
 
       if (target) {
         const tag = target.tagName;
@@ -586,8 +588,8 @@ export function ComposerBar({
   // Tree/files own their own ↑/↓ internally (via toolbarKeyboardFocus in
   // the shared store) once handed the list; commands/history are simple
   // enough to live right here. A document-level capture listener (rather
-  // than the textarea's onKeyDown) is required because clicking a toolbar
-  // button moves real DOM focus off the textarea.
+  // than the editor's onKeyDown) is required because clicking a toolbar
+  // button moves real DOM focus off the editor.
   useEffect(() => {
     function onNavKeyDown(e: globalThis.KeyboardEvent) {
       const key = e.key;
@@ -598,12 +600,12 @@ export function ComposerBar({
       ) return;
 
       const target = e.target as HTMLElement | null;
-      const isMainTextarea = target === taRef.current;
+      const isMainTextarea = target === taRef.current?.element;
       const tag = target?.tagName;
       const isForeignField = !isMainTextarea && (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable === true);
       if (isForeignField) return;
 
-      // While the composer IME is open, leave every key to the textarea —
+      // While the composer IME is open, leave every key to the editor —
       // capture listeners must not preventDefault or hijack arrows/Enter.
       if (isMainTextarea && composingRef.current && key !== "Escape") return;
 
@@ -882,7 +884,7 @@ export function ComposerBar({
     ingestFiles(selected);
   }
 
-  function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+  function handlePaste(e: ClipboardEvent<HTMLDivElement>) {
     if (disabled || isStreaming) return;
     const pastedFiles = filesFromClipboard(e.clipboardData).filter(isSupportedAttachmentFile);
     if (pastedFiles.length) {
@@ -995,7 +997,7 @@ export function ComposerBar({
     }
   }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+  function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     // ←/→/↑/↓/Enter-on-toolbar/Escape are all handled by the document-level
     // navigation listener above (it runs first and stops propagation for
     // anything it claims) — this only ever sees a plain Enter-to-send.
@@ -1018,6 +1020,13 @@ export function ComposerBar({
         }
         return;
       }
+    }
+
+    if (e.key === "Enter" && e.shiftKey && !isComposing(e)) {
+      e.preventDefault();
+      taRef.current?.insertText("\n");
+      mirrorComposerText(taRef.current?.value ?? text);
+      return;
     }
 
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1058,9 +1067,9 @@ export function ComposerBar({
 
   function focusInput(e: React.MouseEvent) {
     if (panel !== null) return;
-    // When clicking directly on the textarea, let the browser place the
+    // When clicking directly on the editor, let the browser place the
     // caret naturally — don't override it by forcing cursor to end.
-    if (e.target === taRef.current) return;
+    if (e.target === taRef.current?.element) return;
     focusComposerForTyping();
   }
 
@@ -1315,11 +1324,10 @@ export function ComposerBar({
         >
           <Plus strokeWidth={2} aria-hidden="true" />
         </button>
-        <StableComposerTextarea
+        <StableComposerEditor
           ref={taRef}
           initialValue={text}
           onValueChange={mirrorComposerText}
-          rows={MIN_ROWS}
           autoCapitalize="none"
           autoComplete="off"
           autoCorrect="off"

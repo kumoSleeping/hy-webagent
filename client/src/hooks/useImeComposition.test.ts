@@ -3,13 +3,13 @@ import type { CompositionEvent, KeyboardEvent } from "react";
 import { renderHook } from "@testing-library/react";
 import { useImeComposition } from "./useImeComposition";
 
-function enterKeyDown(isComposing = false) {
+function enterKeyDown(isComposing = false): KeyboardEvent<HTMLTextAreaElement> {
   return {
     key: "Enter",
     shiftKey: false,
     keyCode: 229,
     nativeEvent: { isComposing },
-  } as unknown as KeyboardEvent;
+  } as unknown as KeyboardEvent<HTMLTextAreaElement>;
 }
 
 function compositionEnd(value: string, selectionStart = value.length) {

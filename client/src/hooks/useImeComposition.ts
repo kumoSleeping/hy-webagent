@@ -10,7 +10,15 @@ type CompositionCommit = (value: string, caret: number | null) => void;
  * Callers must skip caret/layout side-effects while `isComposingActive()` is
  * true and never preventDefault on Enter when composing.
  */
-export function useImeComposition(onCompositionCommit?: CompositionCommit) {
+function defaultReadValue(target: HTMLElement): string {
+  if ("value" in target && typeof target.value === "string") return target.value;
+  return target.textContent ?? "";
+}
+
+export function useImeComposition<T extends HTMLElement = HTMLTextAreaElement>(
+  onCompositionCommit?: CompositionCommit,
+  readValue: (target: T) => string = defaultReadValue,
+) {
   const composingRef = useRef(false);
 
   const isComposingActive = useCallback(() => composingRef.current, []);
@@ -19,15 +27,21 @@ export function useImeComposition(onCompositionCommit?: CompositionCommit) {
     onCompositionStart: () => {
       composingRef.current = true;
     },
-    onCompositionEnd: (e: CompositionEvent<HTMLTextAreaElement>) => {
+    onCompositionEnd: (e: CompositionEvent<T>) => {
       const target = e.currentTarget;
       if (!target) return;
       // iOS commits the final glyph after compositionEnd — sync state on the
       // next microtask so React catches up before caret-restore effects run.
       // Keep composingRef true until the commit finishes so controlled caret
       // restoration does not run against stale positions (dictation/IME reorder).
-      const { value, selectionStart } = target;
       queueMicrotask(() => {
+        const value = readValue(target);
+        const selection = window.getSelection();
+        const selectionStart = "selectionStart" in target && typeof target.selectionStart === "number"
+          ? target.selectionStart
+          : selection && target.contains(selection.anchorNode)
+            ? selection.anchorOffset
+            : null;
         onCompositionCommit?.(value, selectionStart);
         composingRef.current = false;
       });
@@ -38,7 +52,7 @@ export function useImeComposition(onCompositionCommit?: CompositionCommit) {
   };
 
   /** True while an IME session is open. Do not rely on keyCode 229 — iOS misreports it on Enter. */
-  function isComposing(e: KeyboardEvent): boolean {
+  function isComposing(e: KeyboardEvent<T>): boolean {
     return composingRef.current || e.nativeEvent.isComposing;
   }
 
