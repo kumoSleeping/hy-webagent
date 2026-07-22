@@ -78,8 +78,6 @@
   /* Eight toolbar buttons share one bar — width / count must stay in sync. */
   --pi-composer-toolbar-count: 7;
   --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / var(--pi-composer-toolbar-count));
-  /* Short dissolve band ending exactly at the composer's top border. */
-  --pi-composer-fade: 0.75rem;
   /* Empty band reserved at the very top of the chat. */
   --pi-top-strip: 2.5rem;
 }
@@ -1040,18 +1038,6 @@ body {
   box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
   padding: 0 var(--pi-composer-pad-x) 0.7rem;
   transition: border-color 200ms;
-}
-.pi-composer-shell::before {
-  content: "";
-  position: absolute;
-  right: 50%;
-  bottom: 100%;
-  width: 100vw;
-  height: var(--pi-composer-fade);
-  transform: translateX(50%);
-  background: linear-gradient(to top, var(--pi-bg), transparent);
-  pointer-events: none;
-  z-index: 49;
 }
 .pi-composer-shell:focus-within {
   box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
@@ -2456,20 +2442,6 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-interactive-shell > * { pointer-events: auto; }
 
-/* Opaque band behind the whole composer stack — messages must never show
-   through toolbar/input/status even when feed padding lags a frame. */
-.pi-interactive-shell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  left: 50%;
-  width: 100vw;
-  transform: translateX(-50%);
-  background: var(--pi-bg);
-  pointer-events: none;
-  z-index: -2;
-}
-
 /* ============================================================
  * Web chrome — platform-owned footer (not PI agent status bar)
  * ========================================================== */
@@ -2643,7 +2615,7 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel);
   border: 1px solid var(--pi-line);
   border-bottom: none;
-  box-shadow: none;
+  box-shadow: var(--pi-shadow-float);
   z-index: 50;
   transition: right 200ms;
   background-clip: padding-box;

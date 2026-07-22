@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 const DEFAULT_RESERVE = 220;
 
 /**
- * Keep only the actual composer body clear. The toolbar and short dissolve band
- * intentionally overlap the feed so messages fade out at the input's top edge
- * instead of leaving a large empty strip above it.
+ * Keep only the actual composer body clear. Toolbar and side gaps overlap the
+ * feed naturally; each opaque UI surface hides only the text directly beneath
+ * its own rectangle.
  */
 export function measureComposerReserveHeight(): number {
   const shell = document.querySelector(".pi-interactive-shell");
