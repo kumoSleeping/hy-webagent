@@ -2163,9 +2163,9 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel);
 }
 .pi-markdown .pi-md-feature--table .pi-md-feature-body {
-  padding-top: 1.25rem; /* pt-5 */
+  padding-top: 0;
   overflow: visible;
-  background: #1c1c1e;
+  background: var(--pi-panel);
 }
 .pi-markdown .pi-md-feature--table .pi-md-table-wrap {
   margin: 0;
@@ -2291,10 +2291,13 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-markdown th:last-child,
 .pi-markdown td:last-child { border-right: none; }
+.pi-markdown .pi-md-feature--table th:first-child {
+  padding-left: 5.25rem;
+}
 .pi-markdown th {
-  background: #1c1c1e;
+  background: color-mix(in srgb, var(--pi-panel-subtle) 80%, var(--pi-panel));
   font-weight: 800;
-  color: #fff;
+  color: var(--pi-text);
   text-transform: uppercase;
   font-size: 0.78rem;
   letter-spacing: -0.01em;
