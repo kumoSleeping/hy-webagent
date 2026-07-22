@@ -1121,11 +1121,9 @@ export function ComposerBar({
   const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
   const showInlinePanel = panel !== null && !elevatedPanel;
   const hasDraft = text.trim().length > 0 || pendingAttachments.length > 0;
-  // Hang-off label: connecting text, else streaming Working / extension text.
-  const showWorkingLine = isConnecting || isStreaming;
-  const workingLineText = isConnecting
-    ? "连接中…"
-    : (workingMessage?.trim() || "Working...");
+  // Working text only while streaming — connecting is just the red corner badge.
+  const showWorkingLine = isStreaming && !isConnecting;
+  const workingLineText = workingMessage?.trim() || "Working...";
 
   function renderPanelBody(): ReactNode {
     if (!panel) return null;
@@ -1181,36 +1179,34 @@ export function ComposerBar({
       ref={shellRef}
       onClick={focusInput}
     >
-      {(isStreaming || isConnecting || badgeRow) && (
+      {/* Corner badge is positioned on the shell's top-left vertex
+          (translate -50/-50). Working text + queue sit just to its right. */}
+      {isStreaming && !isConnecting && (
+        <button
+          type="button"
+          className="pi-composer-working pi-composer-working--shell"
+          onClick={(e) => { e.stopPropagation(); if (!groupPreview) onAbort?.(); }}
+          disabled={Boolean(groupPreview)}
+          title={groupPreview ? "机器人正在群聊中处理" : "Stop"}
+          aria-label={groupPreview ? "机器人正在群聊中处理" : "Stop — click to interrupt"}
+        >
+          <span className="pi-composer-working-bars" aria-hidden="true">
+            <span /><span /><span /><span />
+          </span>
+        </button>
+      )}
+      {isConnecting && (
+        <div
+          className="pi-composer-working pi-composer-working--shell pi-composer-connecting"
+          aria-label="连接中…"
+        >
+          <span className="pi-composer-connecting-block" />
+        </div>
+      )}
+      {(showWorkingLine || badgeRow) && (
         <div className="pi-composer-working-row" onClick={(e) => e.stopPropagation()}>
-          {isStreaming && !isConnecting && (
-            <button
-              type="button"
-              className="pi-composer-working"
-              onClick={(e) => { e.stopPropagation(); if (!groupPreview) onAbort?.(); }}
-              disabled={Boolean(groupPreview)}
-              title={groupPreview ? "机器人正在群聊中处理" : "Stop"}
-              aria-label={groupPreview ? "机器人正在群聊中处理" : "Stop — click to interrupt"}
-            >
-              <span className="pi-composer-working-bars" aria-hidden="true">
-                <span /><span /><span /><span />
-              </span>
-            </button>
-          )}
-          {isConnecting && (
-            <div
-              className="pi-composer-working pi-composer-connecting"
-              aria-label="连接中…"
-            >
-              <span className="pi-composer-connecting-block" />
-            </div>
-          )}
           {showWorkingLine && (
-            <div
-              className="pi-composer-working-msg"
-              aria-live="polite"
-              data-state={isConnecting ? "connecting" : "working"}
-            >
+            <div className="pi-composer-working-msg" aria-live="polite">
               {workingLineText}
             </div>
           )}

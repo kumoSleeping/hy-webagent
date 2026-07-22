@@ -381,6 +381,7 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow: visible;
   /* Toolbar is `position:absolute; bottom:100%` on the shell — reserve its
      row in layout so overlay height + feed paddingBottom stay in sync. */
   padding-top: var(--pi-composer-toolbar-btn-h);
@@ -1010,6 +1011,7 @@ body {
   --pi-composer-pad-x: 0.875rem;
   --pi-composer-border: 1px;
   position: relative;
+  overflow: visible;
   border-radius: 0;
   border: var(--pi-composer-border) solid var(--pi-line);
   background: var(--pi-panel);
@@ -1345,19 +1347,23 @@ body {
   0%, 100% { transform: scaleY(0.32); }
   50% { transform: scaleY(1); }
 }
-/* Working equalizer + rotating message sit on one hang-off row at the
-   composer shell's top-left vertex (CLI Working… parity). */
-.pi-composer-working-row {
+/* Badge center = composer shell top-left corner point. */
+.pi-composer-working--shell {
   position: absolute;
   top: 0;
   left: 0;
-  right: auto;
-  margin: 0;
-  transform: translate(calc(-1 * var(--pi-composer-border, 1px)), -50%);
+  transform: translate(-50%, -50%);
+  z-index: 51;
+}
+/* Working text + queue badges tuck just right of that corner square. */
+.pi-composer-working-row {
+  position: absolute;
+  top: calc(-1 * var(--pi-composer-border, 1px));
+  left: calc(0.8125rem + 6px); /* half of 1.625rem square + gap */
+  transform: translateY(-50%);
   z-index: 51;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
   gap: 0.35rem;
   max-width: min(72vw, 28rem);
   pointer-events: auto;
