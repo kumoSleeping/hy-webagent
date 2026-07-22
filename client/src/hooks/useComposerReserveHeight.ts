@@ -3,9 +3,8 @@ import { useEffect, useState } from "react";
 const DEFAULT_RESERVE = 220;
 
 /**
- * Keep only the actual composer body clear. Toolbar and side gaps overlap the
- * feed naturally; each opaque UI surface hides only the text directly beneath
- * its own rectangle.
+ * Keep the composer and its attached toolbar clear at the bottom so the final
+ * message line is never hidden behind either surface.
  */
 export function measureComposerReserveHeight(): number {
   const shell = document.querySelector(".pi-interactive-shell");
@@ -14,7 +13,12 @@ export function measureComposerReserveHeight(): number {
   const shellRect = shell.getBoundingClientRect();
   const composer = document.querySelector(".pi-composer-shell");
   const composerTop = composer?.getBoundingClientRect().top ?? shellRect.top;
-  return Math.ceil(shellRect.bottom - composerTop);
+  const toolbar = document.querySelector(".pi-composer-toolbar-bar");
+  const toolbarRect = toolbar?.getBoundingClientRect();
+  const clearTop = toolbarRect && toolbarRect.height > 0
+    ? Math.min(composerTop, toolbarRect.top)
+    : composerTop;
+  return Math.ceil(shellRect.bottom - clearTop);
 }
 
 /** Track live composer overlay height for message-feed paddingBottom. */

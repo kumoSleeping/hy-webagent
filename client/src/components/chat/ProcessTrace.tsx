@@ -127,10 +127,7 @@ export const ProcessTrace = memo(function ProcessTrace({
             if (item.kind === "tool") {
               return <ToolStep key={item.tool.toolCallId} toolCall={item.tool} isLive={isLive} />;
             }
-            if (item.kind === "status") {
-              return <ProcessStatusStep key={`status-${index}`} text={item.text} />;
-            }
-            return <ThinkingStep key={`think-${index}`} text={item.text} isLive={isLive} />;
+            return <ProcessTextStep key={`${item.kind}-${index}`} text={item.text} isLive={isLive} />;
           })}
         </div>
       )}
@@ -138,29 +135,7 @@ export const ProcessTrace = memo(function ProcessTrace({
   );
 });
 
-const ProcessStatusStep = memo(function ProcessStatusStep({ text }: { text: string }) {
-  if (!text.trim()) return null;
-  return <div className="pi-process-step-status">{text.trim()}</div>;
-});
-
-const ThinkingStep = memo(function ThinkingStep({ text, isLive }: { text: string; isLive: boolean }) {
-  const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const expanded = manualExpanded ?? isLive;
-
-  useEffect(() => {
-    if (!text || !isLive || !expanded) return;
-    const el = bodyRef.current;
-    if (!el) return;
-    const scrollToBottom = () => {
-      el.scrollTop = el.scrollHeight;
-    };
-    scrollToBottom();
-    const ro = new ResizeObserver(scrollToBottom);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [text, isLive, expanded]);
-
+const ProcessTextStep = memo(function ProcessTextStep({ text, isLive }: { text: string; isLive: boolean }) {
   if (!text) {
     if (!isLive) return null;
     return (
@@ -178,28 +153,7 @@ const ThinkingStep = memo(function ThinkingStep({ text, isLive }: { text: string
     );
   }
 
-  const preview = firstLine(text);
-
-  return (
-    <div className="pi-process-step">
-      <button
-        type="button"
-        onClick={() => setManualExpanded(!expanded)}
-        className="pi-process-step-toggle"
-        aria-expanded={expanded}
-      >
-        <DisclosureIcon expanded={expanded} />
-        <span className="pi-process-step-label">Thought</span>
-        {!expanded && <span className="pi-process-step-summary">{preview}</span>}
-        {isLive && expanded && <span className="pi-process-step-live">Thinking...</span>}
-      </button>
-      {expanded && (
-        <div ref={bodyRef} className="pi-process-step-body">
-          {text}
-        </div>
-      )}
-    </div>
-  );
+  return <div className="pi-process-step-text">{text.trim()}</div>;
 });
 
 const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCallRecord; isLive: boolean }) {
@@ -276,9 +230,3 @@ const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCa
     </div>
   );
 });
-
-function firstLine(text: string): string {
-  const line = text.split(/\r?\n/).find((l) => l.trim()) ?? text;
-  const trimmed = line.trim();
-  return trimmed.length > 96 ? `${trimmed.slice(0, 96)}…` : trimmed;
-}

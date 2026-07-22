@@ -85,7 +85,7 @@ describe("buildAssistantTurnView", () => {
     expect(answering.activeIndex).toBeNull();
   });
 
-  it("keeps search narration in the process before the web tool", () => {
+  it("keeps narration in the process before any tool", () => {
     const view = buildAssistantTurnView([
       assistant("a1", {
         content: "正在检索剧情资料。",
@@ -95,8 +95,8 @@ describe("buildAssistantTurnView", () => {
         blocks: [{
           type: "tool",
           tool: tool("web-1", {
-            toolName: "web_search",
-            input: { query: "剧情资料" },
+            toolName: "bash",
+            input: { command: "echo ready" },
           }),
         }],
       }),

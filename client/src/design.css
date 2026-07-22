@@ -310,12 +310,14 @@ body {
   font-family: var(--pi-font-mono);
   opacity: 0.7;
 }
-.pi-process-step-status {
-  padding: 0.1rem 0 0.1rem 1.225rem;
-  color: var(--pi-muted);
-  font-size: 0.75rem;
-  line-height: 1.45;
+.pi-process-step-text {
+  padding: 0.2rem 0 0.2rem 1.225rem;
+  color: var(--pi-text-body);
+  font-family: var(--pi-font);
+  font-size: 0.875rem;
+  line-height: 1.55;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 .pi-process-step-state {
   margin: 0.1rem 0 0.25rem 1.225rem;

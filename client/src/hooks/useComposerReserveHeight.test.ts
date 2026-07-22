@@ -8,7 +8,7 @@ describe("measureComposerReserveHeight", () => {
     document.documentElement.style.setProperty("--pi-composer-fade", "80px");
   });
 
-  it("reserves only from the composer top edge to the shell bottom", () => {
+  it("reserves from the toolbar top edge to the shell bottom", () => {
     document.body.innerHTML = `
       <div class="pi-interactive-shell" style="position:absolute;bottom:0;height:200px;width:400px;">
         <div class="pi-composer-dock">
@@ -29,6 +29,10 @@ describe("measureComposerReserveHeight", () => {
     composer.getBoundingClientRect = () =>
       ({ top: 180, bottom: 300, left: 0, right: 400, width: 400, height: 120, x: 0, y: 180, toJSON: () => ({}) }) as DOMRect;
 
-    expect(measureComposerReserveHeight()).toBe(120);
+    const toolbar = document.querySelector(".pi-composer-toolbar-bar") as HTMLElement;
+    toolbar.getBoundingClientRect = () =>
+      ({ top: 148, bottom: 180, left: 200, right: 400, width: 200, height: 32, x: 200, y: 148, toJSON: () => ({}) }) as DOMRect;
+
+    expect(measureComposerReserveHeight()).toBe(152);
   });
 });
