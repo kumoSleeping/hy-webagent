@@ -1806,8 +1806,10 @@ button.pi-panel-row.pi-panel-row--selected {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  margin-top: 0.375rem;
-  padding-top: 0.35rem;
+  margin-top: 0;
+  margin-bottom: -0.875rem;
+  padding-top: 0.725rem;
+  padding-bottom: 0.875rem;
   background: var(--pi-bg);
   /* Reserve native pi footer height so New Chat / session switch never jumps the composer. */
   min-height: 4.75rem;
