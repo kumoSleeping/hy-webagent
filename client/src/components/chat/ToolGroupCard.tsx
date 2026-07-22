@@ -38,38 +38,40 @@ export const ToolGroupCard = memo(function ToolGroupCard({ items, toolCount, cat
       : items.find((i) => i.kind === "thinking")?.text.slice(0, 120) || "…";
 
   return (
-    <div className="pi-tool-group relative border border-[var(--pi-line)] bg-[var(--pi-panel-subtle)] overflow-visible">
+    <div className="pi-tool-feature pi-tool-feature--group pi-tool-group">
       <div className="pi-corner-badge">
         {hasError ? <XCircle size={10} /> : <BadgeIcon size={10} />}
         <span>{badgeLabel}</span>
       </div>
 
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2.5 px-4 pt-8 pb-2.5 text-left text-sm hover:bg-white transition-colors cursor-pointer"
-      >
-        <span className="min-w-0 flex-1 text-[var(--pi-text-body)] leading-snug truncate font-mono">
-          {summary}
-        </span>
-        {hasError && <XCircle size={14} className="text-[var(--pi-theme)] shrink-0" />}
-        {expanded ? (
-          <ChevronDown size={14} className="text-[var(--pi-muted)] shrink-0" />
-        ) : (
-          <ChevronRight size={14} className="text-[var(--pi-muted)] shrink-0" />
-        )}
-      </button>
-
-      {expanded && (
-        <div className="pi-tool-group-body border-t border-[var(--pi-line)] px-4 py-3 space-y-2.5 bg-white">
-          {items.map((item, i) =>
-            item.kind === "tool" ? (
-              <ToolCallCard key={item.tool.toolCallId} toolCall={item.tool} />
-            ) : (
-              <ThinkingBlock key={`think-${i}`} content={item.text} isActive={false} />
-            )
+      <div className="pi-tool-feature-body">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex w-full items-center gap-2.5 px-4 pt-8 pb-2.5 text-left text-sm hover:bg-white transition-colors cursor-pointer"
+        >
+          <span className="min-w-0 flex-1 text-[var(--pi-text-body)] leading-snug truncate font-mono">
+            {summary}
+          </span>
+          {hasError && <XCircle size={14} className="text-[var(--pi-theme)] shrink-0" />}
+          {expanded ? (
+            <ChevronDown size={14} className="text-[var(--pi-muted)] shrink-0" />
+          ) : (
+            <ChevronRight size={14} className="text-[var(--pi-muted)] shrink-0" />
           )}
-        </div>
-      )}
+        </button>
+
+        {expanded && (
+          <div className="pi-tool-group-body border-t border-[var(--pi-line)] px-4 py-3 space-y-2.5 bg-white">
+            {items.map((item, i) =>
+              item.kind === "tool" ? (
+                <ToolCallCard key={item.tool.toolCallId} toolCall={item.tool} />
+              ) : (
+                <ThinkingBlock key={`think-${i}`} content={item.text} isActive={false} />
+              )
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 });

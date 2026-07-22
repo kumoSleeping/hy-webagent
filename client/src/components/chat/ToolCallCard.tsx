@@ -23,53 +23,55 @@ export const ToolCallCard = memo(function ToolCallCard({ toolCall }: ToolCallCar
   const resultText = resolveToolOutput(output, details);
 
   return (
-    <div className="pi-tool-call relative border border-[var(--pi-line)] bg-[var(--pi-panel-subtle)] overflow-visible">
+    <div className="pi-tool-feature pi-tool-call">
       <div className="pi-corner-badge">
         {status === "error" && <XCircle size={10} />}
         <span>{toolName}</span>
       </div>
 
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2.5 px-4 pt-8 pb-2.5 text-left text-sm hover:bg-white transition-colors cursor-pointer"
-      >
-        <span className="min-w-0 flex-1 text-[var(--pi-text-body)] leading-snug truncate font-mono">
-          {target}
-        </span>
-        <span className="shrink-0">{statusIcon[status]}</span>
-        {expanded ? (
-          <ChevronDown size={14} className="text-[var(--pi-muted)] shrink-0" />
-        ) : (
-          <ChevronRight size={14} className="text-[var(--pi-muted)] shrink-0" />
-        )}
-      </button>
-
-      {expanded && (
-        <div className="border-t border-[var(--pi-line)] px-4 py-3 space-y-3 bg-white">
-          {input && Object.keys(input).length > 0 && (
-            <div>
-              <p className="text-[var(--pi-muted)] mb-1.5 font-bold uppercase tracking-wider text-[0.72rem]">Input</p>
-              <CodeBlock language="json" code={JSON.stringify(input, null, 2)} />
-            </div>
-          )}
-          {resultText ? (
-            <div>
-              <p className="text-[var(--pi-muted)] mb-1.5 font-bold uppercase tracking-wider text-[0.72rem]">Output</p>
-              <div
-                className={`whitespace-pre-wrap font-mono text-[0.8125rem] leading-relaxed ${
-                  isError ? "text-[#dc2626]" : "text-[var(--pi-text-body)]"
-                } max-h-60 overflow-auto pi-scrollbar`}
-              >
-                {resultText}
-              </div>
-            </div>
-          ) : status === "running" ? (
-            <p className="text-[var(--pi-muted)] font-mono">Running…</p>
+      <div className="pi-tool-feature-body">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex w-full items-center gap-2.5 px-4 pt-8 pb-2.5 text-left text-sm hover:bg-white transition-colors cursor-pointer"
+        >
+          <span className="min-w-0 flex-1 text-[var(--pi-text-body)] leading-snug truncate font-mono">
+            {target}
+          </span>
+          <span className="shrink-0">{statusIcon[status]}</span>
+          {expanded ? (
+            <ChevronDown size={14} className="text-[var(--pi-muted)] shrink-0" />
           ) : (
-            <p className="text-[var(--pi-muted)] font-mono">No output returned</p>
+            <ChevronRight size={14} className="text-[var(--pi-muted)] shrink-0" />
           )}
-        </div>
-      )}
+        </button>
+
+        {expanded && (
+          <div className="border-t border-[var(--pi-line)] px-4 py-3 space-y-3 bg-white">
+            {input && Object.keys(input).length > 0 && (
+              <div>
+                <p className="text-[var(--pi-muted)] mb-1.5 font-bold uppercase tracking-wider text-[0.72rem]">Input</p>
+                <CodeBlock language="json" code={JSON.stringify(input, null, 2)} />
+              </div>
+            )}
+            {resultText ? (
+              <div>
+                <p className="text-[var(--pi-muted)] mb-1.5 font-bold uppercase tracking-wider text-[0.72rem]">Output</p>
+                <div
+                  className={`whitespace-pre-wrap font-mono text-[0.8125rem] leading-relaxed ${
+                    isError ? "text-[#dc2626]" : "text-[var(--pi-text-body)]"
+                  } max-h-60 overflow-auto pi-scrollbar`}
+                >
+                  {resultText}
+                </div>
+              </div>
+            ) : status === "running" ? (
+              <p className="text-[var(--pi-muted)] font-mono">Running…</p>
+            ) : (
+              <p className="text-[var(--pi-muted)] font-mono">No output returned</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 });

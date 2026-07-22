@@ -194,7 +194,11 @@ body {
 
 /* Per-message virtualisation hint — tells the browser this subtree can be
    skipped during initial layout and sized ahead of time, so off-screen
-   messages don't contribute to layout cost. */
+   messages don't contribute to layout cost.
+   NOTE: content-visibility implies paint containment, which clips any
+   overflow (including absolute badges with negative top/left). Corner
+   badges must stay inside the bubble box — use the padding-gutter
+   hang pattern on .pi-md-feature / .pi-tool-feature, not negative offsets. */
 .pi-message-bubble {
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
@@ -1960,24 +1964,30 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 
 /* ============================================================
- * HYW-style feature cards — Summary / Code / Table
+ * HYW-style feature cards — Summary / Code / Table / Tools
  *
- * Structure mirrors HYW App.vue:
- *   .pi-md-feature (relative wrap, room for badge overhang)
- *     .pi-corner-badge  absolute -top-2 -left-2
- *     .pi-md-feature-body  white island
+ * Hang the corner badge via an 8px padding gutter (not negative
+ * offsets). Negative top/left get paint-clipped by content-visibility
+ * on .pi-message-bubble — that is what made tool/API badges vanish.
+ *
+ *   .pi-md-feature / .pi-tool-feature  (relative + 8px pad)
+ *     .pi-corner-badge                 absolute top/left 0 (in gutter)
+ *     .*-body                          white island
  * ========================================================== */
-.pi-markdown .pi-md-feature {
+.pi-markdown .pi-md-feature,
+.pi-tool-feature {
   position: relative;
-  /* Leave room so -8px badge overhang is not clipped by the feed edge. */
-  margin: 1.35rem 0 1.1rem 0.5rem;
+  margin: 1.35rem 0 1.1rem;
+  padding: 8px 0 0 8px; /* HYW -top-2/-left-2 hang, without leaving the box */
   overflow: visible;
 }
-.pi-markdown .pi-md-feature > .pi-corner-badge {
-  top: -8px;   /* Tailwind -top-2 */
-  left: -8px;  /* Tailwind -left-2 */
+.pi-markdown .pi-md-feature > .pi-corner-badge,
+.pi-tool-feature > .pi-corner-badge {
+  top: 0;
+  left: 0;
 }
-.pi-markdown .pi-md-feature-body {
+.pi-markdown .pi-md-feature-body,
+.pi-tool-feature-body {
   background: var(--pi-panel);
   box-shadow: var(--pi-shadow);
 }
@@ -2013,17 +2023,33 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel);
 }
 
+/* Tool / API call cards — same hang as Summary */
+.pi-tool-feature {
+  margin-block: 1rem;
+}
+.pi-tool-feature-body {
+  border: 1px solid var(--pi-line);
+  background: var(--pi-panel-subtle);
+}
+.pi-tool-feature--group .pi-tool-feature-body {
+  background: var(--pi-panel-subtle);
+}
+.pi-message-dialog-assistant .pi-tool-group .pi-tool-feature {
+  margin-block: 0;
+}
+
 /* Legacy class aliases kept so older markup / tests don't flash unstyled. */
 .pi-markdown .pi-md-card {
   position: relative;
-  margin: 1.35rem 0 1.1rem 0.5rem;
-  background: var(--pi-panel);
-  box-shadow: var(--pi-shadow);
+  margin: 1.35rem 0 1.1rem;
+  padding: 8px 0 0 8px;
+  background: transparent;
+  box-shadow: none;
   overflow: visible;
 }
 .pi-markdown .pi-md-card > .pi-corner-badge {
-  top: -8px;
-  left: -8px;
+  top: 0;
+  left: 0;
 }
 
 /* Fenced code blocks */
@@ -2415,8 +2441,10 @@ button.pi-panel-row.pi-panel-row--selected {
  * ========================================================== */
 .pi-corner-badge {
   position: absolute;
-  /* HYW: -top-2 -left-2 */
-  top: -8px; left: -8px;
+  /* Default hang is via parent padding gutter (see .pi-md-feature).
+     Login / notification hosts that want a true overhang can override. */
+  top: 0;
+  left: 0;
   height: 1.75rem; /* h-7 */
   padding: 0 0.625rem; /* px-2.5 */
   background-color: var(--pi-theme);
@@ -2429,6 +2457,15 @@ button.pi-panel-row.pi-panel-row--selected {
   box-shadow: var(--pi-shadow-badge);
   z-index: 10;
   line-height: 1;
+  pointer-events: none;
+}
+/* Login / toast / glass panels still hang the badge outside their framed body. */
+.pi-glass > .pi-corner-badge,
+.pi-notification > .pi-corner-badge,
+.pi-notification-badge {
+  top: -8px;
+  left: -8px;
+  pointer-events: auto;
 }
 
 /* ============================================================
