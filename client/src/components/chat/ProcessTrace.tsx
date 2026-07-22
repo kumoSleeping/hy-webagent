@@ -196,21 +196,35 @@ const ThinkingStep = memo(function ThinkingStep({ text, isLive }: { text: string
 
 const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCallRecord; isLive: boolean }) {
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
-  const expanded = manualExpanded ?? isLive;
   const { toolName, status, input, output, details, isError } = toolCall;
+  const isWeb = getToolCategory(toolName) === "web";
+  const expanded = manualExpanded ?? (isWeb ? false : isLive);
   const target = extractToolTarget(toolName, input);
   const resultText = resolveToolOutput(output, details);
   const errored = isError || status === "error";
 
-  if (getToolCategory(toolName) === "web") {
+  if (isWeb) {
+    const preview = target === "web search" || target === "…" ? "" : target;
+    const stateText = errored ? "Failed" : status === "running" ? "Searching" : "Success";
     return (
       <div className="pi-process-step">
-        <div className="pi-process-step-toggle pi-process-step-toggle--static">
+        <button
+          type="button"
+          onClick={() => setManualExpanded(!expanded)}
+          className="pi-process-step-toggle"
+          aria-expanded={expanded}
+        >
+          <DisclosureIcon expanded={expanded} />
           <span className="pi-process-step-label">Web Search</span>
-          <span className="pi-process-step-summary">{target}</span>
+          {preview && <span className="pi-process-step-summary">{preview}</span>}
           {status === "running" && <Loader2 size={12} className="animate-spin shrink-0" />}
           {errored && <XCircle size={12} className="text-[var(--pi-theme)] shrink-0" />}
-        </div>
+        </button>
+        {expanded && (
+          <div className={`pi-process-step-state${errored ? " pi-process-step-state--error" : ""}`}>
+            {stateText}
+          </div>
+        )}
       </div>
     );
   }

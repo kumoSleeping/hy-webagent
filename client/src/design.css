@@ -293,12 +293,6 @@ body {
 .pi-process-step-toggle:hover {
   color: var(--pi-text);
 }
-.pi-process-step-toggle--static {
-  cursor: default;
-}
-.pi-process-step-toggle--static:hover {
-  color: var(--pi-muted);
-}
 .pi-process-step-label {
   flex-shrink: 0;
   font-family: var(--pi-font-mono);
@@ -317,6 +311,17 @@ body {
   flex-shrink: 0;
   font-family: var(--pi-font-mono);
   opacity: 0.7;
+}
+.pi-process-step-state {
+  margin: 0.1rem 0 0.25rem 1.225rem;
+  color: var(--pi-muted);
+  font-family: var(--pi-font-mono);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  opacity: 0.78;
+}
+.pi-process-step-state--error {
+  color: #dc2626;
 }
 .pi-process-step-body {
   margin: 0.15rem 0 0.35rem 1.15rem;
@@ -1028,6 +1033,18 @@ body {
   box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
   padding: 0 var(--pi-composer-pad-x) 0.7rem;
   transition: border-color 200ms;
+}
+.pi-composer-shell::before {
+  content: "";
+  position: absolute;
+  right: 50%;
+  bottom: 100%;
+  width: 100vw;
+  height: var(--pi-composer-fade);
+  transform: translateX(50%);
+  background: linear-gradient(to top, var(--pi-bg), transparent);
+  pointer-events: none;
+  z-index: 1;
 }
 .pi-composer-shell:focus-within {
   box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
@@ -2441,26 +2458,6 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-bg);
   pointer-events: none;
   z-index: -2;
-}
-
-/* Composer scrim: opaque stack below, short gradient at the top edge where
-   messages scroll underneath — the transition from feed to dialog chrome. */
-.pi-interactive-shell::before {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  top: calc(0.5rem + var(--pi-composer-toolbar-btn-h) - var(--pi-composer-fade));
-  left: 50%;
-  width: 100vw;
-  transform: translateX(-50%);
-  background: linear-gradient(
-    to top,
-    var(--pi-bg) 0%,
-    var(--pi-bg) calc(100% - var(--pi-composer-fade)),
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: -1;
 }
 
 /* ============================================================

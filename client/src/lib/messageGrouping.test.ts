@@ -84,6 +84,31 @@ describe("buildAssistantTurnView", () => {
     expect(answering.processActive).toBe(false);
     expect(answering.activeIndex).toBeNull();
   });
+
+  it("hides search narration before the last web tool and keeps the answer", () => {
+    const view = buildAssistantTurnView([
+      assistant("a1", {
+        content: "正在检索剧情资料。",
+        blocks: [{ type: "text", text: "正在检索剧情资料。" }],
+      }),
+      assistant("a2", {
+        blocks: [{
+          type: "tool",
+          tool: tool("web-1", {
+            toolName: "web_search",
+            input: { query: "剧情资料" },
+          }),
+        }],
+      }),
+      assistant("a3", {
+        content: "最终回答",
+        blocks: [{ type: "text", text: "最终回答" }],
+      }),
+    ]);
+
+    expect(view.texts).toEqual([{ key: "a3-text-0", text: "最终回答" }]);
+    expect(view.items).toHaveLength(1);
+  });
 });
 
 describe("formatProcessDuration", () => {

@@ -1,5 +1,6 @@
 import type { ChatMessage, ContentBlock } from "../types";
 import { groupBlocksForDisplay, type ActivityItem } from "./blockGrouping";
+import { getToolCategory } from "./toolDisplay";
 
 /** One row in the chat feed after coalescing consecutive assistant turns. */
 export type FeedItem =
@@ -61,13 +62,32 @@ export function buildAssistantTurnView(messages: ChatMessage[]): AssistantTurnVi
   const errors: string[] = [];
   let isStreaming = false;
 
-  for (const message of messages) {
+  const rawBlocks = messages.map(resolveBlocks);
+  const flattened = rawBlocks.flat();
+  let lastWebToolIndex = -1;
+  for (let index = flattened.length - 1; index >= 0; index -= 1) {
+    const block = flattened[index]!;
+    if (block.type === "tool" && getToolCategory(block.tool.toolName) === "web") {
+      lastWebToolIndex = index;
+      break;
+    }
+  }
+  let blockOffset = 0;
+
+  for (let messageIndex = 0; messageIndex < messages.length; messageIndex += 1) {
+    const message = messages[messageIndex]!;
     if (message.isStreaming) isStreaming = true;
     if (message.images?.length) images.push(...message.images);
     if (message.error?.trim()) errors.push(message.error.trim());
 
-    const blocks = resolveBlocks(message);
-    const units = groupBlocksForDisplay(blocks, !!message.isStreaming);
+    const blocks = rawBlocks[messageIndex]!;
+    const visibleBlocks = lastWebToolIndex >= 0
+      ? blocks.filter((block, index) =>
+          block.type !== "text" || blockOffset + index > lastWebToolIndex
+        )
+      : blocks;
+    blockOffset += blocks.length;
+    const units = groupBlocksForDisplay(visibleBlocks, !!message.isStreaming);
     for (const unit of units) {
       if (unit.kind === "activity") {
         for (const item of unit.items) {
@@ -85,7 +105,7 @@ export function buildAssistantTurnView(messages: ChatMessage[]): AssistantTurnVi
   // One live pending step when the latest assistant bubble is streaming with
   // nothing in it yet (warmup between tool rounds).
   const last = messages.at(-1);
-  const lastBlocks = last ? resolveBlocks(last) : [];
+  const lastBlocks = last ? rawBlocks.at(-1)! : [];
   const needsPending =
     !!last?.isStreaming &&
     lastBlocks.length === 0 &&
