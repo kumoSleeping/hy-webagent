@@ -2611,8 +2611,9 @@ button.pi-panel-row.pi-panel-row--selected {
   box-shadow: none;
   margin-bottom: -1px;
 }
-/* Account panel — hug content, sit flush above the toolbar (no empty band). */
-.pi-composer-toolbar[data-open="true"][data-panel="account"] .pi-composer-panel {
+/* Short panels — hug content, sit flush above the toolbar (no empty band). */
+.pi-composer-toolbar[data-open="true"][data-panel="account"] .pi-composer-panel,
+.pi-composer-toolbar[data-open="true"][data-panel="model"] .pi-composer-panel {
   height: auto;
   max-height: min(20rem, calc(100dvh - 9rem));
   overflow: hidden auto;
