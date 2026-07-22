@@ -90,7 +90,8 @@ export function extractToolTarget(
     }
     case "parallel_search_web":
     case "search_web":
-    case "web_search": {
+    case "web_search":
+    case "x_search": {
       return summarizeSearches(input);
     }
     case "grep":

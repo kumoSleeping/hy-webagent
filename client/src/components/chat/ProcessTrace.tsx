@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Loader2, XCircle } from "lucide-react";
 import type { ActivityItem } from "../../lib/blockGrouping";
 import { formatProcessDuration } from "../../lib/messageGrouping";
 import type { ToolCallRecord } from "../../types";
-import { extractToolTarget, resolveToolOutput } from "../../lib/toolDisplay";
+import { extractToolTarget, getToolCategory, resolveToolOutput } from "../../lib/toolDisplay";
 import { CodeBlock } from "./CodeBlock";
 
 interface ProcessTraceProps {
@@ -17,6 +17,14 @@ interface ProcessTraceProps {
   durationMs?: number | null;
   /** Hide thinking segments (preview / hide-thinking mode). */
   hideThinking?: boolean;
+}
+
+const DISCLOSURE_ICON_SIZE = 14;
+
+function DisclosureIcon({ expanded }: { expanded: boolean }) {
+  return expanded
+    ? <ChevronDown size={DISCLOSURE_ICON_SIZE} className="pi-disclosure-icon" />
+    : <ChevronRight size={DISCLOSURE_ICON_SIZE} className="pi-disclosure-icon" />;
 }
 
 /**
@@ -108,7 +116,7 @@ export const ProcessTrace = memo(function ProcessTrace({
         className="pi-process-trace-toggle"
         aria-expanded={expanded}
       >
-        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <DisclosureIcon expanded={expanded} />
         <span>{label}</span>
       </button>
 
@@ -172,7 +180,7 @@ const ThinkingStep = memo(function ThinkingStep({ text, isLive }: { text: string
         className="pi-process-step-toggle"
         aria-expanded={expanded}
       >
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <DisclosureIcon expanded={expanded} />
         <span className="pi-process-step-label">Thought</span>
         {!expanded && <span className="pi-process-step-summary">{preview}</span>}
         {isLive && expanded && <span className="pi-process-step-live">Thinking...</span>}
@@ -194,6 +202,19 @@ const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCa
   const resultText = resolveToolOutput(output, details);
   const errored = isError || status === "error";
 
+  if (getToolCategory(toolName) === "web") {
+    return (
+      <div className="pi-process-step">
+        <div className="pi-process-step-toggle pi-process-step-toggle--static">
+          <span className="pi-process-step-label">Web Search</span>
+          <span className="pi-process-step-summary">{target}</span>
+          {status === "running" && <Loader2 size={12} className="animate-spin shrink-0" />}
+          {errored && <XCircle size={12} className="text-[var(--pi-theme)] shrink-0" />}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pi-process-step">
       <button
@@ -202,7 +223,7 @@ const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCa
         className="pi-process-step-toggle"
         aria-expanded={expanded}
       >
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <DisclosureIcon expanded={expanded} />
         <span className="pi-process-step-label">{toolName}</span>
         <span className="pi-process-step-summary">{target}</span>
         {status === "running" && <Loader2 size={12} className="animate-spin shrink-0" />}

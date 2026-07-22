@@ -78,9 +78,8 @@
   /* Eight toolbar buttons share one bar — width / count must stay in sync. */
   --pi-composer-toolbar-count: 7;
   --pi-composer-toolbar-btn-w: calc(var(--pi-composer-toolbar-w) / var(--pi-composer-toolbar-count));
-  /* Dissolve band at the composer ↔ message boundary. Same height is reserved
-     in the feed scroll padding so pinned content ends above the fade. */
-  --pi-composer-fade: 2.5rem;
+  /* Short dissolve band ending exactly at the composer's top border. */
+  --pi-composer-fade: 0.75rem;
   /* Empty band reserved at the very top of the chat. */
   --pi-top-strip: 2.5rem;
 }
@@ -244,6 +243,11 @@ body {
 .pi-process-trace {
   min-width: 0;
 }
+.pi-disclosure-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 0.875rem;
+}
 .pi-process-trace-toggle {
   display: inline-flex;
   align-items: center;
@@ -288,6 +292,12 @@ body {
 }
 .pi-process-step-toggle:hover {
   color: var(--pi-text);
+}
+.pi-process-step-toggle--static {
+  cursor: default;
+}
+.pi-process-step-toggle--static:hover {
+  color: var(--pi-muted);
 }
 .pi-process-step-label {
   flex-shrink: 0;
@@ -2439,7 +2449,7 @@ button.pi-panel-row.pi-panel-row--selected {
   content: "";
   position: absolute;
   bottom: 0;
-  top: calc(-1 * (var(--pi-composer-fade) + var(--pi-composer-toolbar-btn-h)));
+  top: calc(0.5rem + var(--pi-composer-toolbar-btn-h) - var(--pi-composer-fade));
   left: 50%;
   width: 100vw;
   transform: translateX(-50%);

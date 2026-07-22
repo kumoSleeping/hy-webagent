@@ -228,8 +228,6 @@ export function ComposerBar({
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const argsLockRef = useRef<string | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
-  /** iOS Safari often resets selection to 0 after a controlled value write. */
-  const typingCaretRef = useRef<number | null>(null);
   const focusTick = useComposerFocusStore((s) => s.focusTick);
   const requestFocus = useComposerFocusStore((s) => s.requestFocus);
   const pendingText = useComposerFocusStore((s) => s.pendingText);
@@ -384,18 +382,6 @@ export function ComposerBar({
   useLayoutEffect(() => {
     if (pendingCaretRef.current !== null) {
       applyPendingCaret();
-      return;
-    }
-    // Restore caret after React's controlled value update — iOS Safari may
-    // reset it to 0, which leaves the first glyph stuck behind the cursor.
-    if (composingRef.current) return;
-    if (typingCaretRef.current === null) return;
-    const ta = taRef.current;
-    if (!ta || ta !== document.activeElement) return;
-    const pos = Math.min(typingCaretRef.current, ta.value.length);
-    typingCaretRef.current = null;
-    if (ta.selectionStart !== pos || ta.selectionEnd !== pos) {
-      ta.setSelectionRange(pos, pos);
     }
   }, [text, focusTick]);
 
@@ -1340,10 +1326,8 @@ export function ComposerBar({
               // Clear any pending caret reposition — moving the cursor
               // mid-dictation lands the first character at the wrong spot.
               pendingCaretRef.current = null;
-              typingCaretRef.current = null;
               return;
             }
-            typingCaretRef.current = e.target.selectionStart;
             setText(e.target.value);
           }}
           onInput={() => {
