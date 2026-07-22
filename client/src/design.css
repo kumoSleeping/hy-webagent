@@ -48,9 +48,15 @@
   --pi-code-size: 0.875rem;
 
   /* —— Layout metrics —— */
-  --pi-feed-edge: clamp(1rem, 2.8vw, 3rem);
+  /* Page gutters — slightly roomier than before so the reading column
+     breathes; HYW render cards use px-8 (~2rem) on a fixed artboard. */
+  --pi-feed-edge: clamp(1.25rem, 3.2vw, 3.5rem);
   --pi-feed-max: min(112rem, calc(100vw - var(--pi-feed-edge) * 2));
   --pi-assistant-max: min(74rem, calc(100vw - var(--pi-feed-edge) * 2));
+  /* Corner-badge hang (HYW -top-2/-left-2). Shared by text + white cards
+     via assistant padding — do NOT inset only the white body or body
+     copy will stick out past Summary/Code/Table. */
+  --pi-badge-hang: 0.5rem;
   --pi-user-max: min(42rem, 58%);
   /* Composer: narrower than the reading measure so it feels like a
      focused floating dock, not a full-width bar. */
@@ -180,11 +186,15 @@ body {
   margin-left: auto;
 }
 .pi-message-dialog-assistant {
-  /* No white frame — text lives on --pi-bg like HYW markdown sections. */
+  /* No white frame — text lives on --pi-bg like HYW markdown sections.
+     Inline padding = badge hang gutter so Summary/Code/Table white bodies
+     share the same left/right edge as ordinary markdown copy (HYW
+     px-8 column). Badges use negative offset into this gutter and stay
+     inside the bubble (safe under content-visibility paint containment). */
   background: transparent;
   border: none;
   box-shadow: none;
-  padding: 0.2rem 0 0.55rem;
+  padding: 0.2rem var(--pi-badge-hang) 0.55rem;
   min-width: 0;
   width: fit-content;
   max-width: var(--pi-assistant-max);
@@ -195,10 +205,8 @@ body {
 /* Per-message virtualisation hint — tells the browser this subtree can be
    skipped during initial layout and sized ahead of time, so off-screen
    messages don't contribute to layout cost.
-   NOTE: content-visibility implies paint containment, which clips any
-   overflow (including absolute badges with negative top/left). Corner
-   badges must stay inside the bubble box — use the padding-gutter
-   hang pattern on .pi-md-feature / .pi-tool-feature, not negative offsets. */
+   Paint containment clips overflow outside this box; keep badge hang
+   inside via .pi-message-dialog-assistant's --pi-badge-hang padding. */
 .pi-message-bubble {
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
@@ -1966,25 +1974,21 @@ button.pi-panel-row.pi-panel-row--selected {
 /* ============================================================
  * HYW-style feature cards — Summary / Code / Table / Tools
  *
- * Hang the corner badge via an 8px padding gutter (not negative
- * offsets). Negative top/left get paint-clipped by content-visibility
- * on .pi-message-bubble — that is what made tool/API badges vanish.
- *
- *   .pi-md-feature / .pi-tool-feature  (relative + 8px pad)
- *     .pi-corner-badge                 absolute top/left 0 (in gutter)
- *     .*-body                          white island
+ * Text and white bodies share one column (assistant --pi-badge-hang
+ * padding). Badge hangs with -top/-left into that gutter — same as
+ * HYW App.vue absolute -top-2 -left-2 over a full-width white body.
  * ========================================================== */
 .pi-markdown .pi-md-feature,
 .pi-tool-feature {
   position: relative;
   margin: 1.35rem 0 1.1rem;
-  padding: 8px 0 0 8px; /* HYW -top-2/-left-2 hang, without leaving the box */
+  padding: 0;
   overflow: visible;
 }
 .pi-markdown .pi-md-feature > .pi-corner-badge,
 .pi-tool-feature > .pi-corner-badge {
-  top: 0;
-  left: 0;
+  top: calc(-1 * var(--pi-badge-hang));
+  left: calc(-1 * var(--pi-badge-hang));
 }
 .pi-markdown .pi-md-feature-body,
 .pi-tool-feature-body {
@@ -2042,14 +2046,14 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-markdown .pi-md-card {
   position: relative;
   margin: 1.35rem 0 1.1rem;
-  padding: 8px 0 0 8px;
-  background: transparent;
-  box-shadow: none;
+  padding: 0;
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow);
   overflow: visible;
 }
 .pi-markdown .pi-md-card > .pi-corner-badge {
-  top: 0;
-  left: 0;
+  top: calc(-1 * var(--pi-badge-hang));
+  left: calc(-1 * var(--pi-badge-hang));
 }
 
 /* Fenced code blocks */
@@ -2441,10 +2445,8 @@ button.pi-panel-row.pi-panel-row--selected {
  * ========================================================== */
 .pi-corner-badge {
   position: absolute;
-  /* Default hang is via parent padding gutter (see .pi-md-feature).
-     Login / notification hosts that want a true overhang can override. */
-  top: 0;
-  left: 0;
+  top: calc(-1 * var(--pi-badge-hang, 0.5rem));
+  left: calc(-1 * var(--pi-badge-hang, 0.5rem));
   height: 1.75rem; /* h-7 */
   padding: 0 0.625rem; /* px-2.5 */
   background-color: var(--pi-theme);
@@ -2457,15 +2459,6 @@ button.pi-panel-row.pi-panel-row--selected {
   box-shadow: var(--pi-shadow-badge);
   z-index: 10;
   line-height: 1;
-  pointer-events: none;
-}
-/* Login / toast / glass panels still hang the badge outside their framed body. */
-.pi-glass > .pi-corner-badge,
-.pi-notification > .pi-corner-badge,
-.pi-notification-badge {
-  top: -8px;
-  left: -8px;
-  pointer-events: auto;
 }
 
 /* ============================================================
