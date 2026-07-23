@@ -2485,7 +2485,7 @@ button.pi-panel-row.pi-panel-row--selected {
 /* ============================================================
  * Floating composer — suspended over the chat region bottom.
  * position:absolute (not fixed) so it tracks the chat column,
- * never overlapping the left sidebar / files panel. Width is
+ * never overlapping the left sidebar / files panel. Its width
  * matches the reading measure and stays centered within the column.
  * ========================================================== */
 .pi-interactive-shell {
@@ -2508,12 +2508,6 @@ button.pi-panel-row.pi-panel-row--selected {
   pointer-events: none;
 }
 .pi-interactive-shell > * { pointer-events: auto; }
-
-@media (orientation: portrait) {
-  .pi-interactive-shell {
-    width: 100%;
-  }
-}
 
 /* ============================================================
  * Web chrome — platform-owned footer (not PI agent status bar)
