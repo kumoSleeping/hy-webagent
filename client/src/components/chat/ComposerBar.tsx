@@ -248,6 +248,7 @@ export function ComposerBar({
   const [historyQuery, setHistoryQuery] = useState("");
   const historyRowRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
   const taRef = useRef<ComposerEditorHandle>(null);
   const textRef = useRef(text);
   const pastedTextPayloadsRef = useRef<Map<string, string> | null>(null);
@@ -256,7 +257,14 @@ export function ComposerBar({
   }
   const draftWriteTimerRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentPickerFocusHandlerRef = useRef<(() => void) | null>(null);
   const sendButtonRef = useRef<HTMLButtonElement>(null);
+  const finishAttachmentPicker = useCallback(() => {
+    const focusHandler = attachmentPickerFocusHandlerRef.current;
+    if (focusHandler) window.removeEventListener("focus", focusHandler);
+    attachmentPickerFocusHandlerRef.current = null;
+    setAttachmentPickerOpen(false);
+  }, []);
   const persistDraft = useCallback((value: string) => {
     if (draftWriteTimerRef.current !== null) window.clearTimeout(draftWriteTimerRef.current);
     draftWriteTimerRef.current = window.setTimeout(() => {
@@ -353,7 +361,16 @@ export function ComposerBar({
 
   useEffect(() => () => {
     if (draftWriteTimerRef.current !== null) window.clearTimeout(draftWriteTimerRef.current);
+    const focusHandler = attachmentPickerFocusHandlerRef.current;
+    if (focusHandler) window.removeEventListener("focus", focusHandler);
   }, []);
+
+  useEffect(() => {
+    const input = fileInputRef.current;
+    if (!input) return;
+    input.addEventListener("cancel", finishAttachmentPicker);
+    return () => input.removeEventListener("cancel", finishAttachmentPicker);
+  }, [finishAttachmentPicker]);
 
   const visibleSessions = useMemo(
     () => filterVisibleSessions(sessions, activePiSessionId),
@@ -900,29 +917,17 @@ export function ComposerBar({
     });
   }
 
-  function restoreComposerInputAfterPicker() {
-    const ta = taRef.current;
-    if (ta?.readOnly) ta.readOnly = false;
-  }
-
   function openAttachmentPicker() {
-    const ta = taRef.current;
     const input = fileInputRef.current;
     if (!input) return;
 
-    // iOS refocuses the last editable field when the native picker closes —
-    // readOnly + blur prevents the keyboard from flashing up on attach tap.
-    if (ta) ta.readOnly = true;
+    finishAttachmentPicker();
+    setAttachmentPickerOpen(true);
     blurComposerInput();
 
-    let restored = false;
-    const restore = () => {
-      if (restored) return;
-      restored = true;
-      window.removeEventListener("focus", restore);
-      restoreComposerInputAfterPicker();
-    };
-    window.addEventListener("focus", restore, { once: true });
+    const focusHandler = () => finishAttachmentPicker();
+    attachmentPickerFocusHandlerRef.current = focusHandler;
+    window.addEventListener("focus", focusHandler, { once: true });
 
     requestAnimationFrame(() => {
       input.click();
@@ -938,7 +943,7 @@ export function ComposerBar({
   function handleAttachmentInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
     e.target.value = "";
-    restoreComposerInputAfterPicker();
+    finishAttachmentPicker();
     if (!selected.length) return;
     ingestFiles(selected);
   }
@@ -1417,6 +1422,7 @@ export function ComposerBar({
           autoComplete="off"
           autoCorrect="off"
           disabled={disabled}
+          readOnly={attachmentPickerOpen}
           placeholder={
             groupPreview
               ? groupPreview.notice

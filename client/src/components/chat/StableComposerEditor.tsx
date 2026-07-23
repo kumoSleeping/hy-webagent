@@ -12,7 +12,6 @@ import { splitTextWithMarkers } from "../../lib/compressedText";
 export interface ComposerEditorHandle {
   readonly element: HTMLDivElement | null;
   value: string;
-  readOnly: boolean;
   readonly selectionStart: number;
   readonly selectionEnd: number;
   focus: (options?: FocusOptions) => void;
@@ -122,8 +121,6 @@ export const StableComposerEditor = forwardRef<ComposerEditorHandle, StableCompo
     const elementRef = useRef<HTMLDivElement>(null);
     const initialValueRef = useRef(initialValue);
     const composingRef = useRef(false);
-    const readOnlyRef = useRef(readOnly);
-    readOnlyRef.current = readOnly;
 
     useLayoutEffect(() => {
       const element = elementRef.current;
@@ -150,14 +147,6 @@ export const StableComposerEditor = forwardRef<ComposerEditorHandle, StableCompo
       set value(value: string) {
         const element = elementRef.current;
         if (element && readValue(element) !== value) writeValue(element, value);
-      },
-      get readOnly() {
-        return readOnlyRef.current;
-      },
-      set readOnly(value: boolean) {
-        readOnlyRef.current = value;
-        const element = elementRef.current;
-        if (element) element.contentEditable = disabled || value ? "false" : "plaintext-only";
       },
       get selectionStart() {
         const element = elementRef.current;
@@ -193,7 +182,7 @@ export const StableComposerEditor = forwardRef<ComposerEditorHandle, StableCompo
         selection.removeAllRanges();
         selection.addRange(range);
       },
-    }), [disabled]);
+    }), []);
 
     return (
       <div

@@ -150,12 +150,20 @@ describe("ComposerBar group preview", () => {
     const attachButton = screen.getByLabelText("Upload image or file");
     expect(attachButton).toBeEnabled();
     fireEvent.click(attachButton);
+    expect(screen.getByRole("textbox")).toHaveAttribute("contenteditable", "false");
+
+    // The session can finish preparing while the native picker is still open.
+    // This rerender must not desynchronize the editor's logical and DOM locks.
+    rerender(renderComposer(connectedApi));
     const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')!;
     fireEvent.change(fileInput, {
       target: { files: [new File(["image"], "connecting.png", { type: "image/png" })] },
     });
 
     const editor = screen.getByRole("textbox");
+    expect(editor).toHaveAttribute("contenteditable", "plaintext-only");
+    editor.focus();
+    expect(editor).toHaveFocus();
     editor.textContent = "连接完成后也要保留这段文字";
     fireEvent.input(editor, { inputType: "insertText" });
     await act(async () => {
@@ -165,8 +173,6 @@ describe("ComposerBar group preview", () => {
         image: { mediaType: "image/png", data: "abc" },
       });
     });
-
-    rerender(renderComposer(connectedApi));
     expect(editor).toHaveTextContent("连接完成后也要保留这段文字");
     fireEvent.click(screen.getByLabelText("Send message"));
 
