@@ -416,12 +416,24 @@ body {
  * ========================================================== */
 .pi-composer-dock {
   position: relative;
+  z-index: 0;
   display: flex;
   flex-direction: column;
   overflow: visible;
   /* Toolbar is `position:absolute; bottom:100%` on the shell — reserve its
      row in layout so overlay height + feed paddingBottom stay in sync. */
   padding-top: var(--pi-composer-toolbar-btn-h);
+}
+.pi-composer-dock::before {
+  content: "";
+  position: absolute;
+  top: calc(50% + 1rem);
+  left: 0;
+  right: 0;
+  height: 100vh;
+  z-index: -1;
+  background: var(--pi-bg);
+  pointer-events: none;
 }
 /* The card frame is drawn with an outside box-shadow ring instead of a real
    border — a border would grow the dock by 1px and shrink its content by
@@ -2498,14 +2510,6 @@ button.pi-panel-row.pi-panel-row--selected {
      keeps scrolling under the composer's empty flanks. */
   pointer-events: none;
   isolation: isolate;
-}
-.pi-interactive-shell::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--pi-bg);
-  pointer-events: none;
 }
 .pi-interactive-shell > * { pointer-events: auto; }
 
