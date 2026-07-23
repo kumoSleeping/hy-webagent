@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DIRECT_IMAGE_GUIDANCE,
   fileNameFromAttachmentTags,
   filesFromClipboard,
   formatUserMessagePreview,
@@ -13,6 +14,12 @@ import {
 } from "./prepareAttachments";
 
 describe("prepareAttachments", () => {
+  it("tells vision models that the saved file is the already attached image", () => {
+    expect(DIRECT_IMAGE_GUIDANCE).toMatch(/^\[Image attachment already included/);
+    expect(DIRECT_IMAGE_GUIDANCE).toContain("Inspect the attached image directly");
+    expect(DIRECT_IMAGE_GUIDANCE).toContain("do not use bash, read, describe_image, or view_image");
+  });
+
   it("wraps text files like PI @file", async () => {
     const file = new File(["hello"], "notes.txt", { type: "text/plain" });
     expect(isTextFile(file)).toBe(true);

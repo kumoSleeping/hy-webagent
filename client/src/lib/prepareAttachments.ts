@@ -152,6 +152,9 @@ export function chatPictureFileName(originalName: string): string {
   return `${CHAT_PICTURES_DIR}/${stem}-${stamp}${ext}`;
 }
 
+export const DIRECT_IMAGE_GUIDANCE =
+  "[Image attachment already included in this user message. The named file is only a saved copy of the same image. Inspect the attached image directly; do not use bash, read, describe_image, or view_image to inspect the saved copy unless the attachment is unavailable or additional detail is required.]";
+
 export async function prepareSingleAttachment(
   file: File,
   options?: { onProgress?: (percent: number) => void }
@@ -177,9 +180,7 @@ export async function prepareSingleAttachment(
     options?.onProgress?.(100);
     return {
       fileName: storedName,
-      textAppend: note
-        ? `<file name="${storedName}">${note}</file>\n`
-        : `<file name="${storedName}"></file>\n`,
+      textAppend: `<file name="${storedName}">${note ? `${note}\n` : ""}${DIRECT_IMAGE_GUIDANCE}</file>\n`,
       image: { mediaType: compressed.mediaType, data: compressed.data },
     };
   }

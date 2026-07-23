@@ -18,9 +18,10 @@ describe("chat-attachments", () => {
       "</file>",
       '<file name="Pictures/shot.png"></file>',
       '<file name="wide.jpg">[Image: original 100x50, displayed at 80x40. Multiply coordinates by 1.25 to map to original image.]</file>',
+      '<file name="guided.png">[Image attachment already included in this user message. Inspect it directly.]</file>',
     ].join("\n");
 
-    expect(imageNamesFromPrompt(text)).toEqual(["Pictures/shot.png", "wide.jpg"]);
+    expect(imageNamesFromPrompt(text)).toEqual(["Pictures/shot.png", "wide.jpg", "guided.png"]);
   });
 
   it("resolves names under Pictures/", () => {
