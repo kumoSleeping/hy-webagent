@@ -18,6 +18,9 @@ const noop = () => {};
 const connectedApi = {
   connectionState: "connected",
 } as ChatWebSocketApi;
+const connectingApi = {
+  connectionState: "connecting",
+} as ChatWebSocketApi;
 
 describe("ComposerBar group preview", () => {
   beforeEach(() => {
@@ -129,6 +132,76 @@ describe("ComposerBar group preview", () => {
     await waitFor(() => expect(screen.queryByRole("status", { name: "Preparing photo.png" })).not.toBeInTheDocument());
     expect(editor).toHaveTextContent("图片说明");
     expect(editor).toHaveFocus();
+  });
+
+  it("prepares an image while connecting and sends its typed caption after reconnect", async () => {
+    let finishPreparation!: (item: PreparedAttachmentItem) => void;
+    prepareSingleAttachmentMock.mockImplementation(() => new Promise((resolve) => {
+      finishPreparation = resolve;
+    }));
+    const onSend = vi.fn(() => true);
+    const renderComposer = (api: ChatWebSocketApi) => (
+      <ChatWebSocketProvider value={api}>
+        <ComposerBar sendDisabled={api.connectionState !== "connected"} onSend={onSend} onNewChat={noop} onFileClick={noop} />
+      </ChatWebSocketProvider>
+    );
+    const { container, rerender } = render(renderComposer(connectingApi));
+
+    const attachButton = screen.getByLabelText("Upload image or file");
+    expect(attachButton).toBeEnabled();
+    fireEvent.click(attachButton);
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(fileInput, {
+      target: { files: [new File(["image"], "connecting.png", { type: "image/png" })] },
+    });
+
+    const editor = screen.getByRole("textbox");
+    editor.textContent = "连接完成后也要保留这段文字";
+    fireEvent.input(editor, { inputType: "insertText" });
+    await act(async () => {
+      finishPreparation({
+        fileName: "Pictures/connecting.png",
+        textAppend: '<file name="Pictures/connecting.png"></file>\n',
+        image: { mediaType: "image/png", data: "abc" },
+      });
+    });
+
+    rerender(renderComposer(connectedApi));
+    expect(editor).toHaveTextContent("连接完成后也要保留这段文字");
+    fireEvent.click(screen.getByLabelText("Send message"));
+
+    expect(onSend).toHaveBeenCalledWith(
+      '连接完成后也要保留这段文字\n\n<file name="Pictures/connecting.png"></file>',
+      [{ mediaType: "image/png", data: "abc" }],
+      "连接完成后也要保留这段文字",
+    );
+  });
+
+  it("keeps the image and caption draft when transport rejects the send", async () => {
+    prepareSingleAttachmentMock.mockResolvedValue({
+      fileName: "Pictures/retry.png",
+      textAppend: '<file name="Pictures/retry.png"></file>\n',
+      image: { mediaType: "image/png", data: "abc" },
+    });
+    const onSend = vi.fn(() => false);
+    const { container } = render(
+      <ChatWebSocketProvider value={connectedApi}>
+        <ComposerBar onSend={onSend} onNewChat={noop} onFileClick={noop} />
+      </ChatWebSocketProvider>,
+    );
+
+    fireEvent.change(container.querySelector<HTMLInputElement>('input[type="file"]')!, {
+      target: { files: [new File(["image"], "retry.png", { type: "image/png" })] },
+    });
+    await waitFor(() => expect(screen.queryByRole("status", { name: "Preparing retry.png" })).not.toBeInTheDocument());
+    const editor = screen.getByRole("textbox");
+    editor.textContent = "发送失败时不能清空";
+    fireEvent.input(editor, { inputType: "insertText" });
+    fireEvent.click(screen.getByLabelText("Send message"));
+
+    expect(onSend).toHaveBeenCalledOnce();
+    expect(editor).toHaveTextContent("发送失败时不能清空");
+    expect(container.querySelector(".pi-composer-attachment--image")).toBeInTheDocument();
   });
 
   it("keeps the normal composer chrome but exposes only read-only group actions", async () => {

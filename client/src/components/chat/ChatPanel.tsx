@@ -177,7 +177,7 @@ export function ChatPanel({
   function handleSend(text: string, images?: { mediaType: string; data: string }[], displayText?: string) {
     const trimmed = displayText ?? text.trim();
     const promptText = text.trim();
-    if (!promptText && !images?.length) return;
+    if (!promptText && !images?.length) return false;
 
     // Slash / extension commands — trigger only, never show in main chat.
     if (isSilentCommand(trimmed)) {
@@ -191,31 +191,33 @@ export function ChatPanel({
       if (panelId) {
         if (panelId === "model") {
           useComposerPanelStore.getState().openModelPanel();
-          return;
+          return true;
         }
         setActivePanel(panelId);
         useComposerPanelStore.getState().setPanel("commands");
-        return;
+        return true;
       }
       const slash = parseSlashCommand(trimmed);
       if (slash) {
         handleExecute(slash.command, slash.args);
       } else if (!sendPrompt(promptText, images)) {
         notifySendFailure();
+        return false;
       }
       setTimeout(() => fetchSessions(), 800);
-      return;
+      return true;
     }
 
     if (!sendPrompt(promptText, images)) {
       notifySendFailure();
-      return;
+      return false;
     }
     useChatStore.getState().appendOptimisticUserMessage(
       stripFileAttachmentTags(trimmed),
       images?.map((img) => ({ mediaType: img.mediaType, data: img.data }))
     );
     setTimeout(() => fetchSessions(), 800);
+    return true;
   }
 
   // Inserting a message while the agent is already running is queued as a

@@ -53,7 +53,7 @@ interface ComposerBarProps {
   /** Keep typing available while session transport/history is warming up. */
   sendDisabled?: boolean;
   isStreaming?: boolean;
-  onSend: (text: string, images?: PromptImage[], displayText?: string) => void;
+  onSend: (text: string, images?: PromptImage[], displayText?: string) => boolean | void;
   onAbort?: () => void;
   /** Insert a message into the conversation while the agent is still
    * running — delivered as a steering message (applied once the current
@@ -311,12 +311,11 @@ export function ComposerBar({
     button.setAttribute("aria-disabled", String(!canSend));
   }, [disabled, sendDisabled, isSendUnavailable, pendingAttachments]);
   const mirrorComposerText = useCallback((value: string) => {
-    const previousValue = textRef.current;
     textRef.current = value;
     persistDraft(value);
     prunePastedTexts(value);
     syncComposerButton(value);
-    if (previousValue.startsWith("/") || value.startsWith("/")) setTextState(value);
+    setTextState(value);
   }, [persistDraft, prunePastedTexts, syncComposerButton]);
   const setComposerText = useCallback((next: string | ((current: string) => string)) => {
     const current = taRef.current?.value ?? textRef.current;
@@ -995,9 +994,9 @@ export function ComposerBar({
   }
 
   function handleSend() {
-    // The browser owns the live value; read it directly at submit time.
-    const currentText = taRef.current?.value ?? text;
-    if (currentText !== text) mirrorComposerText(currentText);
+    const currentText = taRef.current?.value ?? textRef.current;
+    const displayText = currentText.trim();
+    if (currentText !== textRef.current) mirrorComposerText(currentText);
 
     if (!canSendNow(currentText)) return;
     const expandedText = serializeCompressedMarkers(currentText, pastedTextPayloadsRef.current!);
@@ -1027,7 +1026,8 @@ export function ComposerBar({
     const images = merged.images.length > 0 ? merged.images : undefined;
     if (!finalText && !images?.length) return;
 
-    onSend(finalText, images, currentText.trim());
+    const accepted = onSend(finalText, images, displayText);
+    if (accepted === false) return;
     setComposerText("");
     clearPastedTexts();
     clearPendingAttachments();
@@ -1403,7 +1403,7 @@ export function ComposerBar({
           className="pi-composer-attach-btn"
           onPointerDown={handleToolbarPointerDown}
           onClick={handleAttachClick}
-          disabled={disabled || isStreaming || isConnecting || attachmentsProcessing()}
+          disabled={disabled || isStreaming || attachmentsProcessing()}
           title="Upload image or file"
           aria-label="Upload image or file"
         >
