@@ -308,6 +308,7 @@ body {
 }
 .pi-process-step-label {
   flex-shrink: 0;
+  white-space: nowrap;
   font-family: var(--pi-font-mono);
   opacity: 0.85;
 }

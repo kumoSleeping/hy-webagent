@@ -90,32 +90,44 @@ describe("ProcessTrace", () => {
     expect(screen.getByText("历史思考")).toBeVisible();
   });
 
-  it("does not auto-collapse a tool after the next step starts", () => {
-    const runningTool = {
-      kind: "tool" as const,
-      tool: {
-        toolCallId: "tool-1",
-        toolName: "bash",
-        input: { command: "pwd" },
-        status: "running" as const,
-      },
-    };
-    const { rerender } = render(
-      <ProcessTrace items={[runningTool]} isActive activeIndex={0} />,
-    );
-    expect(screen.getByText("Running…")).toBeVisible();
-
-    rerender(
+  it("keeps every regular tool on one collapsed line until explicitly opened", () => {
+    const toolNames = [
+      "bash",
+      "read",
+      "write",
+      "edit",
+      "grep",
+      "find",
+      "ls",
+      "code_interpreter",
+      "view_image",
+      "view_x_video",
+    ];
+    render(
       <ProcessTrace
-        items={[
-          { ...runningTool, tool: { ...runningTool.tool, status: "done", output: "/workspace" } },
-          { kind: "thinking", text: "继续分析" },
-        ]}
+        items={toolNames.map((toolName, index) => ({
+          kind: "tool" as const,
+          tool: {
+            toolCallId: `tool-${index}`,
+            toolName,
+            input: toolName === "read" ? { path: "Pictures/example.jpg" } : { value: toolName },
+            output: `output-${toolName}`,
+            status: "running" as const,
+          },
+        }))}
         isActive
         activeIndex={1}
       />,
     );
-    expect(screen.getByText("/workspace")).toBeVisible();
+
+    expect(screen.queryByText("Input")).not.toBeInTheDocument();
+    expect(screen.queryByText("Output")).not.toBeInTheDocument();
+    expect(screen.queryByText("output-read")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /readPictures\/example\.jpg/ }));
+    expect(screen.getByText("Input")).toBeVisible();
+    expect(screen.getByText("Output")).toBeVisible();
+    expect(screen.getByText("output-read")).toBeVisible();
   });
 
   it("renders web actions as non-expandable rows with their completed input", () => {

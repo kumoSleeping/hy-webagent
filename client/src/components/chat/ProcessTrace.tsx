@@ -124,7 +124,7 @@ export const ProcessTrace = memo(function ProcessTrace({
           {visibleItems.map((item, index) => {
             const isLive = visibleActiveIndex === index;
             if (item.kind === "tool") {
-              return <ToolStep key={item.tool.toolCallId} toolCall={item.tool} isLive={isLive} />;
+              return <ToolStep key={item.tool.toolCallId} toolCall={item.tool} />;
             }
             return (
               <ProcessTextStep
@@ -171,13 +171,10 @@ const ProcessTextStep = memo(function ProcessTextStep({
   );
 });
 
-const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCallRecord; isLive: boolean }) {
-  const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
+const ToolStep = memo(function ToolStep({ toolCall }: { toolCall: ToolCallRecord }) {
+  const [expanded, setExpanded] = useState(false);
   const { toolName, status, input, output, details, isError } = toolCall;
   const isWeb = getToolCategory(toolName) === "web";
-  const wasEverLiveRef = useRef(isLive && !isWeb);
-  if (isLive && !isWeb) wasEverLiveRef.current = true;
-  const expanded = manualExpanded ?? wasEverLiveRef.current;
   const target = extractToolTarget(toolName, input);
   const label = getToolDisplayLabel(toolName, input);
   const resultText = resolveToolOutput(output, details);
@@ -201,7 +198,7 @@ const ToolStep = memo(function ToolStep({ toolCall, isLive }: { toolCall: ToolCa
     <div className="pi-process-step">
       <button
         type="button"
-        onClick={() => setManualExpanded(!expanded)}
+        onClick={() => setExpanded(!expanded)}
         className="pi-process-step-toggle"
         aria-expanded={expanded}
       >
