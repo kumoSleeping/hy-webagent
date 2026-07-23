@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare } from "lucide-react";
+import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useConnectionState } from "../../context/useChatConnection";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
@@ -1340,11 +1340,11 @@ export function ComposerBar({
 
       <div className="pi-composer-body">
         {pendingAttachments.length > 0 && (
-          <div className="pi-composer-attachments" onClick={(e) => e.stopPropagation()}>
+          <div className="pi-composer-attachments">
             {pendingAttachments.map((item) => (
               <div
                 key={item.id}
-                className="pi-composer-attachment"
+                className={`pi-composer-attachment${item.previewUrl ? " pi-composer-attachment--image" : ""}`}
                 data-status={item.status}
                 title={item.status === "error" ? item.error : item.file.name}
               >
@@ -1356,25 +1356,25 @@ export function ComposerBar({
                   </span>
                 )}
                 {item.status === "processing" && (
-                  <div
-                    className="pi-composer-attachment-progress"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={Math.round(item.progress ?? 0)}
-                    aria-label={`Preparing ${item.file.name}`}
-                  >
-                    <span
-                      className="pi-composer-attachment-progress-fill"
-                      style={{ width: `${Math.max(6, Math.min(100, item.progress ?? 0))}%` }}
-                    />
-                  </div>
+                  <>
+                    <span className="pi-composer-attachment-spinner" role="status" aria-label={`Preparing ${item.file.name}`}>
+                      <Loader2 className="animate-spin" aria-hidden="true" />
+                    </span>
+                    <div
+                      className="pi-composer-attachment-progress"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(item.progress ?? 0)}
+                      aria-label={`Upload progress for ${item.file.name}`}
+                    >
+                      <span
+                        className="pi-composer-attachment-progress-fill"
+                        style={{ width: `${Math.max(6, Math.min(100, item.progress ?? 0))}%` }}
+                      />
+                    </div>
+                  </>
                 )}
-                {item.status === "ready" && item.prepared?.fileName?.startsWith("Pictures/") ? (
-                  <span className="pi-composer-attachment-dest" title={item.prepared.fileName}>
-                    Pictures
-                  </span>
-                ) : null}
                 <button
                   type="button"
                   className="pi-composer-attachment-remove"

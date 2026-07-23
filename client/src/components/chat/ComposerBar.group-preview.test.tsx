@@ -1,10 +1,18 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ComposerBar } from "./ComposerBar";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { ChatWebSocketProvider } from "../../context/chatWebSocketContext";
 import type { ChatWebSocketApi } from "../../hooks/useChatWebSocket";
+import type { PreparedAttachmentItem } from "../../lib/prepareAttachments";
+
+const prepareSingleAttachmentMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../lib/prepareAttachments", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/prepareAttachments")>();
+  return { ...actual, prepareSingleAttachment: prepareSingleAttachmentMock };
+});
 
 const noop = () => {};
 const connectedApi = {
@@ -13,6 +21,12 @@ const connectedApi = {
 
 describe("ComposerBar group preview", () => {
   beforeEach(() => {
+    prepareSingleAttachmentMock.mockReset();
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: vi.fn(() => "blob:attachment-preview"),
+      revokeObjectURL: vi.fn(),
+    });
     window.history.replaceState({}, "", "/");
     useComposerPanelStore.getState().closeAll();
     useSessionStore.setState({
@@ -23,6 +37,10 @@ describe("ComposerBar group preview", () => {
       activePiSessionId: "newest",
       loading: false,
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("accepts draft input while the session is still connecting", () => {
@@ -71,6 +89,46 @@ describe("ComposerBar group preview", () => {
     expect(screen.getByLabelText("Send message")).toHaveAttribute("aria-disabled", "false");
     fireEvent.click(screen.getByLabelText("Send message"));
     expect(onSend).toHaveBeenCalledWith("甲乙", undefined, "甲乙");
+  });
+
+  it("keeps image attachments borderless, shows a spinner, and preserves text input", async () => {
+    let finishPreparation!: (item: PreparedAttachmentItem) => void;
+    prepareSingleAttachmentMock.mockImplementation(() => new Promise((resolve) => {
+      finishPreparation = resolve;
+    }));
+    const { container } = render(
+      <ChatWebSocketProvider value={connectedApi}>
+        <ComposerBar onSend={noop} onNewChat={noop} onFileClick={noop} />
+      </ChatWebSocketProvider>,
+    );
+
+    const editor = screen.getByRole("textbox");
+    fireEvent.click(screen.getByLabelText("Upload image or file"));
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const image = new File(["image"], "photo.png", { type: "image/png" });
+    fireEvent.change(fileInput, { target: { files: [image] } });
+
+    expect(screen.getByRole("status", { name: "Preparing photo.png" })).toBeVisible();
+    expect(container.querySelector(".pi-composer-attachment--image")).toBeInTheDocument();
+    expect(screen.queryByText("Pictures")).not.toBeInTheDocument();
+    expect(editor).toHaveAttribute("contenteditable", "plaintext-only");
+
+    fireEvent.click(container.querySelector(".pi-composer-attachment--image")!);
+    expect(editor).toHaveFocus();
+    editor.textContent = "图片说明";
+    fireEvent.input(editor, { inputType: "insertText" });
+    expect(editor).toHaveTextContent("图片说明");
+
+    await act(async () => {
+      finishPreparation({
+        fileName: "Pictures/photo.png",
+        textAppend: '<file name="Pictures/photo.png"></file>\n',
+        image: { mediaType: "image/png", data: "abc" },
+      });
+    });
+    await waitFor(() => expect(screen.queryByRole("status", { name: "Preparing photo.png" })).not.toBeInTheDocument());
+    expect(editor).toHaveTextContent("图片说明");
+    expect(editor).toHaveFocus();
   });
 
   it("keeps the normal composer chrome but exposes only read-only group actions", async () => {
