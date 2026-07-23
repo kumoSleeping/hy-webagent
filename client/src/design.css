@@ -2225,7 +2225,7 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-markdown .pi-md-feature--table {
   box-sizing: border-box;
   max-width: 100%;
-  padding-top: 1.75rem;
+  padding-top: var(--pi-badge-hang);
 }
 .pi-markdown .pi-md-feature--table .pi-md-table-wrap {
   margin: 0;
@@ -2233,6 +2233,9 @@ button.pi-panel-row.pi-panel-row--selected {
   border: none;
   background: var(--pi-panel);
   overscroll-behavior-inline: contain;
+}
+.pi-markdown .pi-md-feature--table thead tr:first-child th {
+  padding-top: 2rem;
 }
 
 /* Tool / API call cards — tight body; badge lives in the feature gutter */
@@ -2499,7 +2502,11 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-interactive-shell::before {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
   z-index: -1;
   background: var(--pi-bg);
   pointer-events: none;
