@@ -37,6 +37,7 @@ import {
   loadPlatformSystemMd,
 } from "./platform-system.js";
 import { persistChatAttachments } from "./chat-attachments.js";
+import { validateChatImages } from "../ws/chat-images.js";
 import {
   filterModels,
   isModelAllowed,
@@ -784,9 +785,11 @@ export class PISessionManager {
     ps.isStreaming = true;
     try {
       const promptOpts: any = {};
-      if (images?.length) {
-        await persistChatAttachments(ps.agentCwd, text, images);
-        promptOpts.images = images.map((img) => ({
+      const imageValidation = validateChatImages(images);
+      if (!imageValidation.ok) throw new Error(imageValidation.error);
+      if (imageValidation.images.length) {
+        await persistChatAttachments(ps.agentCwd, text, imageValidation.images);
+        promptOpts.images = imageValidation.images.map((img) => ({
           type: "image" as const,
           mimeType: img.mediaType,
           data: img.data,

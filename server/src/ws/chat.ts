@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { config } from "../config.js";
 import type { BotRepository } from "../bot/repository.js";
 import { parseServerToolActivity } from "../pi/server-tool-history.js";
+import { validateChatImages } from "./chat-images.js";
 
 const log = createLogger("ws:chat");
 
@@ -87,6 +88,14 @@ function assistantTextSignatures(message: any): Record<string, string> {
     }
   });
   return signatures;
+}
+
+function assistantFinalText(message: any): string {
+  if (!Array.isArray(message?.content)) return "";
+  return message.content
+    .filter((part: any) => part?.type === "text" && typeof part.text === "string")
+    .map((part: any) => part.text)
+    .join("");
 }
 
 export function handleChatWs(
@@ -254,6 +263,7 @@ export function handleChatWs(
               messageId,
               stopReason: evt.message.stopReason,
               textSignatures: assistantTextSignatures(evt.message),
+              finalText: assistantFinalText(evt.message),
             },
           });
           if (evt.message.stopReason === "error" || evt.message.errorMessage) {
@@ -544,6 +554,7 @@ export function handleChatWs(
                     messageId,
                     stopReason: message.stopReason,
                     textSignatures: assistantTextSignatures(message),
+                    finalText: assistantFinalText(message),
                   },
                 });
                 if (message.stopReason === "error" || message.errorMessage) {
@@ -699,6 +710,12 @@ export function handleChatWs(
         case "chat:prompt": {
           const { text, images } = msg.payload as any;
 
+          const imageValidation = validateChatImages(images);
+          if (!imageValidation.ok) {
+            send({ type: "chat:error", payload: { message: imageValidation.error } });
+            return;
+          }
+
           // Security: sanitize input
           const result = sanitizeInput(String(text || ""));
           if (result.blocked) {
@@ -730,7 +747,11 @@ export function handleChatWs(
             return;
           }
 
-          await sessionManager.sendPrompt(promptSession.sessionId, result.clean, images);
+          await sessionManager.sendPrompt(
+            promptSession.sessionId,
+            result.clean,
+            imageValidation.images.length ? imageValidation.images : undefined,
+          );
           break;
         }
         case "chat:steer": {

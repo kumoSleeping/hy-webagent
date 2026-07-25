@@ -10,6 +10,7 @@ import {
 } from "../bot/uploads.js";
 import type { WorkspaceIsolator } from "../pi/isolation.js";
 import type { PISessionManager } from "../pi/session-manager.js";
+import { decodedBase64Size } from "../ws/chat-images.js";
 import { authMiddleware } from "./auth.js";
 
 function requireBot(req: Request, res: Response, next: NextFunction): void {
@@ -133,7 +134,8 @@ export function createBotRouter(
       const workspace = await isolator.ensureUserWorkspace(botUserId);
       await ensureBotUploadCredential(botUserId, workspace);
       const session = await sessionManager.createSession(botUserId, workspace, () => {}, record.piSessionId);
-      res.json({ sessionId: session.sessionId, status: record.status });
+      const status = sessionManager.isAgentRunning(session.sessionId) ? "running" : "idle";
+      res.json({ sessionId: session.sessionId, status });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
@@ -178,13 +180,16 @@ export function createBotRouter(
           res.status(400).json({ error: "filename and content_base64 are required" });
           return;
         }
-        let content: Buffer;
-        try {
-          content = Buffer.from(contentB64, "base64");
-        } catch {
+        const decodedSize = decodedBase64Size(contentB64);
+        if (decodedSize == null) {
           res.status(400).json({ error: "invalid content_base64" });
           return;
         }
+        if (decodedSize > 20 * 1024 * 1024) {
+          res.status(400).json({ error: "upload exceeds 20MB limit" });
+          return;
+        }
+        const content = Buffer.from(contentB64, "base64");
         if (!content.length) {
           res.status(400).json({ error: "empty upload content" });
           return;
@@ -232,7 +237,8 @@ export function createBotRouter(
       return;
     }
     const record = bots.findSession(piSessionId);
-    res.json({ piSessionId, status: record?.status ?? "unknown" });
+    const status = sessionManager.isAgentRunning(piSessionId) ? "running" : "idle";
+    res.json({ piSessionId, status: record ? status : "unknown" });
   });
 
   return router;
@@ -248,7 +254,7 @@ export function createPublicBotRouter(bots: BotRepository, sessionManager: PISes
       piSessionId: record.piSessionId,
       sourceMessageId: record.sourceMessageId,
       title: record.title,
-      status: sessionManager.isAgentRunning(record.piSessionId) ? "running" : record.status,
+      status: sessionManager.isAgentRunning(record.piSessionId) ? "running" : "idle",
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       viewUrl: `/${encodeURIComponent(bot.slug)}/${encodeURIComponent(channelId)}`,

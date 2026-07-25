@@ -53,10 +53,10 @@ app.use(cors({
     callback(null, false);
   },
 }));
-// Bot uploads carry base64 payloads up to ~20MB; parse that route with a higher cap.
+// Bot uploads carry base64 payloads up to 20MB binary (~26.7MB encoded).
 app.use((req, res, next) => {
   if (req.method === "POST" && req.path === "/api/bot/upload") {
-    express.json({ limit: "25mb" })(req, res, next);
+    express.json({ limit: "30mb" })(req, res, next);
     return;
   }
   express.json({ limit: "1mb" })(req, res, next);
@@ -506,7 +506,11 @@ app.use(errorHandler);
 
 // --- HTTP + WebSocket Server ---
 const server = createServer(app);
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({
+  noServer: true,
+  // 32MB decoded image total expands to ~42.7MB as base64 JSON.
+  maxPayload: 48 * 1024 * 1024,
+});
 
 // WebSocket 升级拦截：Origin + sessionId（view=1 时免验证）
 server.on("upgrade", (request, socket, head) => {
