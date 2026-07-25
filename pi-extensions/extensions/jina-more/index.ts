@@ -2,11 +2,16 @@ import type { ExtensionAPI, ModelRegistry, ModelSelectEvent } from "@earendil-wo
 import { Type } from "typebox";
 import { resolveJinaApiKey } from "../_lib/jina-auth.ts";
 
-/** Grok models use xAI native server-side search tools — keep Jina off. */
-function isGrokModel(model?: { id?: string; provider?: string } | null): boolean {
+/** OpenAI/Codex and Grok models use provider-native search tools — keep Jina off. */
+function usesProviderNativeSearch(model?: { id?: string; provider?: string } | null): boolean {
   if (!model) return false;
-  if (process.env.PI_GROK_STANDARD_TOOLS === "1") return false;
-  return !!(model.id?.includes("grok") || model.provider === "xai");
+  const provider = model.provider?.toLowerCase();
+  return !!(
+    model.id?.toLowerCase().includes("grok") ||
+    provider === "xai" ||
+    provider === "openai" ||
+    provider === "openai-codex"
+  );
 }
 
 const JINA_TOOL_NAMES = ["parallel_search_web", "read_url"] as const;
@@ -144,11 +149,11 @@ async function requireJinaApiKey(registry?: ModelRegistry): Promise<string> {
   return key;
 }
 
-// ─── Grok 模式下关闭 Jina ─────────────────────────────────
+// ─── 原生搜索模型下关闭 Jina ─────────────────────────────
 function syncJinaToolsForModel(pi: ExtensionAPI, model?: { id?: string; provider?: string } | null) {
   const active = pi.getActiveTools();
-  if (isGrokModel(model)) {
-    // Grok: 用 xAI 原生 web_search / x_search 等，关掉 Jina 客户端工具
+  if (usesProviderNativeSearch(model)) {
+    // OpenAI/Codex 使用 web_run，Grok 使用 xAI 原生搜索；关闭 Jina 客户端工具
     const next = active.filter((name) => !(JINA_TOOL_NAMES as readonly string[]).includes(name));
     if (next.length !== active.length) {
       pi.setActiveTools(next);

@@ -9,7 +9,10 @@ import { resolveModelPolicy } from "../model-policy.js";
 import { bundledExtensionsDir } from "../pi-extensions-path.js";
 
 /** Platform-managed PI packages — same sources as a modern local `~/.pi/agent/settings.json`. */
-export const PLATFORM_NPM_PACKAGES = ["npm:pi-subagents"] as const;
+export const PLATFORM_NPM_PACKAGES = [
+  "npm:pi-subagents",
+  "npm:@howaboua/pi-codex-conversion@2.2.19",
+] as const;
 
 const LEGACY_PACKAGE_MARKERS = ["pi-subagents-h", "packages/pi-subagents-h"];
 
@@ -328,54 +331,23 @@ export async function seedManagedNpmPackages(agentDir: string): Promise<void> {
   const globalNpm = path.join(globalAgentDir(), "npm");
   try {
     await fs.access(path.join(globalNpm, "node_modules", "pi-subagents"));
+    await fs.access(path.join(globalNpm, "node_modules", "@howaboua", "pi-codex-conversion"));
   } catch {
     return;
   }
 
   const userNpm = path.join(agentDir, "npm");
-  await fs.mkdir(path.join(userNpm, "node_modules"), { recursive: true, mode: 0o700 });
-
-  // Keep a minimal package.json so PI's package manager recognizes the npm root.
-  const pkgJsonPath = path.join(userNpm, "package.json");
   try {
-    await fs.access(pkgJsonPath);
-  } catch {
-    await fs.writeFile(
-      pkgJsonPath,
-      JSON.stringify(
-        {
-          name: "pi-extensions",
-          private: true,
-          dependencies: { "pi-subagents": "*" },
-        },
-        null,
-        2
-      )
-    );
-  }
-
-  const names = await fs.readdir(path.join(globalNpm, "node_modules"));
-  for (const name of names) {
-    if (name.startsWith(".")) continue;
-    // Skip nested @scope dirs that are only peer scaffolding unless needed;
-    // copy top-level deps (pi-subagents, jiti, yaml, …).
-    if (name.startsWith("@")) {
-      // Copy scoped packages selectively — pi-subagents peers are provided by the server runtime.
-      continue;
+    const stat = await fs.lstat(userNpm);
+    if (stat.isSymbolicLink() && path.resolve(path.dirname(userNpm), await fs.readlink(userNpm)) === globalNpm) {
+      return;
     }
-    const src = path.join(globalNpm, "node_modules", name);
-    const dest = path.join(userNpm, "node_modules", name);
-    await fs.cp(src, dest, { recursive: true, force: true });
-  }
-
-  try {
-    await fs.copyFile(
-      path.join(globalNpm, ".gitignore"),
-      path.join(userNpm, ".gitignore")
-    );
+    await fs.rm(userNpm, { recursive: true, force: true });
   } catch {
-    // optional
+    // missing — create the managed link below
   }
+  await fs.mkdir(path.dirname(userNpm), { recursive: true, mode: 0o700 });
+  await fs.symlink(globalNpm, userNpm, "dir");
 }
 
 export interface EnsureUserAgentDirOptions {

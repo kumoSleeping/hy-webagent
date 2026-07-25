@@ -14,10 +14,15 @@ fi
 
 mkdir -p "$EXT_DEST"
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --delete "$EXT_SRC/" "$EXT_DEST/"
+  rsync -a --delete \
+    --exclude='.DS_Store' \
+    --exclude='*.backup-*' \
+    "$EXT_SRC/" "$EXT_DEST/"
 else
   rm -rf "$EXT_DEST"
   cp -R "$EXT_SRC" "$EXT_DEST"
+  find "$EXT_DEST" -name '.DS_Store' -delete
+  find "$EXT_DEST" -name '*.backup-*' -delete
 fi
 echo "Synced extensions: $EXT_SRC → $EXT_DEST"
 echo "Note: subagents come from npm:pi-subagents (host ~/.pi/agent/npm), not pi-extensions/packages."

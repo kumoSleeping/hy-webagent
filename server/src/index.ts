@@ -15,7 +15,7 @@ import { TokenTracker } from "./pi/token-tracker.js";
 import { config } from "./config.js";
 import { handleChatWs } from "./ws/chat.js";
 import { createFilesRouter } from "./routes/files.js";
-import { BrowserMessageRenderer, resolveCardDistDir } from "./render/browser-message-renderer.js";
+import { BrowserMessageRenderer } from "./render/browser-message-renderer.js";
 import { createMessageRenderHandler } from "./routes/message-render.js";
 import { createPlatformAdminRouter } from "./routes/platform-admin.js";
 import path from "node:path";
@@ -95,15 +95,6 @@ const tokenTracker = new TokenTracker();
 const usageRecorder = new UsageRecorder();
 const botRepository = new BotRepository(config.databasePath);
 const messageRenderer = new BrowserMessageRenderer(`http://127.0.0.1:${config.port}`);
-
-// HYW card-ui static assets (Playwright render target for download + bot).
-app.use("/__render/card", express.static(resolveCardDistDir(), {
-  index: "index.html",
-  fallthrough: false,
-  setHeaders: (res) => {
-    res.setHeader("Cache-Control", "no-cache");
-  },
-}));
 
 // --- Auth Routes ---
 app.use("/api", createAuthRouter(authSystem));
@@ -445,7 +436,7 @@ app.get("/api/sessions", authMiddleware(authSystem), async (req: any, res) => {
 // --- File Routes ---
 app.use("/api", createFilesRouter(authSystem, isolator));
 
-// --- Browser-backed render API (HYW card-ui: 560px × zoom 1.5) ---
+// --- Browser-backed render API (same React/CSS tree as the web conversation) ---
 // 认证用户渲染端点
 app.post("/api/render", authMiddleware(authSystem), createMessageRenderHandler(messageRenderer, false));
 app.post(

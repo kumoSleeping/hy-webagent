@@ -23,6 +23,23 @@ function Harness() {
 }
 
 describe("StableComposerEditor", () => {
+  it("keeps placeholder content outside the editable subtree", () => {
+    const { getByLabelText } = render(
+      <StableComposerEditor
+        aria-label="placeholder-composer"
+        initialValue=""
+        placeholder="Type here"
+        onValueChange={() => {}}
+      />,
+    );
+
+    const editor = getByLabelText("placeholder-composer") as HTMLDivElement;
+    expect(editor).toHaveAttribute("data-empty", "true");
+    expect(editor.textContent).toBe("");
+    expect(editor.nextElementSibling).toHaveClass("pi-composer-placeholder");
+    expect(editor.nextElementSibling).toHaveTextContent("Type here");
+  });
+
   it("supports plain-text selection replacement without textarea APIs", () => {
     const editorRef = createRef<ComposerEditorHandle>();
     render(
@@ -96,6 +113,7 @@ describe("StableComposerEditor", () => {
     const editor = getByLabelText("ime-composer") as HTMLDivElement;
 
     fireEvent.compositionStart(editor);
+    expect(editor).toHaveAttribute("data-empty", "false");
     editor.textContent = "你";
     fireEvent.input(editor, { inputType: "insertCompositionText" });
     expect(onValueChange).not.toHaveBeenCalled();

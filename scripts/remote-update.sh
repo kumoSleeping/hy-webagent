@@ -43,52 +43,65 @@ for agent_dir in /opt/hy-webagent/workspaces/*/.pi/agent; do
 done
 echo "==> install deps"
 npm run install:all
-echo "==> ensure host npm:pi-subagents"
+echo "==> update host PI runtime"
+node -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (!(major > 22 || (major === 22 && minor >= 19))) throw new Error("Codex extension requires Node.js 22.19+")'
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.82.1
+echo "==> ensure host managed PI packages"
 mkdir -p /root/.pi/agent/npm
-if [[ ! -d /root/.pi/agent/npm/node_modules/pi-subagents ]]; then
-  if command -v pi >/dev/null 2>&1; then
-    (cd /root && PI_AGENT_DIR=/root/.pi/agent pi install npm:pi-subagents) || true
-  fi
+cd /root/.pi/agent/npm
+if [[ ! -f package.json ]]; then
+  printf '%s\n' '{"name":"pi-extensions","private":true}' > package.json
 fi
-if [[ ! -d /root/.pi/agent/npm/node_modules/pi-subagents ]]; then
-  cd /root/.pi/agent/npm
-  if [[ ! -f package.json ]]; then
-    printf '%s\n' '{"name":"pi-extensions","private":true,"dependencies":{"pi-subagents":"^0.35.1"}}' > package.json
-  fi
-  npm install pi-subagents@^0.35.1
-  cd ${APP_ROOT}
-fi
+npm install pi-subagents@^0.35.1 @howaboua/pi-codex-conversion@2.2.19
+cd ${APP_ROOT}
 ls /root/.pi/agent/npm/node_modules/pi-subagents/package.json
+ls /root/.pi/agent/npm/node_modules/@howaboua/pi-codex-conversion/package.json
 echo "==> build server"
 cd ${APP_ROOT}/server && npm run build
 echo "==> build client"
 cd ${APP_ROOT}/client && npm run build
-echo "==> migrate user agent packages (npm:pi-subagents)"
+echo "==> migrate user agent packages"
 node <<'NODE'
 const fs = require("fs");
 const path = require("path");
 const root = "/opt/hy-webagent/workspaces";
 const marker = "pi-subagents-h";
-const want = "npm:pi-subagents";
-for (const name of fs.readdirSync(root)) {
-  const settingsPath = path.join(root, name, ".pi", "agent", "settings.json");
+const wanted = ["npm:pi-subagents", "npm:@howaboua/pi-codex-conversion@2.2.19"];
+const settingsPaths = [
+  "/root/.pi/agent/settings.json",
+  ...fs.readdirSync(root).map((name) => path.join(root, name, ".pi", "agent", "settings.json")),
+];
+for (const settingsPath of settingsPaths) {
   if (!fs.existsSync(settingsPath)) continue;
   let settings;
   try { settings = JSON.parse(fs.readFileSync(settingsPath, "utf8")); } catch { continue; }
   const packages = Array.isArray(settings.packages) ? settings.packages.filter((p) => !String(p).includes(marker)) : [];
-  if (!packages.includes(want)) packages.push(want);
+  for (const want of wanted) if (!packages.includes(want)) packages.push(want);
   settings.packages = packages;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   // seed npm tree from host
   const src = "/root/.pi/agent/npm";
-  const dest = path.join(root, name, ".pi", "agent", "npm");
-  if (fs.existsSync(path.join(src, "node_modules", "pi-subagents"))) {
-    fs.cpSync(src, dest, { recursive: true, force: true });
+  const dest = path.join(path.dirname(settingsPath), "npm");
+  if (dest !== src && fs.existsSync(path.join(src, "node_modules", "pi-subagents"))) {
+    let linked = false;
+    try {
+      linked = fs.lstatSync(dest).isSymbolicLink() && path.resolve(path.dirname(dest), fs.readlinkSync(dest)) === src;
+    } catch {}
+    if (!linked) {
+      fs.rmSync(dest, { recursive: true, force: true });
+      fs.symlinkSync(src, dest, "dir");
+    }
   }
-  console.log("updated", name);
+  console.log("updated", settingsPath);
 }
 NODE
 echo "==> restart ${SERVICE}"
+mkdir -p /etc/systemd/system/${SERVICE}.service.d
+cat > /etc/systemd/system/${SERVICE}.service.d/environment.conf <<'UNIT'
+[Service]
+EnvironmentFile=-/etc/hy-webagent.env
+UNIT
+systemctl daemon-reload
 systemctl restart ${SERVICE}
 sleep 2
 echo "==> health"

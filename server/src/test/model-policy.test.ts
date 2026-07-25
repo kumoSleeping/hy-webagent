@@ -15,6 +15,9 @@ describe("model-policy", () => {
     expect(isModelAllowed(policy, "deepseek", "deepseek-v4-pro")).toBe(true);
     expect(isModelAllowed(policy, "xiaomi", "mimo-v2.5-pro-ultraspeed")).toBe(true);
     expect(isModelAllowed(policy, "xai", "grok-4.5")).toBe(true);
+    expect(isModelAllowed(policy, "openai", "gpt-5.6-luna")).toBe(true);
+    expect(isModelAllowed(policy, "openai", "gpt-5.6-terra")).toBe(true);
+    expect(isModelAllowed(policy, "openai", "gpt-5.6-sol")).toBe(true);
     expect(isModelAllowed(policy, "anthropic", "claude-sonnet-4")).toBe(false);
   });
 

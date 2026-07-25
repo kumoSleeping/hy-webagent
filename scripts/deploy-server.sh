@@ -11,20 +11,24 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq curl ca-certificates git python3 make g++ build-essential
 
-if ! command -v node >/dev/null 2>&1 || [[ "$(node -v | sed 's/v//' | cut -d. -f1)" -lt 22 ]]; then
+if ! command -v node >/dev/null 2>&1 || ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 22 || (major === 22 && minor >= 19) ? 0 : 1)'; then
   echo "==> Installing Node.js 22"
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
   apt-get install -y -qq nodejs
 fi
 echo "Node: $(node -v) npm: $(npm -v)"
 
-if ! command -v pi >/dev/null 2>&1; then
-  echo "==> Installing PI CLI"
-  npm install -g --ignore-scripts @earendil-works/pi-coding-agent
-fi
+echo "==> Installing PI CLI"
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.82.1
 echo "PI: $(pi --version 2>/dev/null || echo installed)"
 
 mkdir -p "$APP_ROOT/data" "$APP_ROOT/workspaces" /root/.pi/agent
+mkdir -p /root/.pi/agent/npm
+cd /root/.pi/agent/npm
+if [[ ! -f package.json ]]; then
+  printf '%s\n' '{"name":"pi-extensions","private":true}' > package.json
+fi
+npm install pi-subagents@^0.35.1 @howaboua/pi-codex-conversion@2.2.19
 
 echo "==> Building application in $APP_ROOT"
 cd "$APP_ROOT"
@@ -40,6 +44,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=${APP_ROOT}/server
+EnvironmentFile=-/etc/hy-webagent.env
 Environment=NODE_ENV=production
 Environment=PORT=${PORT}
 Environment=WORKSPACE_ROOT=${APP_ROOT}/workspaces

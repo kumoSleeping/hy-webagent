@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sync repo-bundled PI extensions into ~/.pi/agent for local PI CLI usage.
-# Does not touch packages — local should keep npm:pi-subagents via `pi install`.
+# Syncs package settings; npm package installation remains managed by `pi install`.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,12 +26,13 @@ settings = {}
 if settings_path.exists():
     settings = json.loads(settings_path.read_text())
 packages = [p for p in (settings.get("packages") or []) if "pi-subagents-h" not in str(p)]
-if "npm:pi-subagents" not in packages:
-    packages.append("npm:pi-subagents")
+for spec in ["npm:pi-subagents", "npm:@howaboua/pi-codex-conversion@2.2.19"]:
+    if spec not in packages:
+        packages.append(spec)
 settings["packages"] = packages
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=2) + "\n")
 PY
 
 echo "Synced extensions → $AGENT_DIR/extensions"
-echo "Ensured npm:pi-subagents in $SETTINGS (install with: pi install npm:pi-subagents)"
+echo "Ensured managed npm package specs in $SETTINGS"

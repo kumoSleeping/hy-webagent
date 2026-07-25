@@ -10,6 +10,7 @@ import {
   mergeBundledPackagesIntoSettings,
   migrateLegacyMemoryFiles,
   normalizeProjectsRelativePath,
+  seedManagedNpmPackages,
   syncAgentExtensionsFromGlobal,
   syncBundledAgentExtensions,
   USER_PROJECTS_DIR,
@@ -316,6 +317,7 @@ describe("syncAgentExtensionsFromGlobal", () => {
         await fs.readFile(path.join(agentDir, "settings.json"), "utf-8")
       ) as { packages?: string[] };
       expect(settings.packages).toContain("npm:pi-subagents");
+      expect(settings.packages).toContain("npm:@howaboua/pi-codex-conversion@2.2.19");
       expect(settings.packages?.some((p) => String(p).includes("pi-subagents-h"))).toBe(false);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
@@ -358,7 +360,7 @@ describe("syncBundledAgentExtensions", () => {
 });
 
 describe("mergeBundledPackagesIntoSettings", () => {
-  it("adds npm:pi-subagents and strips legacy pi-subagents-h paths", async () => {
+  it("adds managed npm packages and strips legacy pi-subagents-h paths", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-pkg-"));
     try {
       const settingsPath = path.join(root, "settings.json");
@@ -379,8 +381,48 @@ describe("mergeBundledPackagesIntoSettings", () => {
         packages?: string[];
       };
       expect(settings.defaultModel).toBe("x");
-      expect(settings.packages).toEqual(["npm:pi-subagents"]);
+      expect(settings.packages).toEqual([
+        "npm:pi-subagents",
+        "npm:@howaboua/pi-codex-conversion@2.2.19",
+      ]);
     } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("seedManagedNpmPackages", () => {
+  it("links scoped Codex packages through the managed host npm tree", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "pi-managed-npm-"));
+    const previousHome = process.env.HOME;
+    try {
+      process.env.HOME = root;
+      const globalNpm = path.join(root, ".pi", "agent", "npm");
+      await fs.mkdir(path.join(globalNpm, "node_modules", "pi-subagents"), { recursive: true });
+      await fs.mkdir(
+        path.join(globalNpm, "node_modules", "@howaboua", "pi-codex-conversion"),
+        { recursive: true },
+      );
+      await fs.writeFile(path.join(globalNpm, "node_modules", "pi-subagents", "index.js"), "export {};");
+      await fs.writeFile(
+        path.join(globalNpm, "node_modules", "@howaboua", "pi-codex-conversion", "index.js"),
+        "export {};",
+      );
+      await fs.writeFile(path.join(globalNpm, "package.json"), JSON.stringify({ private: true }));
+
+      const agentDir = path.join(root, "workspace", ".pi", "agent");
+      await seedManagedNpmPackages(agentDir);
+
+      expect((await fs.lstat(path.join(agentDir, "npm"))).isSymbolicLink()).toBe(true);
+      await expect(
+        fs.readFile(
+          path.join(agentDir, "npm", "node_modules", "@howaboua", "pi-codex-conversion", "index.js"),
+          "utf-8",
+        ),
+      ).resolves.toBe("export {};");
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
       await fs.rm(root, { recursive: true, force: true });
     }
   });

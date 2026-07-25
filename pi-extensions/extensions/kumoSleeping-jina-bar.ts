@@ -24,6 +24,12 @@ function isGrokModel(model?: { id?: string; provider?: string }): boolean {
   return !!(model.id?.includes("grok") || model.provider === "xai");
 }
 
+/** OpenAI/Codex and Grok models use provider-native search instead of Jina. */
+function usesProviderNativeSearch(model?: { id?: string; provider?: string }): boolean {
+  const provider = model?.provider?.toLowerCase();
+  return isGrokModel(model) || provider === "openai" || provider === "openai-codex";
+}
+
 /** Status label — keep in sync with extensions/grok-native-tools.ts */
 const GROK_NATIVE_TOOLS_LABEL = "grok-native-tools ✓ · via Sorux";
 
@@ -118,6 +124,7 @@ export default function (pi: ExtensionAPI) {
     let jinaBalance: string | null = null;
     let requestRender: (() => void) | null = null;
     let grokActive = isGrokModel(ctx.model);
+    let providerNativeSearchActive = usesProviderNativeSearch(ctx.model);
 
     function clearInterval_() {
       if (renderInterval !== null) { clearInterval(renderInterval); renderInterval = null; }
@@ -135,8 +142,8 @@ export default function (pi: ExtensionAPI) {
               ? `✓ ${formatMs(finalTime)}`
               : null;
 
-          // On Grok, Jina tools are disabled — only show Jina when not using native Grok tools
-          const jina = grokActive
+          // OpenAI/Codex and Grok use provider-native search, so hide Jina status.
+          const jina = providerNativeSearchActive
             ? null
             : t > 0
               ? theme.fg("success", `Jina △${formatTokens(t)}`)
@@ -186,6 +193,7 @@ export default function (pi: ExtensionAPI) {
 
     pi.on("model_select", (_event: ModelSelectEvent) => {
       grokActive = isGrokModel(_event.model);
+      providerNativeSearchActive = usesProviderNativeSearch(_event.model);
       requestRender?.();
     });
 

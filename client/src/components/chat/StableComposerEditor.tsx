@@ -52,6 +52,11 @@ function writeValue(element: HTMLDivElement, value: string) {
     nodes.push(marker, document.createTextNode(""));
   }
   element.replaceChildren(...nodes);
+  element.dataset.empty = value ? "false" : "true";
+}
+
+function syncEmptyState(element: HTMLDivElement) {
+  element.dataset.empty = readValue(element) ? "false" : "true";
 }
 
 function selectionOffset(element: HTMLDivElement, edge: "anchor" | "focus"): number {
@@ -185,35 +190,41 @@ export const StableComposerEditor = forwardRef<ComposerEditorHandle, StableCompo
     }), []);
 
     return (
-      <div
-        {...props}
-        ref={elementRef}
-        role="textbox"
-        aria-multiline="true"
-        aria-disabled={disabled || undefined}
-        aria-readonly={readOnly || undefined}
-        contentEditable={disabled || readOnly ? false : "plaintext-only"}
-        data-placeholder={placeholder}
-        suppressContentEditableWarning
-        onCompositionStart={(event) => {
-          composingRef.current = true;
-          onCompositionStart?.(event);
-        }}
-        onCompositionEnd={(event) => {
-          onCompositionEnd?.(event);
-          queueMicrotask(() => {
-            composingRef.current = false;
-          });
-        }}
-        onInput={(event) => {
-          if (!composingRef.current) {
+      <div className="pi-composer-editor-shell">
+        <div
+          {...props}
+          ref={elementRef}
+          role="textbox"
+          aria-multiline="true"
+          aria-disabled={disabled || undefined}
+          aria-readonly={readOnly || undefined}
+          contentEditable={disabled || readOnly ? false : "plaintext-only"}
+          data-empty={initialValue ? "false" : "true"}
+          data-placeholder={placeholder}
+          suppressContentEditableWarning
+          onCompositionStart={(event) => {
+            composingRef.current = true;
+            event.currentTarget.dataset.empty = "false";
+            onCompositionStart?.(event);
+          }}
+          onCompositionEnd={(event) => {
+            const target = event.currentTarget;
+            onCompositionEnd?.(event);
+            queueMicrotask(() => {
+              syncEmptyState(target);
+              composingRef.current = false;
+            });
+          }}
+          onInput={(event) => {
             const value = readValue(event.currentTarget);
             if (!value) event.currentTarget.replaceChildren();
-            onValueChange(value);
-          }
-          onInput?.(event);
-        }}
-      />
+            syncEmptyState(event.currentTarget);
+            if (!composingRef.current) onValueChange(value);
+            onInput?.(event);
+          }}
+        />
+        {placeholder && <span className="pi-composer-placeholder" aria-hidden="true">{placeholder}</span>}
+      </div>
     );
   },
 );

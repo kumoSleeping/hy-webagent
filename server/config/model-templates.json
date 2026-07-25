@@ -7,14 +7,17 @@
       "providers": null
     },
     "core-3": {
-      "label": "三模型",
-      "description": "DeepSeek V4 Pro + MiMo UltraSpeed + Grok 4.5 (xAI via Sorux)",
+      "label": "核心模型",
+      "description": "DeepSeek + MiMo + Grok + OpenAI GPT-5.6 系列",
       "allow": [
         { "provider": "deepseek", "modelId": "deepseek-v4-pro" },
         { "provider": "xiaomi", "modelId": "mimo-v2.5-pro-ultraspeed" },
-        { "provider": "xai", "modelId": "grok-4.5" }
+        { "provider": "xai", "modelId": "grok-4.5" },
+        { "provider": "openai", "modelId": "gpt-5.6-luna" },
+        { "provider": "openai", "modelId": "gpt-5.6-terra" },
+        { "provider": "openai", "modelId": "gpt-5.6-sol" }
       ],
-      "providers": ["deepseek", "xiaomi", "xai"]
+      "providers": ["deepseek", "xiaomi", "xai", "openai"]
     },
     "budget-cn": {
       "label": "Deepseek + 小米",

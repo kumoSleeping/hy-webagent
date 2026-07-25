@@ -1074,6 +1074,7 @@ body {
 
 .pi-composer-input {
   display: block;
+  width: 100%;
   min-height: calc(var(--pi-composer-line) + 0.75rem);
   font-family: var(--pi-font);
   font-size: var(--pi-composer-font);
@@ -1090,14 +1091,26 @@ body {
   box-shadow: none;
   caret-color: var(--pi-theme);
 }
-.pi-composer-input:empty::before {
-  content: attr(data-placeholder);
-  display: block;
+.pi-composer-editor-shell {
+  position: relative;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.pi-composer-placeholder {
+  position: absolute;
+  inset: 0;
+  padding: 0.375rem;
   color: #a8b0bc;
   pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
+  font-family: var(--pi-font);
+  font-size: var(--pi-composer-font);
+  line-height: var(--pi-composer-line);
+}
+.pi-composer-input:not([data-empty="true"]) + .pi-composer-placeholder {
+  display: none;
 }
 .pi-composer-input:focus,
 .pi-composer-input:focus-visible {
@@ -1113,7 +1126,8 @@ body {
 
 /* Keep WebKit text metrics native while retaining the signature caret. */
 @supports (-webkit-touch-callout: none) {
-  .pi-composer-input {
+  .pi-composer-input,
+  .pi-composer-placeholder {
     line-height: normal;
     text-size-adjust: 100%;
   }
@@ -2189,21 +2203,20 @@ button.pi-panel-row.pi-panel-row--selected {
 /* ============================================================
  * HYW-style feature cards — Summary / Code / Table / Tools
  *
- * Badge hang must stay inside the feature box: content-visibility on
- * .pi-message-bubble paint-clips negative offsets. Use an 8px padding
- * gutter + badge at top/left 0 (same visual as -top-2/-left-2).
+ * The white body owns the centered width. The badge hangs into the
+ * assistant's symmetric gutter, so its left overhang never shifts the body.
  * ========================================================== */
 .pi-markdown .pi-md-feature,
 .pi-tool-feature {
   position: relative;
   margin: 0.65rem 0 0.5rem;
-  padding: var(--pi-badge-hang) 0 0 var(--pi-badge-hang);
+  padding: 0;
   overflow: visible;
 }
 .pi-markdown .pi-md-feature > .pi-corner-badge,
 .pi-tool-feature > .pi-corner-badge {
-  top: 0;
-  left: 0;
+  top: calc(-1 * var(--pi-badge-hang));
+  left: calc(-1 * var(--pi-badge-hang));
 }
 .pi-markdown .pi-md-feature-body,
 .pi-tool-feature-body {
@@ -2241,7 +2254,6 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-markdown .pi-md-feature--table {
   box-sizing: border-box;
   max-width: 100%;
-  padding-top: var(--pi-badge-hang);
 }
 .pi-markdown .pi-md-feature--table .pi-md-table-wrap {
   margin: 0;
