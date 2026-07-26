@@ -33,17 +33,22 @@ openai 上从未被启用。本轮:
    与 models.json 同策略从主机每次刷新(scope=additionalProviders
    ["openai"],statusLine 开)。
 2. **主机 /root/.pi/agent/models.json** 增加 openai 提供商
-   (soruxgpt 网关 + openai-responses),modelOverrides 内联三个模型
-   定义(从本地 models-store 抽取,含成本/上下文窗/思考档位):
-   `gpt-5.3-chat-latest` / `gpt-5.3-codex` / `gpt-5.3-codex-spark`。
+   (soruxgpt 网关 + openai-responses),用 **provider 的 `models` 数组**
+   内联三个模型定义(从本地 models-store 抽取,含成本/上下文窗/思考
+   档位):`gpt-5.6-luna` / `gpt-5.6-sol` / `gpt-5.6-terra`。
    改动前有备份 models.json.backup-*。
-3. **dreamprism 的 model_allow_json** 追加上述三条(直改 platform.db,
-   服务重启后用户缓存刷新生效)。其他账号未动;要批量放开就改
-   server/config/model-templates.json 的 core-3 模板。
+   坑 ×2:①首版配成 gpt-5.3 系 —— 网关 `/v1/models` 根本不供
+   (它只供 5.4/5.5/5.6 系,先 curl 网关确认再配);②首版用
+   `modelOverrides` —— 那只能改**已知**模型的属性,凭空定义新模型
+   必须用 `models` 数组(jina 的 `"models": []` 即此字段)。
+3. **admin 与 dreamprism 的 model_allow_json** 加上述三条(直改
+   platform.db,服务重启后用户缓存刷新生效)。其他账号未动;要批量
+   放开就改 server/config/model-templates.json 的 core-3 模板。
+   用户本人的号是 **admin**(工作区 admin-zsx0vltj)。
 
 ## 验证 / 排查
 
-- dreamprism 登录后模型面板应出现三个 GPT 模型;选中后开新会话,
+- admin 登录后模型面板应出现三个 GPT 模型(Luna/Sol/Terra);选中后开新会话,
   状态栏应出现第四行(Codex adapter …)—— 即 #19 的 extensionLine,
   服务端 extensionStatuses 由适配器 setStatus 填充。
 - 第四行仍不亮:先确认会话是**配置生效后新开的**(旧会话池里的
