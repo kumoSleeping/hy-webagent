@@ -85,7 +85,6 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
           点历史行重新弹窗);拖标题栏移动、拖边缘/角改大小。 */}
       <ComposerPanelChrome
         panelRef={panelRef}
-        loading={!attached && !mirrorMain}
         storageKey={`pi-swin-rect:${sessionId}`}
         onClose={() => {
           // 关的是激活窗且还有别的窗:焦点交给栈顶剩余窗 —— 否则

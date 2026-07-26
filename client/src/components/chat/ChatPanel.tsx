@@ -85,6 +85,8 @@ export function ChatPanel({
   const closePreview = useComposerPanelStore((s) => s.closePreview);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const previewPanelRef = useRef<HTMLDivElement>(null);
+  /** /api/models 按会话缓存(见下方 effect):键=piSessionId。 */
+  const modelsCacheRef = useRef<Map<string, ModelsResponse>>(new Map());
   // 浮层最新召的在上:预览小窗与会话窗/命令面板共用 z 序栈。
   // activeTabId 也在依赖里:预览开着时再点开新文件,同样要浮到最顶
   // (点文件列表那一下会先把 Files 面板 raise 上去)。
@@ -148,16 +150,29 @@ export function ChatPanel({
 
   useEffect(() => {
     if (!activePiSessionId || groupPreview) return;
-    apiGet<ModelsResponse>("/api/models")
-      .then((data) => {
-        setModels(data.models || []);
-        setCurrentModel(data.currentModel || "");
-        setAvailableLevels(data.availableThinkingLevels || []);
-        setCurrentLevel(data.currentThinkingLevel || "medium");
-        setSteeringMode(data.steeringMode || "all");
-        setFollowUpMode(data.followUpMode || "all");
-      })
-      .catch(console.error);
+    // /api/models 每个会话只网络请求一次:服务端会顺带探 provider 端点
+    // (jina 等),来回切会话每次重拉 = 肉眼可见的慢半拍。切回时重放
+    // 该会话的缓存(currentModel 等是会话级状态,不能纯跳过);
+    // 主动换模型走 refreshModels() 会刷新缓存。
+    const applyModels = (data: ModelsResponse) => {
+      setModels(data.models || []);
+      setCurrentModel(data.currentModel || "");
+      setAvailableLevels(data.availableThinkingLevels || []);
+      setCurrentLevel(data.currentThinkingLevel || "medium");
+      setSteeringMode(data.steeringMode || "all");
+      setFollowUpMode(data.followUpMode || "all");
+    };
+    const cached = modelsCacheRef.current.get(activePiSessionId);
+    if (cached) {
+      applyModels(cached);
+    } else {
+      apiGet<ModelsResponse>("/api/models")
+        .then((data) => {
+          modelsCacheRef.current.set(activePiSessionId, data);
+          applyModels(data);
+        })
+        .catch(console.error);
+    }
 
     apiGet<{ system: SlashCommand[]; dynamic: SlashCommand[] }>("/api/slash/commands")
       .then((data) => {
@@ -171,6 +186,7 @@ export function ChatPanel({
     if (!activePiSessionId) return;
     apiGet<ModelsResponse>("/api/models")
       .then((data) => {
+        modelsCacheRef.current.set(activePiSessionId, data);
         setModels(data.models || []);
         setCurrentModel(data.currentModel || "");
         setAvailableLevels(data.availableThinkingLevels || []);

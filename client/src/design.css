@@ -95,9 +95,16 @@
 }
 
 html, body, #root { height: 100%; }
+html, body {
+  /* 手机:禁掉过滚链/下拉刷新与横向手势 —— 拖窗/滑时间线时不再把
+     浏览器的左右历史滑动带出来(iOS 最贴边的系统返回手势除外,
+     那个只有 PWA standalone 才能全禁)。 */
+  overscroll-behavior: none;
+}
 body {
   margin: 0;
   overflow: hidden;
+  touch-action: pan-y pinch-zoom;
   background: var(--pi-bg);
   color: var(--pi-text);
   font-family: var(--pi-font);
@@ -168,12 +175,14 @@ body {
   border-radius: 0;
   color: var(--pi-text-body);
 }
-/* 用户发言无框(试用定稿):不要边框/底色/投影,右对齐纯文本即可 ——
-   位置本身就说明了是谁在说话。 */
+/* 用户发言(试用定稿三):不是卡片也不是裸文字 —— 浅灰底纹 +
+   右缘 2px 主题红竖线(引用块的镜像,红线呼应左上角红方块),
+   无边框无投影,一眼可辨且不突兀。 */
 .pi-message-dialog-user {
   border: none;
-  background: transparent;
-  padding: 0.2rem 0 0.35rem;
+  border-right: 2px solid var(--pi-theme);
+  background: var(--pi-panel-subtle);
+  padding: 0.5rem 0.7rem 0.55rem;
   box-shadow: none;
   width: max-content;
   max-width: min(var(--pi-user-max), 100%);
