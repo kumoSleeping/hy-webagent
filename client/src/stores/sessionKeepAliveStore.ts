@@ -1,20 +1,20 @@
 /**
- * 会话保活(LRU):看过的会话不拆管道 —— store + 只读 socket 常驻,
- * 切回去零加载零布局跳变(「就当它同时存在几个进程」)。
+ * 会话保活(LRU):看过的会话的 store **纯内存缓存** —— 不挂 socket。
  *
- * - kept = 最近激活/关窗的会话 id(新→旧),上限 KEEP;淘汰时若该会话
- *   没在小窗里开着,才真正 dropChatStore(小窗有自己的生命周期)。
- * - socket 由 SessionKeepAliveHost 按 kept 挂(排除已开窗的,避免
- *   双 socket 往同一 store 灌事件);窗关掉后 keeper 接管同一 store,
- *   挂上时会 ui:request_snapshot 对账,无缝交接。
- * - 服务器每用户直播上限 8 路:KEEP 取小,窗 + 保活合计留有余量。
- * - 换用户/工作区时 ChatPanel 调 clearKeepAlive() 全清。
+ * 首版给每个保活会话挂常驻只读 socket,结果服务器把有连接的会话钉在
+ * 直播池里不可淘汰 —— 关窗只是把 socket 从窗挪进保活,8 路坑位从不
+ * 释放,攒满后新建必报「已达上限」。降级为纯 store 缓存后:
+ * - 切回时 onPiSessionChange 无缝克隆暖数据(零加载零布局跳变),
+ *   主链路连上后 chat:history 原地静默对账(「该更新更新」);
+ * - 关窗即归还服务器坑位(窗 socket 随组件卸载断开,会话变可淘汰);
+ * - kept 淘汰时若会话没在窗里开着,dropChatStore 释放内存。
+ * 换用户/工作区时 ChatPanel 调 clearKeepAlive() 全清。
  */
 import { create } from "zustand";
 import { dropChatStore } from "./chatStores";
 
 /* 退出小窗模式会把整组窗(可能 5-6 扇)塞进保活 —— KEEP 要装得下,
- * 弹回才全员零加载;服务器每用户 8 路直播上限,留 2 路余量。 */
+ * 弹回才全员零加载;纯内存缓存,不占服务器直播坑位。 */
 const KEEP = 6;
 
 /** 由 sessionWindowsStore 注册(避免模块环):id 是否正开着小窗。 */

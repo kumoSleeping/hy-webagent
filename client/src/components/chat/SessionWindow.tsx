@@ -15,7 +15,6 @@ import { MessageFeed } from "./MessageFeed";
 import { useChatStore } from "../../stores/chatStore";
 import { ensureChatStore } from "../../stores/chatStores";
 import { floatZ, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
-import { useSessionKeepAliveStore } from "../../stores/sessionKeepAliveStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useSessionWindowSocket } from "../../hooks/useSessionWindowSocket";
 
@@ -117,28 +116,6 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
         )}
       </div>
     </div>
-  );
-}
-
-/** 保活会话的隐形直播管道:kept 里不在窗中的会话,各挂一条只读
- * socket 持续灌自己的 store —— 切回/弹回时零加载("多进程并存")。 */
-function SessionFeedKeeper({ sessionId }: { sessionId: string }) {
-  const chatStore = ensureChatStore(sessionId);
-  useSessionWindowSocket(sessionId, chatStore);
-  return null;
-}
-
-export function SessionKeepAliveHost() {
-  const kept = useSessionKeepAliveStore((s) => s.kept);
-  const windows = useSessionWindowsStore((s) => s.windows);
-  return (
-    <>
-      {kept
-        .filter((id) => !windows.some((w) => w.sessionId === id))
-        .map((id) => (
-          <SessionFeedKeeper key={id} sessionId={id} />
-        ))}
-    </>
   );
 }
 
