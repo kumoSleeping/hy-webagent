@@ -311,9 +311,12 @@ body {
 .pi-process-step-toggle:hover {
   color: var(--pi-text);
 }
+/* Tool name reads as the step's signature — theme red, like the corner
+   badges, so the tool chain scans at a glance against the muted trace. */
 .pi-process-step-label {
   flex-shrink: 0;
   white-space: nowrap;
+  color: var(--pi-theme);
   font-family: var(--pi-font-mono);
   opacity: 0.85;
 }

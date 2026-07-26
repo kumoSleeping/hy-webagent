@@ -112,8 +112,20 @@ git config --global --add safe.directory "$APP_ROOT" 2>/dev/null || true
 PREV_COMMIT="$(git rev-parse HEAD)"
 log "current commit: $PREV_COMMIT"
 
-# Refuse to clobber uncommitted work — that is a human's in-progress change.
+# Lockfile churn is machine-generated, not human work: `npm install` rewrites
+# package-lock.json on the deploy host, which would otherwise leave the tree
+# permanently dirty and make every future auto-update refuse to run. Discard
+# just those, loudly, before judging the tree.
+for lock in package-lock.json server/package-lock.json client/package-lock.json; do
+  if [[ -f "$lock" ]] && ! git diff --quiet -- "$lock"; then
+    log "discarding build-generated churn in $lock"
+    git checkout -- "$lock" 2>/dev/null || true
+  fi
+done
+
+# Refuse to clobber genuine uncommitted work — that is a human's in-progress change.
 if ! git diff --quiet || ! git diff --cached --quiet; then
+  log "dirty paths:"; git status --short | head -20 | tee -a "$LOG_FILE" >&2
   fail "working tree is dirty — refusing to auto-update" 2
 fi
 
@@ -164,10 +176,16 @@ git checkout --quiet -B "$BRANCH" "$TARGET_COMMIT" || {
 
 build_failed=0
 {
-  # `npm run build`, not `npx vite build`: npx will fetch a vite from the network
-  # when the local one is missing, which makes the build both non-deterministic
-  # and dependent on registry reachability at the worst possible moment.
-  npm run install:all \
+  # `npm ci`, not `npm install`: it installs exactly the committed lockfile and
+  # does not rewrite it, so a deploy cannot leave the tree dirty (which would
+  # block every subsequent auto-update). Falls back to install if the lockfile
+  # and manifest have drifted, since `ci` refuses outright in that case.
+  install_deps() {
+    for dir in server client; do
+      (cd "$dir" && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund)) || return 1
+    done
+  }
+  install_deps \
     && (cd server && npm run build) \
     && (cd client && npm run build)
 } >>"$LOG_FILE" 2>&1 || build_failed=1
