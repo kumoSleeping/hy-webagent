@@ -28,7 +28,11 @@ export function createSessionShareRouter(
   isolator: WorkspaceIsolator,
 ): Router {
   const router = Router();
-  router.use(authMiddleware(authSystem));
+  // 只鉴权本路由自己的路径。router 级 use(authMiddleware) 曾把整个裸 /api
+  // 前缀上、挂载点之后的一切请求(含 /api/public/render*、/api/public/uploads)
+  // 都 401 短路 —— Express 的 app.use("/api", router) 会让所有 /api/* 穿过
+  // 这里的中间件,即使本 router 根本没有匹配路由。
+  router.use("/sessions/:id/share", authMiddleware(authSystem));
 
   /**
    * Confirm the caller owns this session.
