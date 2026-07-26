@@ -8,7 +8,6 @@ import { useSlashStore, type SlashCommand } from "../../stores/slashStore";
 import type { ChatWebSocketApi } from "../../hooks/useChatWebSocket";
 import { useComposerFocusStore } from "../../stores/composerFocusStore";
 import { useMobileLayout } from "../../hooks/useMobileLayout";
-import { isElevatedPanel } from "../../lib/composerLayout";
 import { apiGet } from "../../lib/api";
 import { ComposerBar } from "./ComposerBar";
 import { StatusBar } from "./StatusBar";
@@ -72,12 +71,6 @@ export function ChatPanel({
   const treeMode = useComposerPanelStore((s) => s.treeMode);
   const isMobileLayout = useMobileLayout();
   const centerStageOpen = useCenterStageOpen(isMobileLayout);
-  const previewOpen = useComposerPanelStore((s) => s.previewOpen);
-  const activeDialog = useExtensionUiStore((s) => s.activeDialog);
-  /** File preview uses the stack above composer. */
-  const elevatedOpen = previewOpen || isElevatedPanel(composerPanel, isMobileLayout);
-  const treeOpen = composerPanel === "tree" && !previewOpen && !activeDialog;
-  const dockCardOpen = centerStageOpen && !elevatedOpen;
   const closeAll = useComposerPanelStore((s) => s.closeAll);
   const closeComposerPanel = useComposerPanelStore((s) => s.closePanel);
   const closePreview = useComposerPanelStore((s) => s.closePreview);
@@ -501,7 +494,7 @@ export function ChatPanel({
       )}
       <div className="pi-interactive-shell">
         <div
-          className={`pi-composer-dock${dockCardOpen ? " pi-composer-dock--open" : ""}${elevatedOpen ? " pi-composer-dock--preview" : ""}${treeOpen ? " pi-composer-dock--tree" : ""}`}
+          className={`pi-composer-dock${centerStageOpen ? " pi-composer-dock--elevated" : ""}`}
         >
           <div className="pi-preview-stack">
             <CenterStage

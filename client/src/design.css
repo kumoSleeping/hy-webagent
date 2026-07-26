@@ -440,54 +440,23 @@ body {
   background: var(--pi-bg);
   pointer-events: none;
 }
-/* The card frame is drawn with an outside box-shadow ring instead of a real
-   border — a border would grow the dock by 1px and shrink its content by
-   2px the instant it opens, visibly jolting the composer and status bar. */
-.pi-composer-dock--open {
+/* ============================================================
+ * Elevated workbench panels — tree / file preview / extension
+ * dialogs & widgets. ONE grammar with the small toolbar popups:
+ * every panel grows out of the composer's toolbar seam, big ones
+ * just span the full dock width. The dock turns into a single
+ * white card — [panel]/[hairline seam]/[toolbar strip]/[input] —
+ * with the frame drawn as an outside box-shadow ring instead of a
+ * real border (a border would grow the dock by 1px and jolt the
+ * composer/status bar the instant it opens). The panel itself is
+ * absolutely positioned above the dock, out of document flow, so
+ * the feed's reserved height never changes while it is open.
+ * ========================================================== */
+.pi-composer-dock--elevated {
   background: var(--pi-panel);
   box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
 }
-.pi-composer-dock--open:focus-within {
-  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
-}
-.pi-composer-dock--open .pi-center-stage {
-  margin-bottom: 0;
-  border: none;
-  box-shadow: none;
-}
-.pi-composer-dock--open .pi-center-stage--preview {
-  background: var(--pi-panel);
-}
-.pi-composer-dock--open .pi-composer-shell {
-  /* border-color (not `border: none`) keeps the shell's box height
-     identical to the standalone composer — dropping the border's width
-     here would shrink the shell and, since the toolbar/popup above it
-     is anchored via `bottom: 100%` of this box, yank the whole toolbar
-     down by the border width the instant a preview/dialog opens. */
-  border-color: transparent;
-  box-shadow: none;
-  background: transparent;
-}
-.pi-composer-dock--open .pi-composer-shell:focus-within {
-  box-shadow: none;
-}
-.pi-composer-dock--open .pi-composer-toolbar {
-  right: calc(-1 * var(--pi-composer-border));
-  border-color: transparent;
-  border-bottom: none;
-  box-shadow: none;
-}
-
-/* File preview — fused card above the composer, out of document flow so
-   messages are not pushed. Preview top + composer bottom share one border.
-   Same box-shadow-ring trick as --open: a real border here would resize the
-   dock when the preview opens and visibly jolt the composer's bottom edge.
-   The ring's top line is painted over by the preview card itself. */
-.pi-composer-dock--preview {
-  background: var(--pi-panel);
-  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
-}
-.pi-composer-dock--preview .pi-preview-stack {
+.pi-composer-dock--elevated .pi-preview-stack {
   position: absolute;
   left: -1px;
   right: -1px;
@@ -499,51 +468,34 @@ body {
   width: auto;
   pointer-events: none;
 }
-.pi-composer-dock--preview .pi-preview-stack > * {
+.pi-composer-dock--elevated .pi-preview-stack > * {
   pointer-events: auto;
 }
-.pi-composer-dock--preview .pi-center-stage--preview {
-  margin-bottom: 0;
-  border: 1px solid var(--pi-line);
-  border-bottom: none;
-  box-shadow: none;
-}
-.pi-composer-dock--preview .pi-composer-shell {
+.pi-composer-dock--elevated .pi-composer-shell {
+  /* border-color (not `border: none`) keeps the shell's box height
+     identical to the standalone composer — dropping the border's width
+     would shrink the shell and, since the toolbar/panel above is
+     anchored via `bottom: 100%` of this box, yank everything down by
+     the border width the instant a panel opens. */
   border-color: transparent;
   box-shadow: none;
   background: transparent;
 }
-.pi-composer-dock--preview .pi-composer-shell:focus-within {
+.pi-composer-dock--elevated .pi-composer-shell:focus-within {
   box-shadow: none;
 }
-.pi-composer-dock--preview .pi-composer-toolbar {
+.pi-composer-dock--elevated .pi-composer-toolbar {
   right: calc(-1 * var(--pi-composer-border));
   border-color: transparent;
   border-bottom: none;
   box-shadow: none;
 }
-.pi-composer-dock--preview .pi-editor-tabs {
+.pi-composer-dock--elevated .pi-editor-tabs {
   border-bottom: none;
   background: var(--pi-panel);
 }
-.pi-composer-dock--preview .pi-editor-tab--active {
+.pi-composer-dock--elevated .pi-editor-tab--active {
   border-bottom: none;
-}
-.pi-composer-dock--tree {
-  background: transparent;
-  box-shadow: none;
-}
-.pi-composer-dock--tree .pi-composer-shell {
-  border-color: var(--pi-line);
-  background: var(--pi-panel);
-}
-.pi-composer-dock--tree .pi-composer-toolbar {
-  border-color: var(--pi-line);
-  border-bottom: none;
-}
-.pi-composer-dock--tree .pi-center-stage {
-  animation: pi-pop-in-fade 160ms ease-out;
-  box-shadow: var(--pi-shadow-float);
 }
 .pi-preview-stack {
   position: relative;
@@ -554,6 +506,9 @@ body {
   width: 100%;
 }
 
+/* Rendered only inside an elevated dock — sides align with the dock's
+   ring (stack sits at ±1px); the bottom hairline is the SAME seam the
+   small toolbar popups draw between list and button row. */
 .pi-center-stage {
   display: flex;
   flex-direction: column;
@@ -561,9 +516,7 @@ body {
   max-height: min(34rem, calc(100dvh - 11rem));
   border: 1px solid var(--pi-line);
   background: var(--pi-panel);
-  box-shadow: var(--pi-shadow);
-  margin-bottom: 0.5rem;
-  animation: pi-pop-in 220ms ease-out;
+  animation: pi-pop-in-fade 160ms ease-out;
   z-index: 1;
 }
 /* File preview — fixed height so Monaco gets a real layout box (flex:1
@@ -2681,17 +2634,6 @@ button.pi-panel-row.pi-panel-row--selected {
   flex-shrink: 0;
 }
 
-/* ============================================================
- * File preview window — a small floating window, never full-screen.
- * Exactly as wide as the chat dialog column (inherits .pi-interactive-
- * shell's max-width) and capped well short of the viewport height, so
- * the chat stays the primary surface. Thin shadow via .pi-panel-card.
- * ========================================================== */
-.pi-file-preview {
-  height: min(34rem, calc(100dvh - 9rem));
-  display: flex; flex-direction: column;
-  overflow: hidden;
-}
 /* Full-viewport, invisible — click it anywhere to dismiss whatever
    popup/preview is open and return to the conversation. Sits above the
    message feed but below `.pi-interactive-shell` (z-index: 20), so the
@@ -2776,17 +2718,11 @@ button.pi-panel-row.pi-panel-row--selected {
   max-width: 100%;
   box-sizing: border-box;
 }
-.pi-app-shell--mobile .pi-composer-dock--open .pi-composer-toolbar,
-.pi-app-shell--mobile .pi-composer-dock--preview .pi-composer-toolbar {
+.pi-app-shell--mobile .pi-composer-dock--elevated .pi-composer-toolbar {
   border-color: transparent;
   border-bottom: none;
 }
-.pi-app-shell--mobile .pi-composer-dock--tree .pi-composer-toolbar {
-  border-color: var(--pi-line);
-  border-bottom: none;
-}
-.pi-app-shell--mobile .pi-composer-dock--open .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar,
-.pi-app-shell--mobile .pi-composer-dock--preview .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar {
+.pi-app-shell--mobile .pi-composer-dock--elevated .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar {
   border: none;
   background: transparent;
 }
