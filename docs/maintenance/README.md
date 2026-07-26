@@ -74,7 +74,7 @@ server/src/test/session-files.test.ts  部分 id / 路径穿越的回归用例
 cd server && npx tsc --noEmit && npm test
 ```
 
-预期：**165 passed / 1 failed**（client 侧另有 142 passed）。
+预期：**169 passed / 1 failed**（client 侧另有 142 passed）。
 唯一失败项 `platform-system.test.ts` 是**本次改动前就存在**的失败
 （断言 `SYSTEM.md` 不含 `projects/`，而该文档确实包含），
 已在干净工作树上复现确认无关。
