@@ -232,17 +232,8 @@ export function ComposerBar({
   const connectionState = useConnectionState();
   const isConnectingRaw = connectionState === 'connecting' || connectionState === 'reconnecting';
   const isSendUnavailable = connectionState !== 'connected';
-  // 同页切会话会重挂主 socket,瞬时的 connecting 不闪指示器 ——
-  // 持续 >900ms(冷加载/断网)才显示,已加载内容间的切换保持顺滑。
-  const [showConnecting, setShowConnecting] = useState(false);
-  useEffect(() => {
-    if (!isConnectingRaw) {
-      setShowConnecting(false);
-      return;
-    }
-    const t = window.setTimeout(() => setShowConnecting(true), 900);
-    return () => window.clearTimeout(t);
-  }, [isConnectingRaw]);
+  // 输入框左上角的连接指示已彻底删除(用户定稿:有 Preparing 提示就够,
+  // 会话进行中的 working 指示保留)。isConnectingRaw 仍用于压 working 闪烁。
   const draftCacheKey = `${DRAFT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   const pastedTextCacheKey = `${PASTED_TEXT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   // 接管/编号方块概念已删:长按新建按钮整体进/出小窗模式。
@@ -1440,14 +1431,6 @@ export function ComposerBar({
             <span /><span /><span /><span />
           </span>
         </button>
-      )}
-      {showConnecting && (
-        <div
-          className="pi-composer-working pi-composer-working--shell pi-composer-connecting"
-          aria-label="连接中…"
-        >
-          <span className="pi-composer-connecting-block" />
-        </div>
       )}
       {badgeRow && (
         <div className="pi-composer-working-row" onClick={(e) => e.stopPropagation()}>

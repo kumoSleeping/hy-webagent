@@ -90,10 +90,8 @@ export function StatusBar() {
         <span className="pi-status-bar-item">{footer?.statsLeft || NBSP}</span>
         <span className="pi-status-bar-item pi-status-bar-item--right">{footer?.modelRight || NBSP}</span>
       </div>
-
-      <div className={`pi-status-bar pi-status-bar--extensions${footer?.extensionLine ? "" : " pi-status-bar--slot-empty"}`}>
-        <span className="pi-status-bar-item">{footer?.extensionLine || NBSP}</span>
-      </div>
+      {/* 第四行(extensionLine,第三方扩展状态)按用户决定不渲染 ——
+          服务端照常下发,想恢复把这行加回来即可。 */}
     </div>
   );
 }

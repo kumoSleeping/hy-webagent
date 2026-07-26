@@ -56,6 +56,7 @@ describe("StatusBar", () => {
     const { container } = render(<StatusBar />);
 
     expect(container.querySelector(".pi-status-bar-stack")).not.toBeNull();
-    expect(container.querySelectorAll(".pi-status-bar")).toHaveLength(4);
+    // 第四行(extensionLine)按用户决定不渲染 —— 三行:顶行/pwd/stats。
+    expect(container.querySelectorAll(".pi-status-bar")).toHaveLength(3);
   });
 });
