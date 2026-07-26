@@ -150,7 +150,3 @@ export function panelToolbarIndex(
   return idx >= 0 ? idx : 0;
 }
 
-/** Panels that expand in the center stage stack instead of the composer popup. */
-export function isElevatedPanel(panel: ComposerPanelKind | null, _isMobile = false): boolean {
-  return panel === "tree";
-}

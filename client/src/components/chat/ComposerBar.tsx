@@ -23,6 +23,7 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { FileTree } from "../files/FileTree";
 import { PanelFilterBar } from "../common/PanelFilterBar";
 import { PanelBody, PanelListRow } from "../common/panel";
+import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { AccountPanel } from "../platform/AccountPanel";
 import { useImeComposition } from "../../hooks/useImeComposition";
 import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
@@ -32,7 +33,6 @@ import { flashStatus } from "../../stores/statusBarStore";
 import { useAuthStore } from "../../stores/authStore";
 import type { FileEntry } from "../../types";
 import {
-  isElevatedPanel,
   MOBILE_TOOLBAR_BTN_MAX_PX,
   panelToolbarIndex,
   toolbarBtnWidthPx,
@@ -78,6 +78,9 @@ interface ComposerBarProps {
   commandsContent?: ReactNode;
   /** Model picker — direct toolbar toggle, same popup as history/files. */
   modelContent?: ReactNode;
+  /** Session tree — since 设计稿 D it lives in the floating panel like
+   * every other kind (was a CenterStage mode), default stance = stage. */
+  treeContent?: ReactNode;
   /** Read-only group mode keeps the normal composer layout but limits it to
    * history and informational panels. */
   groupPreview?: {
@@ -166,6 +169,24 @@ function toolbarTitle(item: ToolbarItemDef): string {
   }
 }
 
+/** Handle-row label for the floating panel chrome — mirrors toolbarTitle. */
+function panelChromeTitle(kind: Exclude<ComposerPanelKind, null>): string {
+  switch (kind) {
+    case "commands":
+      return "Commands";
+    case "model":
+      return "Model";
+    case "tree":
+      return "Tree";
+    case "history":
+      return "History";
+    case "files":
+      return "Files";
+    case "account":
+      return "Account & budget";
+  }
+}
+
 function toolbarAriaLabel(item: ToolbarItemDef): string {
   switch (item.id) {
     case "commands":
@@ -218,6 +239,7 @@ export function ComposerBar({
   onFileClick,
   commandsContent,
   modelContent,
+  treeContent,
   groupPreview,
   isMobileLayout = false,
 }: ComposerBarProps) {
@@ -1213,12 +1235,37 @@ export function ComposerBar({
   );
 
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
-  const elevatedPanel = isElevatedPanel(panel, isMobileLayout);
-  const toolbarActive = panel !== null && !elevatedPanel && !(previewOpen && panel === "files" && !isMobileLayout);
+  const panelStance = useComposerPanelStore((s) => s.stance);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const toolbarActive = panel !== null && !(previewOpen && panel === "files" && !isMobileLayout);
   const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
-  const showInlinePanel = panel !== null && !elevatedPanel;
   const liveComposerText = taRef.current?.value ?? text;
   const hasDraft = liveComposerText.trim().length > 0 || pendingAttachments.length > 0;
+
+  // 悬浮面板与输入区的留缝:量 dock 顶(含工具条行)实时写 CSS 变量,
+  // 输入框长高时卡片跟着上移,永不粘连(设计稿 D:独立板块)。
+  useLayoutEffect(() => {
+    const shell = shellRef.current;
+    const panelEl = panelRef.current;
+    if (!shell || !panelEl) return;
+    const dock = shell.closest(".pi-composer-dock") ?? shell;
+    const update = () => {
+      const rect = dock.getBoundingClientRect();
+      panelEl.style.setProperty(
+        "--pi-float-bottom",
+        `${Math.max(0, window.innerHeight - rect.top) + 12}px`,
+      );
+    };
+    update();
+    // jsdom(测试)与极老内核没有 ResizeObserver —— 缺席时留 resize 监听兜底。
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    ro?.observe(dock);
+    window.addEventListener("resize", update);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
 
   function renderPanelBody(): ReactNode {
     if (!panel) return null;
@@ -1237,6 +1284,8 @@ export function ComposerBar({
             <FileTree onFileClick={onFileClick} />
           </PanelBody>
         );
+      case "tree":
+        return <PanelBody variant="list">{treeContent}</PanelBody>;
       case "account":
         return groupPreview ? groupPreview.accountContent : <AccountPanel />;
       default:
@@ -1310,10 +1359,7 @@ export function ComposerBar({
         data-files-overlay={filesOverlay ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="pi-composer-panel">
-          {showInlinePanel && renderPanelBody()}
-        </div>
-
+        {/* 设计稿 D:面板不再长在工具栏上 —— 独立悬浮卡见下方 pi-float-panel。 */}
         <div className="pi-composer-toolbar-bar">
           {isMobileLayout && <div className="pi-composer-toolbar-bar-fill" aria-hidden="true" />}
           <div className="pi-composer-toolbar-bar-tail">
@@ -1335,6 +1381,23 @@ export function ComposerBar({
           ))}
           </div>
         </div>
+      </div>
+
+      {/* 独立悬浮面板(设计稿 D)— fixed 定位,与输入框零几何关联;
+          位置由 design.css + --pi-float-bottom 决定,内容多高卡多高。 */}
+      <div
+        className="pi-float-panel"
+        ref={panelRef}
+        data-open={toolbarActive ? "true" : "false"}
+        data-stance={toolbarActive && panel ? panelStance : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {toolbarActive && panel && (
+          <>
+            <ComposerPanelChrome title={panelChromeTitle(panel)} panelRef={panelRef} />
+            {renderPanelBody()}
+          </>
+        )}
       </div>
 
       {filesOverlay && !groupPreview && (

@@ -2457,9 +2457,6 @@ button.pi-panel-row.pi-panel-row--selected {
   box-shadow: var(--pi-shadow-float);
   overflow: hidden;
 }
-.pi-composer-toolbar[data-files-overlay="true"] .pi-composer-panel {
-  transition: none;
-}
 .pi-composer-toolbar {
   /* Sit flush on the composer's outer top-right corner — offset by border
      width so our right edge lines up with the shell's visible right edge. */
@@ -2542,40 +2539,51 @@ button.pi-panel-row.pi-panel-row--selected {
     inset 0 0 0 1px rgba(255, 255, 255, 0.6),
     4px 0 6px -3px rgba(0, 0, 0, 0.18);
 }
-/* Popup — floats above the button row without changing toolbar layout.
-   Same visual seam as before: panel bottom edge meets the bar top edge. */
-.pi-composer-panel {
-  position: absolute;
-  left: -1px;
-  right: -1px;
-  bottom: 100%;
-  display: flex; flex-direction: column; min-height: 0;
-  max-height: 0; opacity: 0;
-  overflow: hidden;
-  font-size: var(--pi-panel-font);
+/* 悬浮面板头部行 — 标题 / ⤢⤡ / ✕(设计稿 D,无拖拽无拖条)。
+   ⤢ 只在贴身内容被截断时可见,显隐逻辑在 ComposerPanelChrome。 */
+.pi-composer-panel-handle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.25rem 0.25rem 0.25rem 0.6rem;
+  border-bottom: 1px solid var(--pi-line-soft);
   background: var(--pi-panel);
-  border: 1px solid var(--pi-line);
-  border-bottom: none;
-  box-shadow: var(--pi-shadow-float);
-  transition: max-height 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.pi-composer-toolbar[data-open="true"] .pi-composer-panel {
-  height: min(20rem, calc(100dvh - 9rem));
-  max-height: min(20rem, calc(100dvh - 9rem));
-  opacity: 1;
-  overflow: hidden;
-  min-width: 0;
-  border-bottom: none;
-  box-shadow: none;
-  margin-bottom: -1px;
+.pi-composer-panel-handle-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pi-muted);
+  white-space: nowrap;
 }
-/* Short panels — hug content, sit flush above the toolbar (no empty band). */
-.pi-composer-toolbar[data-open="true"][data-panel="account"] .pi-composer-panel,
-.pi-composer-toolbar[data-open="true"][data-panel="model"] .pi-composer-panel {
-  height: auto;
-  max-height: min(20rem, calc(100dvh - 9rem));
-  overflow: hidden auto;
+.pi-composer-panel-handle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.3rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--pi-muted);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
 }
+.pi-composer-panel-handle-btn--stance { margin-left: auto; }
+.pi-composer-panel-handle-btn:hover,
+.pi-composer-panel-handle-btn:focus-visible {
+  color: var(--pi-text);
+  background: var(--pi-panel-subtle);
+}
+.pi-composer-panel-handle-btn[data-hidden="true"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+.pi-composer-panel-handle-btn svg { width: 0.78rem; height: 0.78rem; }
 .pi-composer-panel-stack {
   display: flex;
   flex-direction: column;
@@ -2715,21 +2723,9 @@ button.pi-panel-row.pi-panel-row--selected {
   border: none;
   background: transparent;
 }
-.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
-  position: absolute;
-  left: -1px;
-  right: -1px;
-  top: auto;
-  bottom: 100%;
-  border: 1px solid var(--pi-line);
-  border-bottom: none;
-  background: var(--pi-panel);
-  box-shadow: none;
-  margin-bottom: -1px;
-}
-.pi-app-shell--mobile .pi-composer-panel .pi-panel-row,
-.pi-app-shell--mobile .pi-composer-panel .pi-composer-cmd-list,
-.pi-app-shell--mobile .pi-composer-panel .pi-panel-filter {
+.pi-app-shell--mobile .pi-float-panel .pi-panel-row,
+.pi-app-shell--mobile .pi-float-panel .pi-composer-cmd-list,
+.pi-app-shell--mobile .pi-float-panel .pi-panel-filter {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -2741,6 +2737,63 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-app-shell--mobile .pi-composer-dock--elevated .pi-composer-toolbar[data-open="true"] .pi-composer-toolbar-bar {
   border: none;
   background: transparent;
+}
+
+/* ============================================================
+ * 独立悬浮面板(设计稿 D)— 与输入框零几何关联的低位悬浮卡。
+ * 水平居中、悬在 composer 上方留缝处(bottom 由 ComposerBar 量
+ * dock 顶实时写入 --pi-float-bottom,输入框长高卡片跟着上移);
+ * 贴身 = 内容多高卡多高(封顶 45dvh);满台 = 大卡(top 起 2.25rem,
+ * 四边仍留白,依旧独立)。入场 160ms 上浮。
+ * ========================================================== */
+@keyframes pi-float-in {
+  0%   { opacity: 0; translate: -50% 14px; }
+  100% { opacity: 1; translate: -50% 0; }
+}
+.pi-float-panel {
+  position: fixed;
+  left: 50%;
+  translate: -50% 0;
+  bottom: var(--pi-float-bottom, 8.5rem);
+  z-index: 60;
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+  width: min(34rem, calc(100vw - 2.5rem));
+  max-height: min(45dvh, calc(100dvh - 13rem));
+  font-size: var(--pi-panel-font);
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line);
+  box-shadow: var(--pi-shadow-float);
+}
+.pi-float-panel[data-open="true"] {
+  display: flex;
+  animation: pi-float-in 160ms ease-out;
+}
+.pi-float-panel[data-stance="stage"] {
+  top: 2.25rem;
+  width: min(46rem, calc(100vw - 2.5rem));
+  max-height: none;
+}
+.pi-app-shell--mobile .pi-float-panel {
+  width: calc(100vw - 1.5rem);
+}
+.pi-app-shell--mobile .pi-float-panel[data-stance="stage"] {
+  top: 1rem;
+}
+
+/* 手机:头部行与按钮命中区加大(拇指操作)。 */
+.pi-app-shell--mobile .pi-composer-panel-handle {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+}
+.pi-app-shell--mobile .pi-composer-panel-handle-btn {
+  width: 2.4rem;
+  height: 1.8rem;
+}
+.pi-app-shell--mobile .pi-composer-panel-handle-btn svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 /* ============================================================

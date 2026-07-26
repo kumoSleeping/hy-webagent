@@ -506,8 +506,6 @@ export function ChatPanel({
               onContentChange={onContentChange}
               onViewModeChange={onViewModeChange}
               onEditorFocus={onEditorFocus}
-              treeContent={treeContent}
-              treeMode={treeMode}
               onClose={() => {
                 closePreview();
                 useExtensionUiStore.getState().setExtensionPanelDismissed(true);
@@ -537,6 +535,7 @@ export function ChatPanel({
             onFileClick={onFileClick}
             commandsContent={commandsContent}
             modelContent={modelContent}
+            treeContent={treeContent}
             groupPreview={groupPreview ? {
               notice: "Group chat only...",
               onReturnToChat: groupPreview.returnToChat,

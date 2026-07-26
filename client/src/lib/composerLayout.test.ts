@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   adjustToolbarItemsForBand,
   fitToolbarItemsToBand,
-  isElevatedPanel,
   MOBILE_TOOLBAR_ITEMS,
   GROUP_PREVIEW_TOOLBAR_ITEMS,
   panelToolbarIndex,
@@ -33,13 +32,6 @@ describe("composerLayout", () => {
       "new-chat",
     ]);
     expect(MOBILE_TOOLBAR_ITEMS).toHaveLength(7);
-  });
-
-  it("elevates only the tree panel", () => {
-    expect(isElevatedPanel("commands", true)).toBe(false);
-    expect(isElevatedPanel("commands", false)).toBe(false);
-    expect(isElevatedPanel("tree", false)).toBe(true);
-    expect(isElevatedPanel("tree", true)).toBe(true);
   });
 
   it("maps panel ids to toolbar indices", () => {
