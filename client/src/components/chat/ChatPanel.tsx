@@ -573,6 +573,8 @@ export function ChatPanel({
           )}
         </div>
         <SessionWindowsHost />
+        {/* 渐隐幕:浮层拖进输入区时向下溶入背景(见 design.css)。 */}
+        <div className="pi-float-fade" aria-hidden="true" />
         {/* 第二扇悬浮小窗:文件/图片预览 —— 与面板小窗同一套 chrome,
             独立记忆槽,标题=当前文件名。 */}
         <div

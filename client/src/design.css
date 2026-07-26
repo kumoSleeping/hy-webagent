@@ -2299,7 +2299,8 @@ button.pi-panel-row.pi-panel-row--selected {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 40;
+  /* 在渐隐幕(400)之上、输入坞(500)之下 —— 页脚不能被幕的不透明段盖掉。 */
+  z-index: 450;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2702,6 +2703,25 @@ button.pi-panel-row.pi-panel-row--selected {
   0%   { opacity: 0; transform: translateY(12px); }
   100% { opacity: 1; transform: translateY(0); }
 }
+/* 浮层坠入输入区的渐隐幕:全视口宽(连输入框左右 flank 的缝隙一起遮),
+   z 卡在浮层(60+)与输入坞(500)之间。会话窗/面板拖到输入区时从上往下
+   渐变溶入背景,不再露出生硬切边;静止浮层默认停在 --pi-float-bottom
+   之上,幕从那条线才开始 —— 对它们零影响。装饰层,不吃指针。 */
+.pi-float-fade {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--pi-float-bottom, 8.5rem);
+  z-index: 400;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--pi-bg) 0%, transparent),
+    var(--pi-bg) 55%
+  );
+}
+
 .pi-float-panel {
   position: fixed;
   right: var(--pi-float-right, 1.25rem);

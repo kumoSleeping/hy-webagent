@@ -58,6 +58,11 @@
   z=60,被会话窗永久压底,已废弃。前提:三类浮层与输入坞同处
   `.pi-interactive-shell`(isolation)的 stacking context;
   SessionWindowsHost 必须挂在 shell 里,别挪出去。
+- **渐隐幕 `.pi-float-fade`**:输入坞只有自身宽度,浮窗拖进输入区时
+  两 flank 缝隙里原样可见、切边生硬。全视口宽的 fixed 装饰层
+  (z=400,浮层之上、坞之下,pointer-events:none),从
+  `--pi-float-bottom` 线起向下渐变到 `--pi-bg` —— 浮窗坠入即溶解;
+  静止浮层停在线上方,零影响。页脚 `.pi-web-chrome-bar` 提到 450。
 
 ## 排查
 
