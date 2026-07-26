@@ -46,6 +46,24 @@ openai 上从未被启用。本轮:
    放开就改 server/config/model-templates.json 的 core-3 模板。
    用户本人的号是 **admin**(工作区 admin-zsx0vltj)。
 
+## 试用返工(同日批三)
+
+- **关闭钮定稿**:红矩形+白 ✕ → 标题栏左端**一根小红杠**(最小化观感,
+  无方框,hover 拉长)。chrome 级,三类浮窗统一。
+- **切窗条「琴弦」→「小波形」**:短横线改 SVG 波峰(贝塞尔鼓包)竖排
+  相连,单窗=单波峰;加粗(stroke 3.5/激活 4),激活峰主题红且振幅大,
+  流式峰呼吸。单横线版观感太差。
+- **预览置顶补漏**:openPreview 每次调用都 raisePreview —— 同文件重开
+  不触发 ChatPanel effect(previewOpen/activeTabId 都没变),预览会被
+  刚 raise 的 Files 面板/会话窗压住。
+- **关激活窗背景闪会话(严重)**:关掉激活会话的窗时
+  activeSessionWindowed 翻 false,主区背景突然渲染该会话。修:还有
+  别的窗就把焦点交给栈顶剩余窗(bringToFront + setActiveSession),
+  背景保持让位;最后一扇窗照旧回主区。
+- **新建会话失败透出原因**:sessionStore.createSession 失败时把服务端
+  报文闪进状态行(典型:「直播会话已达上限(8),请先关闭一些会话小窗」
+  —— 窗口的 view socket 会把会话钉在池里不可淘汰,8 扇全开时必现)。
+
 ## 验证 / 排查
 
 - admin 登录后模型面板应出现三个 GPT 模型(Luna/Sol/Terra);选中后开新会话,

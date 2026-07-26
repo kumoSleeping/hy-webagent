@@ -88,7 +88,22 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
         title={title}
         panelRef={panelRef}
         storageKey={`pi-swin-rect:${sessionId}`}
-        onClose={() => closeWindow(sessionId)}
+        onClose={() => {
+          // 关的是激活窗且还有别的窗:焦点交给栈顶剩余窗 —— 否则
+          // 背景主区会突然显示本会话(activeSessionWindowed 翻 false),
+          // 多窗模式下背景闪出会话是反逻辑的。最后一扇窗照旧回主区。
+          const ws = useSessionWindowsStore.getState();
+          const remaining = ws.windows.filter((w) => w.sessionId !== sessionId);
+          const nextId = isActive && remaining.length > 0
+            ? [...ws.stack].reverse().find((k) => remaining.some((w) => w.sessionId === k)) ??
+              remaining[remaining.length - 1].sessionId
+            : null;
+          closeWindow(sessionId);
+          if (nextId) {
+            ws.bringToFront(nextId);
+            setActiveSession(nextId);
+          }
+        }}
         closeLabel="关闭小窗（会话保留在列表）"
       />
       <div className="pi-swin-body">

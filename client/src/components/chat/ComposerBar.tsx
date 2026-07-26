@@ -432,10 +432,7 @@ export function ComposerBar({
     }
     void (async () => {
       const id = await useSessionStore.getState().createSession();
-      if (!id) {
-        flashStatus("新建会话失败", "error");
-        return;
-      }
+      if (!id) return; // 失败原因由 sessionStore 直接闪到状态行
       useSessionStore.getState().setActiveSession(id);
       useSessionWindowsStore.getState().open(id);
       void useSessionStore.getState().fetchSessions();
@@ -485,10 +482,7 @@ export function ComposerBar({
     const asWindow = useSessionWindowsStore.getState().windows.length > 0;
     void (async () => {
       const id = await useSessionStore.getState().createSession();
-      if (!id) {
-        flashStatus("新建会话失败", "error");
-        return;
-      }
+      if (!id) return; // 失败原因由 sessionStore 直接闪到状态行
       useSessionStore.getState().setActiveSession(id);
       if (asWindow) useSessionWindowsStore.getState().open(id);
       void useSessionStore.getState().fetchSessions();

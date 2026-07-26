@@ -1,5 +1,4 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
-import { X } from "lucide-react";
 
 interface ComposerPanelChromeProps {
   /** Label in the header row — same string as the toolbar button title. */
@@ -12,7 +11,7 @@ interface ComposerPanelChromeProps {
   leading?: ReactNode;
   /** 标题后的插槽(右侧控制钮);同样不触发拖动。 */
   trailing?: ReactNode;
-  /** 给了就渲染标题栏左端的主题红矩形 ✕ —— 统一窗口套件的唯一关闭钮。 */
+  /** 给了就渲染标题栏左端的小红杠(最小化观感)—— 统一窗口套件的唯一关闭钮。 */
   onClose?: () => void;
   /** 红 ✕ 的 title/aria 文案(默认「关闭」)。 */
   closeLabel?: string;
@@ -212,7 +211,7 @@ export function ComposerPanelChrome({
             title={closeLabel}
             aria-label={closeLabel}
           >
-            <X strokeWidth={2} aria-hidden="true" />
+            <span className="pi-swin-ctl-dash" aria-hidden="true" />
           </button>
         )}
         {leading}

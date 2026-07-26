@@ -2822,14 +2822,16 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel-subtle);
 }
 .pi-swin-ctl svg { width: 0.75rem; height: 0.75rem; }
-/* 统一窗口套件的关闭钮 = 标题栏左端主题红矩形(白 ✕)。 */
-.pi-swin-ctl--close {
+/* 统一窗口套件的关闭钮 = 标题栏左端一根小红杠(最小化观感,无方框)。 */
+.pi-swin-ctl-dash {
+  display: block;
+  width: 0.8rem;
+  height: 3px;
   background: var(--pi-theme);
-  color: var(--pi-theme-ink);
+  transition: transform 120ms ease-out;
 }
-.pi-swin-ctl--close:hover {
-  background: color-mix(in srgb, var(--pi-theme) 82%, black);
-  color: var(--pi-theme-ink);
+.pi-swin-ctl--close:hover .pi-swin-ctl-dash {
+  transform: scaleX(1.35);
 }
 .pi-swin-body {
   display: flex;
@@ -2843,23 +2845,19 @@ button.pi-panel-row.pi-panel-row--selected {
   font-size: var(--pi-panel-font);
   color: var(--pi-muted);
 }
-/* 「琴弦」:手机小窗模式左缘的窗口切换条(台前调度式)。每窗一根短横线
-   竖排;按住沿边滑动 = 滑到哪根哪扇窗置顶激活,松手定格;流式中的窗
-   那根弦呼吸脉动。闲时半透明,触摸点亮。z 在渐隐幕(400)之上、
-   输入坞(500)之下 —— 永远压着所有浮窗可点。 */
+/* 「小波形」:手机小窗模式左缘的窗口切换条(台前调度式)。每窗一个
+   波峰(SVG 鼓包)竖排相连;单窗=单波峰。按住沿边滑动 = 滑到哪个峰
+   哪扇窗置顶激活,松手定格;流式中的峰呼吸脉动。闲时半透明,触摸
+   点亮。z 在渐隐幕(400)之上、输入坞(500)之下 —— 永远压着浮窗可点。 */
 .pi-swin-strings {
   position: fixed;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 14px;
-  width: 30px;
-  padding: 14px 6px 14px 0;
+  width: 34px;
+  padding: 10px 6px 10px 0;
   z-index: 460;
-  opacity: 0.35;
+  opacity: 0.4;
   transition: opacity 140ms ease-out;
   touch-action: none;
   user-select: none;
@@ -2867,23 +2865,24 @@ button.pi-panel-row.pi-panel-row--selected {
   -webkit-touch-callout: none;
 }
 .pi-swin-strings--touching { opacity: 1; }
-.pi-swin-string {
-  height: 2px;
-  width: 14px;
-  background: var(--pi-muted);
-  transition: width 120ms ease-out, background-color 120ms ease-out;
+.pi-swave { display: block; overflow: visible; }
+.pi-swave-crest {
+  fill: none;
+  stroke: var(--pi-muted);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: stroke 120ms ease-out, stroke-width 120ms ease-out;
 }
-.pi-swin-string--active {
-  width: 24px;
-  background: var(--pi-theme);
+.pi-swave-crest--active {
+  stroke: var(--pi-theme);
+  stroke-width: 4;
 }
-@keyframes pi-string-breathe {
-  0%, 100% { transform: scaleX(1); opacity: 1; }
-  50% { transform: scaleX(0.55); opacity: 0.6; }
+@keyframes pi-swave-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
-.pi-swin-string--live {
-  transform-origin: left center;
-  animation: pi-string-breathe 1.4s ease-in-out infinite;
+.pi-swave-crest--live {
+  animation: pi-swave-breathe 1.3s ease-in-out infinite;
 }
 
 /* 统一窗口套件:左/右/下三边 + 下两角 + 右上角 = 拖拽改大小命中带

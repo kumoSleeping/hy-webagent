@@ -82,6 +82,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       return id;
     } catch (err) {
       console.error("createSession failed:", err);
+      // 把服务端原因带给用户(如「直播会话已达上限(8),请先关闭一些
+      // 会话小窗」),不要只说失败。
+      const msg = err instanceof Error && err.message ? err.message : "";
+      useStatusBarStore
+        .getState()
+        .setFlash(msg ? `新建会话失败：${msg}` : "新建会话失败", "error");
       return null;
     }
   },
