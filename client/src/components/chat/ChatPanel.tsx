@@ -83,6 +83,11 @@ export function ChatPanel({
   const closePreview = useComposerPanelStore((s) => s.closePreview);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const previewPanelRef = useRef<HTMLDivElement>(null);
+  // 浮层最新召的在上:预览小窗与会话窗/命令面板共用 z 池。
+  const previewZ = useSessionWindowsStore((s) => s.previewZ);
+  useEffect(() => {
+    if (previewOpen) useSessionWindowsStore.getState().raisePreview();
+  }, [previewOpen]);
   const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
   // 设计稿 F:激活会话在(未接管的)小窗里直播时,背景主区让位。
   const activeSessionWindowed = useSessionWindowsStore(
@@ -573,6 +578,8 @@ export function ChatPanel({
           className="pi-float-panel pi-float-panel--preview"
           ref={previewPanelRef}
           data-open={previewOpen ? "true" : "false"}
+          style={{ zIndex: previewZ }}
+          onPointerDownCapture={() => useSessionWindowsStore.getState().raisePreview()}
           onClick={(e) => e.stopPropagation()}
         >
           {previewOpen && (

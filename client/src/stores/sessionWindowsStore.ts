@@ -26,15 +26,23 @@ interface SessionWindowsState {
   topZ: number;
   /** 接管:该会话占用整页背景(其余窗暂藏);null = 多任务态。 */
   zoomedSessionId: string | null;
+  /** 命令/工具面板与文件预览小窗的 z —— 与会话窗同池竞争,
+   *  谁最新被召出/点到谁在上(不再固定压在会话窗底下)。 */
+  panelZ: number;
+  previewZ: number;
   open: (sessionId: string) => void;
   close: (sessionId: string) => void;
   closeAll: () => void;
   bringToFront: (sessionId: string) => void;
   zoom: (sessionId: string) => void;
   unzoom: () => void;
+  raisePanel: () => void;
+  raisePreview: () => void;
 }
 
-/** 面板/预览小窗 z=60;会话窗从 70 起,互相点击递增。 */
+/** 浮层基线 z(CSS 里 .pi-float-panel 的 60 只是未接管前的兜底);
+ *  会话窗从 70 起,所有浮层此后共用 topZ 递增。 */
+const PANEL_BASE_Z = 60;
 const BASE_Z = 70;
 
 let persistKey: string | null = null;
@@ -55,6 +63,8 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set) => ({
   windows: [],
   topZ: BASE_Z,
   zoomedSessionId: null,
+  panelZ: PANEL_BASE_Z,
+  previewZ: PANEL_BASE_Z,
 
   open: (sessionId) =>
     set((s) => {
@@ -100,6 +110,9 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set) => ({
 
   zoom: (sessionId) => set({ zoomedSessionId: sessionId }),
   unzoom: () => set({ zoomedSessionId: null }),
+
+  raisePanel: () => set((s) => ({ topZ: s.topZ + 1, panelZ: s.topZ + 1 })),
+  raisePreview: () => set((s) => ({ topZ: s.topZ + 1, previewZ: s.topZ + 1 })),
 }));
 
 /** 换持久化域,返回该 scope 上次开着的窗列表(供恢复;兼容旧的

@@ -614,6 +614,13 @@ export function ComposerBar({
     }
   }, [toolbarIndex, toolbarItems.length, setToolbarIndex]);
 
+  // 浮层最新召的在上:面板每次打开都从共用 z 池取新顶(否则固定 z=60
+  // 会被 70+ 的会话窗永久压底);点面板本体同理(见 div 的 pointerdown)。
+  const floatPanelZ = useSessionWindowsStore((s) => s.panelZ);
+  useEffect(() => {
+    if (panel !== null) useSessionWindowsStore.getState().raisePanel();
+  }, [panel]);
+
   // Mouse-opened panels: keep toolbarIndex aligned with the active tab.
   useEffect(() => {
     if (panel) setToolbarIndex(panelToolbarIdx(panel));
@@ -1477,6 +1484,8 @@ export function ComposerBar({
         className="pi-float-panel"
         ref={panelRef}
         data-open={toolbarActive ? "true" : "false"}
+        style={{ zIndex: floatPanelZ }}
+        onPointerDownCapture={() => useSessionWindowsStore.getState().raisePanel()}
         onClick={(e) => e.stopPropagation()}
       >
         {toolbarActive && panel && (

@@ -2702,6 +2702,8 @@ button.pi-panel-row.pi-panel-row--selected {
   position: fixed;
   right: var(--pi-float-right, 1.25rem);
   bottom: var(--pi-float-bottom, 8.5rem);
+  /* 兜底 z;运行时由 sessionWindowsStore 共用 z 池 inline 接管 ——
+     命令面板/预览/会话窗同池竞争,最新召的浮层在上。 */
   z-index: 60;
   display: none;
   flex-direction: column;

@@ -48,6 +48,11 @@
   置顶 = store.open 原语义);空态没会话就新建一路直接以小窗开场。
   排在 new-chat 左边;窄屏裁剪序里排第二早(tree 之后)——手机上拖小窗
   本就勉强,先让位,`composerLayout.test.ts` 各断言随 8 项池同步更新。
+- **浮层最新召的在上**:命令/工具面板与文件预览小窗原先固定 z=60,
+  会话窗 70 递增 —— 开过小窗后面板永久被压底。现在三类浮层共用
+  sessionWindowsStore 的 topZ 池(新增 panelZ/previewZ +
+  raisePanel/raisePreview):面板打开、点面板本体(pointerdown capture)、
+  预览打开/点到,都 raise 到新顶;CSS 的 60 只剩未 raise 前的兜底。
 
 ## 排查
 
