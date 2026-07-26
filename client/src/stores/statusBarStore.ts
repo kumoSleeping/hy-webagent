@@ -19,6 +19,9 @@ export interface StatusFlash {
 
 interface StatusBarState {
   footer: FooterSnapshot | null;
+  /** 按会话缓存的最近一次 footer —— 切激活时先上缓存瞬时填充(不闪空),
+   *  REST/WS 的新鲜数据到了再覆盖。 */
+  footerCache: Record<string, FooterSnapshot>;
   widgets: WidgetSnapshot;
   /** Legacy keyed plugin statuses from setStatus (also in footer.extensionLine). */
   pluginStatuses: Record<string, string>;
@@ -28,6 +31,10 @@ interface StatusBarState {
    *  (popup toasts were removed by design: flat status rail instead). */
   flash: StatusFlash | null;
   setFooter: (footer: FooterSnapshot) => void;
+  /** 记缓存(不动当前显示)。 */
+  cacheFooter: (piSessionId: string, footer: FooterSnapshot) => void;
+  /** 切会话:有缓存立即换上,没有才清空等 REST。 */
+  switchToSession: (piSessionId: string) => void;
   setWidgets: (widgets: WidgetSnapshot) => void;
   setPluginStatus: (key: string, text: string | null | undefined) => void;
   applyPluginSnapshot: (items: Record<string, string>) => void;
@@ -54,12 +61,24 @@ let flashTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useStatusBarStore = create<StatusBarState>((set) => ({
   footer: null,
+  footerCache: {},
   widgets: emptyWidgets,
   pluginStatuses: {},
   workingMessage: null,
   flash: null,
 
   setFooter: (footer) => set({ footer }),
+
+  cacheFooter: (piSessionId, footer) =>
+    set((s) => ({ footerCache: { ...s.footerCache, [piSessionId]: footer } })),
+
+  switchToSession: (piSessionId) =>
+    set((s) => ({
+      footer: s.footerCache[piSessionId] ?? null,
+      widgets: emptyWidgets,
+      pluginStatuses: {},
+      workingMessage: null,
+    })),
 
   setWidgets: (widgets) =>
     set((s) => {

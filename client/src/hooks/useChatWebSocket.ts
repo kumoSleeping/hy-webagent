@@ -199,7 +199,11 @@ function dispatchWsMessage(
       );
       break;
     case "footer:update":
-      if (msg.payload) useStatusBarStore.getState().setFooter(msg.payload);
+      if (msg.payload) {
+        useStatusBarStore.getState().setFooter(msg.payload);
+        const active = useSessionStore.getState().activePiSessionId;
+        if (active) useStatusBarStore.getState().cacheFooter(active, msg.payload);
+      }
       break;
     case "widget:update":
       if (msg.payload) {

@@ -2843,6 +2843,49 @@ button.pi-panel-row.pi-panel-row--selected {
   font-size: var(--pi-panel-font);
   color: var(--pi-muted);
 }
+/* 「琴弦」:手机小窗模式左缘的窗口切换条(台前调度式)。每窗一根短横线
+   竖排;按住沿边滑动 = 滑到哪根哪扇窗置顶激活,松手定格;流式中的窗
+   那根弦呼吸脉动。闲时半透明,触摸点亮。z 在渐隐幕(400)之上、
+   输入坞(500)之下 —— 永远压着所有浮窗可点。 */
+.pi-swin-strings {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  width: 30px;
+  padding: 14px 6px 14px 0;
+  z-index: 460;
+  opacity: 0.35;
+  transition: opacity 140ms ease-out;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.pi-swin-strings--touching { opacity: 1; }
+.pi-swin-string {
+  height: 2px;
+  width: 14px;
+  background: var(--pi-muted);
+  transition: width 120ms ease-out, background-color 120ms ease-out;
+}
+.pi-swin-string--active {
+  width: 24px;
+  background: var(--pi-theme);
+}
+@keyframes pi-string-breathe {
+  0%, 100% { transform: scaleX(1); opacity: 1; }
+  50% { transform: scaleX(0.55); opacity: 0.6; }
+}
+.pi-swin-string--live {
+  transform-origin: left center;
+  animation: pi-string-breathe 1.4s ease-in-out infinite;
+}
+
 /* 统一窗口套件:左/右/下三边 + 下两角 + 右上角 = 拖拽改大小命中带
    (骑在边框上;顶栏留给移动,左上角是红 ✕)。装饰不可见,只有光标提示。 */
 .pi-float-panel-edge {

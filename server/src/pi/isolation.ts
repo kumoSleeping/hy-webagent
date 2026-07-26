@@ -379,6 +379,12 @@ export async function ensureUserAgentDir(
     await writeEmptyAuthIfMissing(path.join(agentDir, "auth.json"));
   }
   await syncModelsJsonFromGlobal(path.join(agentDir, "models.json"), path.join(globalDir, "models.json"));
+  // Codex 适配器的行为配置与 models.json 同策略:主机为准,每次刷新。
+  // 没有它适配器不会挂到 openai 提供商上,状态栏的扩展行(第四行)也不会亮。
+  await syncModelsJsonFromGlobal(
+    path.join(agentDir, "pi-codex-conversion.json"),
+    path.join(globalDir, "pi-codex-conversion.json")
+  );
   const agentAuthPath = path.join(agentDir, "auth.json");
   for (const providerId of SEED_PROVIDERS_FROM_GLOBAL) {
     await mergeProviderFromGlobalAuth(agentAuthPath, path.join(globalDir, "auth.json"), providerId);

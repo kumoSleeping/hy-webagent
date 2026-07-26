@@ -29,6 +29,7 @@ import {
   useSessionWindowsStore,
 } from "../../stores/sessionWindowsStore";
 import { SessionWindowsHost } from "./SessionWindow";
+import { SessionWindowStrings } from "./SessionWindowStrings";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { flashStatus } from "../../stores/statusBarStore";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
@@ -579,6 +580,8 @@ export function ChatPanel({
           )}
         </div>
         <SessionWindowsHost />
+        {/* 「琴弦」:手机小窗模式左缘滑动切窗(台前调度式)。 */}
+        {isMobileLayout && <SessionWindowStrings />}
         {/* 渐隐幕:浮层拖进输入区时向下溶入背景(见 design.css)。 */}
         <div className="pi-float-fade" aria-hidden="true" />
         {/* 第二扇悬浮小窗:文件/图片预览 —— 与面板小窗同一套 chrome,

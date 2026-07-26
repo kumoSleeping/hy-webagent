@@ -39,6 +39,10 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
   const closeWindow = useSessionWindowsStore((s) => s.close);
 
   const isActive = activeId === sessionId;
+  // 主链路是否已挂到本会话:激活瞬间主 store 还在换绑旧会话,这段窗口期
+  // 继续用本窗自己的直播 store 渲染 —— 切换零白屏零「连接中」。
+  const mainHydrated = useChatStore((s) => s.hydratedPiSessionId);
+  const mirrorMain = isActive && mainHydrated === sessionId;
   const title = sessions.find((entry) => entry.id === sessionId)?.title ?? "New Session";
 
   // 对账 (a):本窗从激活变非激活 —— 主链路可能吃掉了在途半条,重拉。
@@ -88,10 +92,10 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
         closeLabel="关闭小窗（会话保留在列表）"
       />
       <div className="pi-swin-body">
-        {attached || isActive ? (
-          // 激活窗直接镜像单例 store —— 与主区(让位前)显示的内容逐字节一致;
-          // 非激活窗走本窗独立 store + 对账。
-          <MessageFeed chatStore={isActive ? useChatStore : chatStore} reserveComposer={false} />
+        {attached || mirrorMain ? (
+          // 激活且主链路已就位 = 镜像单例 store(与主区逐字节一致);
+          // 其余时刻走本窗独立 store + 对账 —— 含激活换绑的过渡期。
+          <MessageFeed chatStore={mirrorMain ? useChatStore : chatStore} reserveComposer={false} />
         ) : (
           <div className="pi-swin-loading">连接中…</div>
         )}

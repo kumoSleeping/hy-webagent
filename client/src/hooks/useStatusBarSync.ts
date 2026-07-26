@@ -34,6 +34,7 @@ export async function fetchSessionStatus(piSessionId: string): Promise<void> {
     `/api/sessions/${encodeURIComponent(piSessionId)}/status`
   );
   applyStatusPayload(data);
+  if (data.footer) useStatusBarStore.getState().cacheFooter(piSessionId, data.footer);
 }
 
 /**
@@ -52,7 +53,8 @@ export function useStatusBarSync() {
     if (!activePiSessionId || isGuestView) return;
 
     if (prev && prev !== activePiSessionId) {
-      useStatusBarStore.getState().clear();
+      // 有缓存立即换上(状态行瞬时切换,不闪空);REST 到了再覆盖成新鲜值。
+      useStatusBarStore.getState().switchToSession(activePiSessionId);
     }
 
     fetchSessionStatus(activePiSessionId).catch((err) =>
