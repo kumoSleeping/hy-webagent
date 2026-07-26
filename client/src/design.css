@@ -175,12 +175,10 @@ body {
   border-radius: 0;
   color: var(--pi-text-body);
 }
-/* 用户发言(试用定稿三):不是卡片也不是裸文字 —— 浅灰底纹 +
-   右缘 2px 主题红竖线(引用块的镜像,红线呼应左上角红方块),
-   无边框无投影,一眼可辨且不突兀。 */
+/* 用户发言(试用定稿四):浅灰底纹一块,无边框无投影无红线 ——
+   右对齐 + 底纹已足够辨认。 */
 .pi-message-dialog-user {
   border: none;
-  border-right: 2px solid var(--pi-theme);
   background: var(--pi-panel-subtle);
   padding: 0.5rem 0.7rem 0.55rem;
   box-shadow: none;
