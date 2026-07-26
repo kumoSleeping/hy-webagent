@@ -105,6 +105,8 @@ body {
   margin: 0;
   overflow: hidden;
   touch-action: pan-y pinch-zoom;
+  /* 移动端按住时系统自刷的一层点按高亮(看着像莫名的粉/灰块)—— 全局禁。 */
+  -webkit-tap-highlight-color: transparent;
   background: var(--pi-bg);
   color: var(--pi-text);
   font-family: var(--pi-font);
