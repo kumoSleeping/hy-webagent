@@ -34,6 +34,8 @@ REMOTE=$(cat <<EOF
 set -e
 cd ${APP_ROOT}
 echo "==> git pull"
+# 锁文件安装期漂移会卡住 pull(同 a0b485d 对 self-update 的修复)—— 先丢弃。
+git checkout -- package-lock.json server/package-lock.json client/package-lock.json 2>/dev/null || true
 git pull origin main
 echo "==> route Sorux through PI built-in xAI provider"
 node scripts/migrate-sorux-provider-to-xai.mjs /root/.pi/agent
