@@ -42,7 +42,7 @@ export async function setModel(
       name: (model as any).name,
       thinkingLevel: ps.session.thinkingLevel,
     },
-    message: `Model set to ${provider}/${modelId}`,
+    // 成功不弹消息:模型选择器与状态栏本身就是反馈,黑条闪现反而扰人。
   };
 }
 

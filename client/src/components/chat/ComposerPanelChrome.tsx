@@ -5,13 +5,15 @@ interface ComposerPanelChromeProps {
   title: string;
   /** The .pi-float-panel element — dragged / resized / persisted as one unified card. */
   panelRef: RefObject<HTMLDivElement | null>;
+  /** localStorage slot — 第二扇小窗(预览)传自己的 key,几何互不串。 */
+  storageKey?: string;
 }
 
 /** 悬浮小窗的头部(按住拖动)+ 右下角握把(改大小),设计稿 E。
  * 统一一种尺寸,无大小两态;无 ✕ / ⤢(点卡外或 Escape 关闭)。
  * 几何存 localStorage;默认(没拖过)由 CSS 右贴 composer 右缘。 */
 
-const RECT_KEY = "pi-float-panel-rect-v1";
+const DEFAULT_RECT_KEY = "pi-float-panel-rect-v1";
 const MIN_W = 240;
 const MIN_H = 160;
 /** 允许出界,但四周始终留这么多像素可抓(顶部完全不许出,否则抓不回来)。 */
@@ -24,9 +26,9 @@ interface PanelRect {
   h: number;
 }
 
-function readSavedRect(): PanelRect | null {
+function readSavedRect(key: string): PanelRect | null {
   try {
-    const raw = JSON.parse(localStorage.getItem(RECT_KEY) ?? "null") as PanelRect | null;
+    const raw = JSON.parse(localStorage.getItem(key) ?? "null") as PanelRect | null;
     if (!raw) return null;
     if ([raw.x, raw.y, raw.w, raw.h].some((n) => typeof n !== "number" || !Number.isFinite(n))) {
       return null;
@@ -63,27 +65,27 @@ function currentRect(el: HTMLElement): PanelRect {
   return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
 }
 
-export function ComposerPanelChrome({ title, panelRef }: ComposerPanelChromeProps) {
+export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT_KEY }: ComposerPanelChromeProps) {
   const interactRef = useRef<{ mode: "drag"; grabX: number; grabY: number } | { mode: "resize" } | null>(null);
 
   // 打开即恢复上次几何(钳到当前窗口);窗口缩放时把出界的卡拉回可抓范围。
   useEffect(() => {
     const el = panelRef.current;
     if (!el) return;
-    const saved = readSavedRect();
+    const saved = readSavedRect(storageKey);
     if (saved) applyRect(el, clampRect(saved));
     const onWindowResize = () => {
       if (el.dataset.free === "true") applyRect(el, clampRect(currentRect(el)));
     };
     window.addEventListener("resize", onWindowResize);
     return () => window.removeEventListener("resize", onWindowResize);
-  }, [panelRef]);
+  }, [panelRef, storageKey]);
 
   function persist() {
     const el = panelRef.current;
     if (!el) return;
     try {
-      localStorage.setItem(RECT_KEY, JSON.stringify(currentRect(el)));
+      localStorage.setItem(storageKey, JSON.stringify(currentRect(el)));
     } catch {
       // 存储不可用(隐私模式等):本次会话内仍生效,只是不记忆。
     }

@@ -1234,10 +1234,8 @@ export function ComposerBar({
     </PanelBody>
   );
 
-  const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const panelRef = useRef<HTMLDivElement>(null);
-  const toolbarActive = panel !== null && !(previewOpen && panel === "files" && !isMobileLayout);
-  const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
+  const toolbarActive = panel !== null;
   const liveComposerText = taRef.current?.value ?? text;
   const hasDraft = liveComposerText.trim().length > 0 || pendingAttachments.length > 0;
 
@@ -1248,14 +1246,16 @@ export function ComposerBar({
     const panelEl = panelRef.current;
     if (!shell || !panelEl) return;
     const dock = shell.closest(".pi-composer-dock") ?? shell;
+    // 变量写在 app-shell 根上 —— 面板小窗与预览小窗两扇一起继承。
+    const host = (dock.closest(".pi-app-shell") as HTMLElement | null) ?? panelEl;
     const update = () => {
       const rect = dock.getBoundingClientRect();
-      panelEl.style.setProperty(
+      host.style.setProperty(
         "--pi-float-bottom",
         `${Math.max(0, window.innerHeight - rect.top) + 12}px`,
       );
       // 默认右贴:卡片右缘与 composer 右缘同一条线(设计稿 E)。
-      panelEl.style.setProperty(
+      host.style.setProperty(
         "--pi-float-right",
         `${Math.max(0, window.innerWidth - rect.right)}px`,
       );
@@ -1282,7 +1282,6 @@ export function ComposerBar({
         return historyContent;
       case "files":
         if (groupPreview) return groupPreview.filesContent;
-        if (!isMobileLayout && previewOpen) return null;
         return (
           <PanelBody variant="list">
             <FileTree onFileClick={onFileClick} />
@@ -1360,7 +1359,6 @@ export function ComposerBar({
         className="pi-composer-toolbar"
         data-open={toolbarActive ? "true" : "false"}
         data-panel={toolbarActive && panel ? panel : undefined}
-        data-files-overlay={filesOverlay ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 设计稿 D:面板不再长在工具栏上 —— 独立悬浮卡见下方 pi-float-panel。 */}
@@ -1402,12 +1400,6 @@ export function ComposerBar({
           </>
         )}
       </div>
-
-      {filesOverlay && !groupPreview && (
-        <div className="pi-composer-files-overlay" onClick={(e) => e.stopPropagation()}>
-          <FileTree onFileClick={onFileClick} />
-        </div>
-      )}
 
       <div className="pi-composer-body">
         {pendingAttachments.length > 0 && (

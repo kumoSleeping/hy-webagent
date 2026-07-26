@@ -1,42 +1,21 @@
 import { useMemo } from "react";
 import { X } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { useStatusBarStore } from "../../stores/statusBarStore";
 import { ExtensionDialogHost, type ExtensionUiResponder } from "../extension-ui/ExtensionDialogHost";
 import { ExtensionWidgetBody, hasVisibleWidgets, primaryWidgetLabel } from "../extension-ui/ExtensionWidgetBody";
-import { EditorPanel } from "../editor/EditorPanel";
-import type { EditorTab, EditorViewMode } from "../../types";
 
-export type CenterStageMode = "dialog" | "preview" | "extension";
+export type CenterStageMode = "dialog" | "extension";
 
 interface CenterStageProps {
   onRespondExtensionUi: ExtensionUiResponder;
-  editorTabs: EditorTab[];
-  activeTabId: string | null;
-  onTabClick: (tabId: string) => void;
-  onTabClose: (tabId: string) => void;
-  onContentChange: (tabId: string, content: string) => void;
-  onViewModeChange: (tabId: string, viewMode: EditorViewMode) => void;
-  onEditorFocus?: () => void;
   onClose: () => void;
 }
 
-/** Large workbench shell above composer — preview / dialog / extension.
- * (树面板自设计稿 D 起并入独立悬浮面板,不再是这里的一个 mode。) */
-export function CenterStage({
-  onRespondExtensionUi,
-  editorTabs,
-  activeTabId,
-  onTabClick,
-  onTabClose,
-  onContentChange,
-  onViewModeChange,
-  onEditorFocus,
-  onClose,
-}: CenterStageProps) {
-  const previewOpen = useComposerPanelStore((s) => s.previewOpen);
+/** Workbench shell above composer — extension dialogs & widgets only.
+ * (树面板与文件预览都已并入独立悬浮小窗,不再是这里的 mode。) */
+export function CenterStage({ onRespondExtensionUi, onClose }: CenterStageProps) {
   const activeDialog = useExtensionUiStore((s) => s.activeDialog);
   const dismissed = useExtensionUiStore((s) => s.extensionPanelDismissed);
   const aboveEditor = useStatusBarStore(useShallow((s) => s.widgets.aboveEditor));
@@ -44,10 +23,9 @@ export function CenterStage({
 
   const mode: CenterStageMode | null = useMemo(() => {
     if (activeDialog) return "dialog";
-    if (previewOpen) return "preview";
     if (hasExtension && !dismissed) return "extension";
     return null;
-  }, [activeDialog, previewOpen, hasExtension, dismissed]);
+  }, [activeDialog, hasExtension, dismissed]);
 
   if (!mode) return null;
 
@@ -60,33 +38,7 @@ export function CenterStage({
     onClose();
   }
 
-  const label =
-    mode === "dialog"
-      ? activeDialog?.title || "Confirm"
-      : mode === "preview"
-        ? "Preview"
-        : primaryWidgetLabel(aboveEditor);
-
-  // File preview must keep `--preview` (fixed height for Monaco) + headless chrome.
-  if (mode === "preview") {
-    return (
-      <div
-        className="pi-center-stage pi-center-stage--preview pi-center-stage--headless"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <EditorPanel
-          tabs={editorTabs}
-          activeTabId={activeTabId}
-          onTabClick={onTabClick}
-          onTabClose={onTabClose}
-          onContentChange={onContentChange}
-          onViewModeChange={onViewModeChange}
-          onEditorFocus={onEditorFocus}
-          showTabBar={false}
-        />
-      </div>
-    );
-  }
+  const label = mode === "dialog" ? activeDialog?.title || "Confirm" : primaryWidgetLabel(aboveEditor);
 
   return (
     <div className="pi-center-stage" onClick={(e) => e.stopPropagation()}>
@@ -109,10 +61,9 @@ export function CenterStage({
 }
 
 export function useCenterStageOpen(_isMobileLayout = false): boolean {
-  const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const activeDialog = useExtensionUiStore((s) => s.activeDialog);
   const dismissed = useExtensionUiStore((s) => s.extensionPanelDismissed);
   const aboveEditor = useStatusBarStore(useShallow((s) => s.widgets.aboveEditor));
   const hasExtension = hasVisibleWidgets(aboveEditor);
-  return Boolean(activeDialog || previewOpen || (hasExtension && !dismissed));
+  return Boolean(activeDialog || (hasExtension && !dismissed));
 }

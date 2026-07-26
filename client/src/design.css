@@ -535,13 +535,6 @@ body {
   animation: pi-pop-in-fade 160ms ease-out;
   z-index: 1;
 }
-/* File preview — fixed height so Monaco gets a real layout box (flex:1
-   alone collapses when the parent has only max-height, not height). */
-.pi-center-stage--preview {
-  height: min(34rem, calc(100dvh - 9rem));
-  max-height: min(34rem, calc(100dvh - 9rem));
-  overflow: hidden;
-}
 .pi-center-stage-header {
   display: flex;
   align-items: center;
@@ -569,18 +562,6 @@ body {
   cursor: pointer;
 }
 .pi-center-stage-close:hover { color: var(--pi-theme); }
-.pi-center-stage--headless {
-  position: relative;
-}
-.pi-center-stage-close--overlay {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.35rem;
-  z-index: 2;
-  background: var(--pi-panel);
-  border: 1px solid var(--pi-line-soft);
-  border-radius: 0;
-}
 .pi-editor-floating-tools {
   position: absolute;
   top: 0.35rem;
@@ -2440,23 +2421,6 @@ button.pi-panel-row.pi-panel-row--selected {
  * positioned above it so opening a panel never reflows the message feed
  * or shifts the welcome/centered composer.
  * ========================================================== */
-.pi-composer-files-overlay {
-  position: absolute;
-  right: calc(-1 * var(--pi-composer-border));
-  bottom: calc(100% + var(--pi-composer-toolbar-btn-h));
-  z-index: 45;
-  width: var(--pi-composer-toolbar-w);
-  max-height: min(20rem, calc(100dvh - 12rem));
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0.125rem 0.25rem 0.25rem;
-  border: 1px solid var(--pi-line);
-  border-bottom: none;
-  background: var(--pi-panel);
-  box-shadow: var(--pi-shadow-float);
-  overflow: hidden;
-}
 .pi-composer-toolbar {
   /* Sit flush on the composer's outer top-right corner — offset by border
      width so our right edge lines up with the shell's visible right edge. */
@@ -2753,13 +2717,13 @@ button.pi-panel-row.pi-panel-row--selected {
   right: auto;
   bottom: auto;
 }
-/* 右下角握把 — 零圆角小折角。 */
+/* 右下角握把 — 主题红折角,命中区放大到 22px。 */
 .pi-float-panel-grip {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   cursor: nwse-resize;
   touch-action: none;
   z-index: 5;
@@ -2767,15 +2731,15 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-float-panel-grip::before {
   content: "";
   position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid var(--pi-line);
-  border-bottom: 2px solid var(--pi-line);
+  right: 4px;
+  bottom: 4px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--pi-theme);
+  border-bottom: 2px solid var(--pi-theme);
 }
 .pi-float-panel-grip:hover::before,
-.pi-float-panel-grip:active::before { border-color: var(--pi-muted); }
+.pi-float-panel-grip:active::before { border-color: var(--pi-theme-strong); }
 .pi-app-shell--mobile .pi-float-panel {
   width: calc(100vw - 1.5rem);
 }
@@ -2786,8 +2750,21 @@ button.pi-panel-row.pi-panel-row--selected {
   padding-bottom: 0.5rem;
 }
 .pi-app-shell--mobile .pi-float-panel-grip {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
+}
+
+/* 第二扇小窗:文件/图片预览体 — EditorPanel 填满窗身。 */
+.pi-float-preview-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.pi-float-preview-body > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* ============================================================

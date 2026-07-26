@@ -47,27 +47,11 @@ export const useComposerPanelStore = create<ComposerPanelState>((set) => ({
       previewOpen: panel && panel !== "files" ? false : s.previewOpen,
     })),
   closePanel: () => set({ panel: null }),
-  openPreview: () =>
-    set((s) => ({
-      previewOpen: true,
-      panel: s.panel === "tree" ? null : s.panel,
-    })),
+  openPreview: () => set({ previewOpen: true }),
   closePreview: () => set({ previewOpen: false }),
+  // 预览已是独立小窗,files 面板与它互不抢台面 — 纯开关即可。
   toggleFilesPanel: () =>
-    set((s) => {
-      // File preview pad is open — two-step close:
-      //   1st click: close files sidebar, keep file preview
-      //   2nd click: close file preview
-      if (s.previewOpen) {
-        if (s.panel === "files") {
-          return { panel: null };
-        }
-        return { previewOpen: false };
-      }
-      // No preview open — simple toggle of files sidebar
-      const closing = s.panel === "files";
-      return { panel: closing ? null : "files" };
-    }),
+    set((s) => ({ panel: s.panel === "files" ? null : "files" })),
   closeAll: () => set({ panel: null, previewOpen: false }),
   openModelPanel: () => set({ panel: "model", previewOpen: false }),
   openTreePanel: (mode = "tree") =>

@@ -22,3 +22,10 @@
 - 复位默认位置:`localStorage.removeItem("pi-float-panel-rect-v1")` 刷新(暂无 UI 入口)。
 - 默认不贴右缘:`--pi-float-right` 未写入 → ComposerBar 测量 effect 早退或 dock 类名变了。
 - 几何逻辑只用 window resize 事件,无 ResizeObserver 依赖(jsdom 安全);141 测试全绿,build 通过。
+
+## 同日追加:第二扇小窗(预览)+ 微调(与 PI-HGUI 53e36f5 同源)
+
+- 握把标红(`--pi-theme`,hover `--pi-theme-strong`)、命中区 16→22px(手机 28)。
+- `server/src/slash/model.ts` setModel 成功不再返回 `message` —— 客户端对 slash 结果 message 一律 flash,"Model set to x/y" 黑条从源头消失;错误消息保留。
+- 文件/图片预览改为**第二扇悬浮小窗**:CenterStage 的 preview mode、`.pi-center-stage--preview/--headless`、`.pi-composer-files-overlay` 特例全部删除;ChatPanel 渲染第二个 `.pi-float-panel--preview`(同一 ComposerPanelChrome,`storageKey="pi-float-preview-rect-v1"` 独立记忆,标题=当前文件名,身体=无标签条 EditorPanel)。
+- `--pi-float-bottom/right` 改写到 app-shell 根,两扇一起继承;`openPreview`/`toggleFilesPanel` 简化为纯开关;backdrop/Escape 条件补 `previewOpen`。

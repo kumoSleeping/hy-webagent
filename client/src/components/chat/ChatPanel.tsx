@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, Cpu } from "lucide-react";
 import { PanelActions, PanelBody, PanelButton, PanelListRow } from "../common/panel";
 import { useChatStore } from "../../stores/chatStore";
@@ -12,6 +12,8 @@ import { apiGet } from "../../lib/api";
 import { ComposerBar } from "./ComposerBar";
 import { StatusBar } from "./StatusBar";
 import { CenterStage, useCenterStageOpen } from "./CenterStage";
+import { ComposerPanelChrome } from "./ComposerPanelChrome";
+import { EditorPanel } from "../editor/EditorPanel";
 import { useStatusBarSync } from "../../hooks/useStatusBarSync";
 import { SlashModelSelector } from "../slash/SlashModelSelector";
 import { SlashSettingsPanel } from "../slash/SlashSettingsPanel";
@@ -74,6 +76,8 @@ export function ChatPanel({
   const closeAll = useComposerPanelStore((s) => s.closeAll);
   const closeComposerPanel = useComposerPanelStore((s) => s.closePanel);
   const closePreview = useComposerPanelStore((s) => s.closePreview);
+  const previewOpen = useComposerPanelStore((s) => s.previewOpen);
+  const previewPanelRef = useRef<HTMLDivElement>(null);
   const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
   // Only pick welcome vs conversation layout once the session is hydrated —
   // avoids the composer jumping from center to bottom while history loads.
@@ -310,7 +314,7 @@ export function ChatPanel({
   useEffect(() => {
     function onKeyDown(e: globalThis.KeyboardEvent) {
       if (e.key !== "Escape") return;
-      if (composerPanel || centerStageOpen) {
+      if (composerPanel || previewOpen || centerStageOpen) {
         const dialog = useExtensionUiStore.getState().activeDialog;
         if (dialog) {
           sendExtensionUiResponse({ id: dialog.id, cancelled: true });
@@ -322,7 +326,7 @@ export function ChatPanel({
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [composerPanel, centerStageOpen, closeAll, sendExtensionUiResponse]);
+  }, [composerPanel, previewOpen, centerStageOpen, closeAll, sendExtensionUiResponse]);
 
   function toggleScoped(id: string) {
     setScopedIds((prev) =>
@@ -485,7 +489,7 @@ export function ChatPanel({
           <MessageFeed />
         </Suspense>
       )}
-      {(composerPanel || centerStageOpen) && (
+      {(composerPanel || previewOpen || centerStageOpen) && (
         <div
           className="pi-click-backdrop"
           onClick={dismissOverlays}
@@ -499,13 +503,6 @@ export function ChatPanel({
           <div className="pi-preview-stack">
             <CenterStage
               onRespondExtensionUi={sendExtensionUiResponse}
-              editorTabs={editorTabs}
-              activeTabId={activeTabId}
-              onTabClick={onTabClick}
-              onTabClose={onTabClose}
-              onContentChange={onContentChange}
-              onViewModeChange={onViewModeChange}
-              onEditorFocus={onEditorFocus}
               onClose={() => {
                 closePreview();
                 useExtensionUiStore.getState().setExtensionPanelDismissed(true);
@@ -544,6 +541,36 @@ export function ChatPanel({
               accountContent: groupAccountContent,
             } : undefined}
           />
+          )}
+        </div>
+        {/* 第二扇悬浮小窗:文件/图片预览 —— 与面板小窗同一套 chrome,
+            独立记忆槽,标题=当前文件名。 */}
+        <div
+          className="pi-float-panel pi-float-panel--preview"
+          ref={previewPanelRef}
+          data-open={previewOpen ? "true" : "false"}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {previewOpen && (
+            <>
+              <ComposerPanelChrome
+                title={editorTabs.find((t) => t.id === activeTabId)?.name ?? "Preview"}
+                panelRef={previewPanelRef}
+                storageKey="pi-float-preview-rect-v1"
+              />
+              <div className="pi-float-preview-body">
+                <EditorPanel
+                  tabs={editorTabs}
+                  activeTabId={activeTabId}
+                  onTabClick={onTabClick}
+                  onTabClose={onTabClose}
+                  onContentChange={onContentChange}
+                  onViewModeChange={onViewModeChange}
+                  onEditorFocus={onEditorFocus}
+                  showTabBar={false}
+                />
+              </div>
+            </>
           )}
         </div>
         <StatusBar />
