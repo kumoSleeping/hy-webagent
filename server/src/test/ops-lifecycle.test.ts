@@ -10,6 +10,7 @@ import {
   isAlive,
   readiness,
 } from "../ops/health.js";
+import { resolveHelperForTests, resetSdNotifyForTests } from "../ops/sd-notify.js";
 
 afterEach(() => {
   resetLifecycleForTests();
@@ -126,6 +127,45 @@ describe("ops/health", () => {
     expect(report.ok).toBe(true);
     expect(report.sessions).toBe(2);
     expect(report.memory.rssMb).toBeGreaterThan(0);
+  });
+});
+
+describe("ops/sd-notify helper resolution", () => {
+  // Regression guard: the module is ESM, and an earlier version probed for the
+  // helper with require("node:fs"), which throws ReferenceError. The throw was
+  // swallowed by a catch, so on a host where systemd-notify was present the
+  // watchdog silently disabled itself and Type=notify startup timed out.
+  const saved = { socket: process.env.NOTIFY_SOCKET, helper: process.env.SYSTEMD_NOTIFY_PATH };
+
+  afterEach(() => {
+    process.env.NOTIFY_SOCKET = saved.socket;
+    process.env.SYSTEMD_NOTIFY_PATH = saved.helper;
+    if (saved.socket === undefined) delete process.env.NOTIFY_SOCKET;
+    if (saved.helper === undefined) delete process.env.SYSTEMD_NOTIFY_PATH;
+    resetSdNotifyForTests();
+  });
+
+  it("finds an existing executable helper when systemd-managed", () => {
+    process.env.NOTIFY_SOCKET = "/run/systemd/notify";
+    // Any real executable stands in for systemd-notify on a non-Linux host.
+    process.env.SYSTEMD_NOTIFY_PATH = process.execPath;
+    resetSdNotifyForTests();
+    expect(resolveHelperForTests()).toBe(process.execPath);
+  });
+
+  it("resolves to null when not systemd-managed", () => {
+    delete process.env.NOTIFY_SOCKET;
+    resetSdNotifyForTests();
+    expect(resolveHelperForTests()).toBeNull();
+  });
+
+  it("resolves to null when the helper does not exist", () => {
+    process.env.NOTIFY_SOCKET = "/run/systemd/notify";
+    process.env.SYSTEMD_NOTIFY_PATH = "/nonexistent/systemd-notify";
+    resetSdNotifyForTests();
+    // Falls through the real candidates too; none exist on the test host.
+    const resolved = resolveHelperForTests();
+    expect(resolved === null || resolved.endsWith("systemd-notify")).toBe(true);
   });
 });
 

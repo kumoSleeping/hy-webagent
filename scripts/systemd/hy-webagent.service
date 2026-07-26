@@ -10,7 +10,7 @@
 
 [Unit]
 Description=HY-Webagent (pi-web-platform)
-Documentation=file:///opt/hy-webagent/docs/maintenance/03-keepalive.md
+Documentation=file:///opt/hy-webagent/docs/maintenance/02-keepalive.md
 After=network-online.target
 Wants=network-online.target
 

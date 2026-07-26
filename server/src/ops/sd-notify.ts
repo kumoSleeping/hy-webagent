@@ -31,6 +31,11 @@ export function isSystemdManaged(): boolean {
   return Boolean(process.env.NOTIFY_SOCKET);
 }
 
+/** Exported for tests: which helper binary (if any) this process would use. */
+export function resolveHelperForTests(): string | null {
+  return resolveHelper();
+}
+
 function resolveHelper(): string | null {
   if (helperPath !== undefined) return helperPath;
   if (!isSystemdManaged()) {
@@ -39,16 +44,22 @@ function resolveHelper(): string | null {
   }
   // Resolved by absolute path rather than PATH lookup: this runs as a service,
   // and an inherited PATH should not decide which binary we execute.
-  const candidates = ["/usr/bin/systemd-notify", "/bin/systemd-notify"];
+  // (This module is ESM — using require() here throws ReferenceError, which
+  // silently disabled the watchdog on a host where the helper was present.)
+  const candidates = [
+    // Escape hatch for unusual installs, and the seam the unit test drives.
+    ...(process.env.SYSTEMD_NOTIFY_PATH ? [process.env.SYSTEMD_NOTIFY_PATH] : []),
+    "/usr/bin/systemd-notify",
+    "/bin/systemd-notify",
+    "/usr/local/bin/systemd-notify",
+  ];
   for (const candidate of candidates) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      if (require("node:fs").existsSync(candidate)) {
-        helperPath = candidate;
-        return helperPath;
-      }
+      fs.accessSync(candidate, fs.constants.X_OK);
+      helperPath = candidate;
+      return helperPath;
     } catch {
-      // Fall through to the next candidate.
+      // Not present or not executable — try the next candidate.
     }
   }
   helperPath = null;
