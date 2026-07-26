@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
-import { AppWindow, Command, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
+import { AppWindow, Command, GitBranch, History, FolderOpen, Cpu, PictureInPicture2, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useConnectionState } from "../../context/useChatConnection";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
@@ -142,6 +142,8 @@ function toolbarIcon(item: ToolbarItemDef) {
       return <FolderOpen strokeWidth={2} aria-hidden="true" />;
     case "account":
       return <UserRound strokeWidth={2} aria-hidden="true" />;
+    case "open-window":
+      return <PictureInPicture2 strokeWidth={2} aria-hidden="true" />;
     case "new-chat":
       return <AppWindow strokeWidth={2} aria-hidden="true" />;
     case "return-chat":
@@ -164,6 +166,8 @@ function toolbarTitle(item: ToolbarItemDef, hasWindows: boolean): string {
       return "Files";
     case "account":
       return "Account & budget";
+    case "open-window":
+      return hasWindows ? "当前会话开小窗 (Enter)" : "开小窗:进入多任务 (Enter)";
     case "new-chat":
       return hasWindows ? "新会话小窗 (Enter)" : "新建会话 (Enter)";
     case "return-chat":
@@ -203,6 +207,8 @@ function toolbarAriaLabel(item: ToolbarItemDef, hasWindows: boolean): string {
       return "Toggle files";
     case "account":
       return "Toggle account panel";
+    case "open-window":
+      return "把当前会话开成小窗";
     case "new-chat":
       return hasWindows ? "新建会话并开小窗" : "新建会话";
     case "return-chat":
@@ -429,6 +435,29 @@ export function ComposerBar({
     await activateSession(piSessionId);
   }
 
+  /** 「开小窗」= 小窗模式的显式入口:把当前主区会话弹成直播小窗
+   * (已有窗则置顶);空态没有会话就新建一路直接以小窗开场。 */
+  function handleOpenWindowClick() {
+    closePanel();
+    setToolbarKeyboardFocus(false);
+    setCommandListFocus(false);
+    const active = useSessionStore.getState().activePiSessionId;
+    if (active) {
+      useSessionWindowsStore.getState().open(active);
+      return;
+    }
+    void (async () => {
+      const id = await useSessionStore.getState().createSession();
+      if (!id) {
+        flashStatus("新建会话失败", "error");
+        return;
+      }
+      useSessionStore.getState().setActiveSession(id);
+      useSessionWindowsStore.getState().open(id);
+      void useSessionStore.getState().fetchSessions();
+    })();
+  }
+
   /** 新建按钮随模式换义:无小窗 = 纯新建会话(主区直接切过去);
    * 有小窗 = 新建会话并开直播小窗(多任务再加一路)。 */
   function handleNewWindowChatClick() {
@@ -478,6 +507,10 @@ export function ComposerBar({
     if (item.id === "return-chat") {
       closePanel();
       groupPreview?.onReturnToChat();
+      return;
+    }
+    if (item.id === "open-window") {
+      handleOpenWindowClick();
       return;
     }
     if (item.id === "new-chat") {
@@ -1426,7 +1459,7 @@ export function ComposerBar({
               className={`pi-composer-toolbar-btn${item.id === "new-chat" && !hasDraft && !isStreaming ? " pi-composer-toolbar-btn--accent" : ""}`}
               data-active={item.panel ? panel === item.panel : false}
               data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === index}
-              onPointerDown={item.id === "new-chat" ? undefined : handleToolbarPointerDown}
+              onPointerDown={item.id === "new-chat" || item.id === "open-window" ? undefined : handleToolbarPointerDown}
               onClick={() => handleToolbarItemClick(item)}
               title={toolbarTitle(item, sessionWindows.length > 0)}
               aria-label={toolbarAriaLabel(item, sessionWindows.length > 0)}

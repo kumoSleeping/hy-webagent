@@ -1,6 +1,15 @@
 import type { ComposerPanelKind } from "../stores/composerPanelStore";
 
-export type ToolbarItemId = "new-chat" | "commands" | "model" | "tree" | "history" | "files" | "account" | "return-chat";
+export type ToolbarItemId =
+  | "new-chat"
+  | "open-window"
+  | "commands"
+  | "model"
+  | "tree"
+  | "history"
+  | "files"
+  | "account"
+  | "return-chat";
 
 export interface ToolbarItemDef {
   id: ToolbarItemId;
@@ -8,7 +17,8 @@ export interface ToolbarItemDef {
   enterToActivate: boolean;
 }
 
-/** Desktop toolbar — full set. */
+/** Desktop toolbar — full set.(open-window = 小窗模式的显式入口:
+ *  把当前会话弹成直播小窗 —— 否则零窗时只剩 ⌘/Ctrl 点历史行这个隐藏入口。) */
 export const DESKTOP_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "commands", panel: "commands", enterToActivate: false },
   { id: "model", panel: "model", enterToActivate: false },
@@ -16,6 +26,7 @@ export const DESKTOP_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "history", panel: "history", enterToActivate: false },
   { id: "files", panel: "files", enterToActivate: false },
   { id: "account", panel: "account", enterToActivate: false },
+  { id: "open-window", panel: null, enterToActivate: true },
   { id: "new-chat", panel: null, enterToActivate: true },
 ];
 
@@ -29,6 +40,7 @@ export const MOBILE_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "tree", panel: "tree", enterToActivate: false },
   { id: "files", panel: "files", enterToActivate: false },
   { id: "history", panel: "history", enterToActivate: false },
+  { id: "open-window", panel: null, enterToActivate: true },
   { id: "new-chat", panel: null, enterToActivate: true },
 ];
 
@@ -44,9 +56,11 @@ export const GROUP_PREVIEW_TOOLBAR_ITEMS: ToolbarItemDef[] = [
 /** Right-side band the toolbar may occupy — left remainder stays empty. */
 export const TOOLBAR_BAND_RATIO = 0.8;
 
-/** Remove-first order when the bar is wider than the 80% band. */
+/** Remove-first order when the bar is wider than the 80% band.
+ *  open-window 排得早:窄屏(手机)上拖拽小窗本就勉强,先让位。 */
 export const TOOLBAR_TRIM_ORDER: ToolbarItemId[] = [
   "tree",
+  "open-window",
   "account",
   "model",
   "files",

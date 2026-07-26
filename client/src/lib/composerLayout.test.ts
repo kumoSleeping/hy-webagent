@@ -29,9 +29,10 @@ describe("composerLayout", () => {
       "tree",
       "files",
       "history",
+      "open-window",
       "new-chat",
     ]);
-    expect(MOBILE_TOOLBAR_ITEMS).toHaveLength(7);
+    expect(MOBILE_TOOLBAR_ITEMS).toHaveLength(8);
   });
 
   it("maps panel ids to toolbar indices", () => {
@@ -52,30 +53,33 @@ describe("composerLayout", () => {
       "account",
       "files",
       "history",
+      "open-window",
       "new-chat",
     ]);
     const step2 = adjustToolbarItemsForBand(step1, base, band, btn);
-    // account is dropped next; model ranks after commands/files/history.
+    // open-window is dropped next — floating windows are marginal on phones.
     expect(step2.map((i) => i.id)).toEqual([
       "commands",
       "model",
+      "account",
       "files",
       "history",
       "new-chat",
     ]);
     const tight = 125;
     const step3 = adjustToolbarItemsForBand(step1, base, tight, btn);
-    // One more step from step1 drops account.
+    // One more step from step1 drops open-window.
     expect(step3.map((i) => i.id)).toEqual([
       "commands",
       "model",
+      "account",
       "files",
       "history",
       "new-chat",
     ]);
   });
 
-  it("keeps model and removes tree at a common six-slot phone width", () => {
+  it("keeps model and removes tree/open-window at a common six-slot phone width", () => {
     const fitted = fitToolbarItemsToBand(toolbarItemsForLayout(true), 300, 50);
     expect(fitted.map((item) => item.id)).toEqual([
       "commands",
@@ -91,7 +95,7 @@ describe("composerLayout", () => {
     const base = toolbarItemsForLayout(true);
     const btn = 50;
     const current = base.filter((i) => i.id !== "files" && i.id !== "history");
-    const wider = restoreOneToolbarItem(current, base, 300, btn);
+    const wider = restoreOneToolbarItem(current, base, 350, btn);
     // history is restored before files (reverse trim order).
     expect(wider.map((i) => i.id)).toEqual([
       "commands",
@@ -99,6 +103,7 @@ describe("composerLayout", () => {
       "account",
       "tree",
       "history",
+      "open-window",
       "new-chat",
     ]);
   });
@@ -112,29 +117,10 @@ describe("composerLayout", () => {
   });
 
   it("trimOne never removes commands", () => {
-    const base = toolbarItemsForLayout(true);
     const btn = 50;
-    const onlyCommands = trimOneToolbarItem(
-      trimOneToolbarItem(
-        trimOneToolbarItem(
-          trimOneToolbarItem(
-            trimOneToolbarItem(
-              trimOneToolbarItem(base, 40, btn),
-              40,
-              btn,
-            ),
-            40,
-            btn,
-          ),
-          40,
-          btn,
-        ),
-        40,
-        btn,
-      ),
-      40,
-      btn,
-    );
-    expect(onlyCommands.map((i) => i.id)).toEqual(["commands"]);
+    let kept = toolbarItemsForLayout(true);
+    const rounds = kept.length;
+    for (let i = 0; i < rounds; i++) kept = trimOneToolbarItem(kept, 40, btn);
+    expect(kept.map((i) => i.id)).toEqual(["commands"]);
   });
 });
