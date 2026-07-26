@@ -579,6 +579,10 @@ export function ChatPanel({
           />
           )}
         </div>
+        {/* 命令/工具面板的浮层宿主:ComposerBar 把面板 portal 到这里。
+            面板绝不能留在输入坞(z=500 的 stacking context)里 ——
+            否则它以 500 层压住一切,预览/会话窗永远到不了它上面。 */}
+        <div id="pi-float-layer" />
         <SessionWindowsHost />
         {/* 「琴弦」:手机小窗模式左缘滑动切窗(台前调度式)。 */}
         {isMobileLayout && <SessionWindowStrings />}
@@ -597,7 +601,6 @@ export function ChatPanel({
           {previewOpen && (
             <>
               <ComposerPanelChrome
-                title={editorTabs.find((t) => t.id === activeTabId)?.name ?? "Preview"}
                 panelRef={previewPanelRef}
                 storageKey="pi-float-preview-rect-v1"
                 onClose={closePreview}

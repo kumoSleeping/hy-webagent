@@ -1,26 +1,22 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 
 interface ComposerPanelChromeProps {
-  /** Label in the header row — same string as the toolbar button title. */
-  title: string;
   /** The .pi-float-panel element — dragged / resized / persisted as one unified card. */
   panelRef: RefObject<HTMLDivElement | null>;
   /** localStorage slot — 每扇窗传自己的 key,几何互不串。 */
   storageKey?: string;
-  /** 标题前的插槽(红 ✕ 之后);按钮不触发拖动(closest 守卫)。 */
+  /** 额外插槽(红杠之后);按钮不触发拖动(closest 守卫)。 */
   leading?: ReactNode;
-  /** 标题后的插槽(右侧控制钮);同样不触发拖动。 */
-  trailing?: ReactNode;
-  /** 给了就渲染标题栏左端的小红杠(最小化观感)—— 统一窗口套件的唯一关闭钮。 */
+  /** 给了就渲染左上角的小红杠(最小化观感)—— 统一窗口套件的唯一关闭钮。 */
   onClose?: () => void;
-  /** 红 ✕ 的 title/aria 文案(默认「关闭」)。 */
+  /** 红杠的 title/aria 文案(默认「关闭」)。 */
   closeLabel?: string;
 }
 
-/** 统一浮窗套件:标题栏(按住拖动)+ 左端红 ✕ + 四周边缘拖拽改大小
- * (左/右/下三边 + 下两角 + 右上角;顶栏留给移动)。右下角握把已删 ——
- * 功能全走边缘,不再画提示角。几何存 localStorage;默认(没拖过)由
- * CSS 右贴 composer 右缘。 */
+/** 统一浮窗套件:隐形顶栏(按住拖动,无标题无分割线 —— 内容一直
+ * 顶到窗顶,空间利用率优先)+ 左上角小红杠(关闭)+ 四周边缘拖拽
+ * 改大小(左/右/下三边 + 下两角 + 右上角;顶带留给移动)。几何存
+ * localStorage;默认(没拖过)由 CSS 右贴 composer 右缘。 */
 
 const DEFAULT_RECT_KEY = "pi-float-panel-rect-v1";
 const MIN_W = 240;
@@ -92,11 +88,9 @@ const RESIZE_ZONES: ReadonlyArray<readonly [string, ResizeEdges]> = [
 ];
 
 export function ComposerPanelChrome({
-  title,
   panelRef,
   storageKey = DEFAULT_RECT_KEY,
   leading,
-  trailing,
   onClose,
   closeLabel = "关闭",
 }: ComposerPanelChromeProps) {
@@ -215,8 +209,6 @@ export function ComposerPanelChrome({
           </button>
         )}
         {leading}
-        <span className="pi-composer-panel-handle-title">{title}</span>
-        {trailing}
       </div>
       {RESIZE_ZONES.map(([side, edges]) => (
         <div

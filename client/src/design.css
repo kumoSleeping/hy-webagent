@@ -2542,33 +2542,26 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 /* 悬浮小窗头部 — 只有标题,整条都是拖动把手(设计稿 E)。
    无 ✕ / ⤢:点卡外或 Escape 关闭;大小两态已删,统一一种尺寸。 */
+/* 隐形顶栏:无标题、无分割线、无底色 —— 只是叠在窗顶的拖动带,
+   内容一直顶到窗顶(空间利用率优先)。左上角小红杠(关闭)仍在带内。 */
 .pi-composer-panel-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2rem;
+  z-index: 10;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.4rem;
-  flex-shrink: 0;
-  /* 左 padding 归零:红 ✕ 矩形贴左上角。 */
-  padding: 0.3rem 0.6rem 0.3rem 0;
-  border-bottom: 1px solid var(--pi-line-soft);
-  background: var(--pi-panel);
+  padding: 0;
+  background: transparent;
   user-select: none;
   -webkit-user-select: none;
   cursor: grab;
   touch-action: none;
 }
 .pi-composer-panel-handle:active { cursor: grabbing; }
-.pi-composer-panel-handle-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.68rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--pi-muted);
-  white-space: nowrap;
-}
 .pi-composer-panel-stack {
   display: flex;
   flex-direction: column;
@@ -2795,11 +2788,7 @@ button.pi-panel-row.pi-panel-row--selected {
   --pi-feed-edge: 0.6rem;
   --pi-top-strip: 0.4rem;
 }
-/* 激活标(macOS 母语):激活窗灯彩色 + 标题墨色;非激活窗灯变灰、标题保持弱灰。
-   无框、无红标、不淡化任何背景。 */
-.pi-float-panel--active .pi-composer-panel-handle-title {
-  color: var(--pi-text);
-}
+/* 标题/分割线已删:顶栏是隐形拖动带,激活态不再有标题变色。 */
 /* 统一窗口套件控制钮:每扇浮窗(会话窗/命令面板/预览)标题栏左端一枚
    主题红矩形 ✕(chrome 的 onClose 渲染),嵌在 handle 里 flex 对齐;
    接管/扩大概念已删 —— 长按工具栏新建按钮整体进/出小窗模式。 */
@@ -2810,7 +2799,6 @@ button.pi-panel-row.pi-panel-row--selected {
   align-self: stretch;
   flex: 0 0 auto;
   width: 2rem;
-  margin: -0.3rem 0; /* 吃掉 handle 的纵向 padding,贴满标题栏全高 */
   padding: 0;
   border: none;
   background: transparent;
@@ -2845,15 +2833,18 @@ button.pi-panel-row.pi-panel-row--selected {
   font-size: var(--pi-panel-font);
   color: var(--pi-muted);
 }
-/* 「小波形」:手机小窗模式左缘的窗口切换条(台前调度式)。每窗一个
-   波峰(SVG 鼓包)竖排相连;单窗=单波峰。按住沿边滑动 = 滑到哪个峰
-   哪扇窗置顶激活,松手定格;流式中的峰呼吸脉动。闲时半透明,触摸
-   点亮。z 在渐隐幕(400)之上、输入坞(500)之下 —— 永远压着浮窗可点。 */
+/* 「小山峰」:手机小窗模式左缘的窗口切换条(台前调度式)。每窗一组
+   竖排短横杠组成的小山峰(音频波形观感),多窗多座峰。按住沿边滑动 =
+   滑到哪座峰哪扇窗置顶激活,松手定格;流式中的峰各杠交错跳动。
+   闲时半透明,触摸点亮。z 在渐隐幕(400)之上、输入坞(500)之下。 */
 .pi-swin-strings {
   position: fixed;
   left: 0;
-  top: 50%;
+  top: 38%;
   transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   width: 34px;
   padding: 10px 6px 10px 0;
   z-index: 460;
@@ -2865,24 +2856,30 @@ button.pi-panel-row.pi-panel-row--selected {
   -webkit-touch-callout: none;
 }
 .pi-swin-strings--touching { opacity: 1; }
-.pi-swave { display: block; overflow: visible; }
-.pi-swave-crest {
-  fill: none;
-  stroke: var(--pi-muted);
-  stroke-width: 3.5;
-  stroke-linecap: round;
-  transition: stroke 120ms ease-out, stroke-width 120ms ease-out;
+.pi-swave-peak {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
 }
-.pi-swave-crest--active {
-  stroke: var(--pi-theme);
-  stroke-width: 4;
+.pi-swave-bar {
+  display: block;
+  height: 2.5px;
+  background: var(--pi-muted);
+  transform-origin: left center;
+  transition: transform 120ms ease-out, background-color 120ms ease-out;
 }
-@keyframes pi-swave-breathe {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+.pi-swave-peak--active .pi-swave-bar {
+  background: var(--pi-theme);
+  transform: scaleX(1.35);
 }
-.pi-swave-crest--live {
-  animation: pi-swave-breathe 1.3s ease-in-out infinite;
+@keyframes pi-swave-bounce {
+  0%, 100% { transform: scaleX(0.55); }
+  50% { transform: scaleX(1.25); }
+}
+.pi-swave-peak--live .pi-swave-bar {
+  animation: pi-swave-bounce 1s ease-in-out infinite;
+  animation-delay: calc(var(--bar-i, 0) * 110ms);
 }
 
 /* 统一窗口套件:左/右/下三边 + 下两角 + 右上角 = 拖拽改大小命中带
@@ -2919,15 +2916,13 @@ button.pi-panel-row.pi-panel-row--selected {
   display: none;
 }
 
-/* 手机:头部命中区加大(拇指操作)。 */
+/* 手机:隐形拖动带加高(拇指操作)。 */
 .pi-app-shell--mobile .pi-composer-panel-handle {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  height: 2.5rem;
 }
-/* 手机:控件命中区放大(swin-ctl 高度随标题栏 stretch,只加宽)。 */
+/* 手机:控件命中区放大(高度随拖动带 stretch,只加宽)。 */
 .pi-app-shell--mobile .pi-swin-ctl {
   width: 2.4rem;
-  margin: -0.5rem 0; /* 手机 handle 纵向 padding 更大,同步吃满 */
 }
 .pi-app-shell--mobile .pi-swin-ctl svg {
   width: 0.95rem;

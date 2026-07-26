@@ -1,9 +1,10 @@
 /**
- * 「小波形」:小窗模式(手机)左缘的窗口切换条 —— 台前调度式。
- * 每扇窗一个波峰(SVG 贝塞尔鼓包)竖排相连成一条波形;只有一扇窗时
- * 就是单波峰。拇指按住沿边滑动,滑到哪个波峰,那扇窗就置顶 + 激活
- * (边滑边实时换),松手定格。激活峰主题红且振幅更大;流式中的峰
- * 呼吸脉动。闲时半透明,触摸点亮;ChatPanel 按 isMobileLayout 挂载。
+ * 「小山峰」:小窗模式(手机)左缘的窗口切换条 —— 台前调度式。
+ * 每扇窗 = 一组竖排短横杠组成的小山峰(音频波形观感:短-中-长-中-短),
+ * 多扇窗多座峰纵向排列。拇指按住沿边滑动,滑到哪座峰,那扇窗就置顶 +
+ * 激活(边滑边实时换),松手定格。激活峰主题红且更宽;流式中的峰各杠
+ * 交错跳动(EQ 感)。闲时半透明,触摸点亮;ChatPanel 按 isMobileLayout
+ * 挂载,无窗自隐。
  */
 import { useRef, useState } from "react";
 import { useStore } from "zustand";
@@ -12,33 +13,23 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useSessionWindowsStore } from "../../stores/sessionWindowsStore";
 import type { ChatStoreApi } from "../../stores/chatStore";
 
-/** 每个波峰占的纵向槽高 / 画布宽 / 基线离左缘距离。 */
-const SLOT_H = 48;
-const WAVE_W = 28;
-const BASE_X = 4;
+/** 峰形:五根杠的基准长度(px),中间最长 —— 山峰轮廓。 */
+const PEAK_BARS = [7, 12, 18, 12, 7];
 
-function crestPath(y0: number, y1: number, amp: number): string {
-  const rise = (y1 - y0) * 0.55;
-  return `M ${BASE_X} ${y0} C ${BASE_X + amp} ${y0 + rise * 0.5}, ${BASE_X + amp} ${y1 - rise * 0.5}, ${BASE_X} ${y1}`;
-}
-
-function Crest({
-  chatStore,
-  active,
-  y0,
-  y1,
-}: {
-  chatStore: ChatStoreApi;
-  active: boolean;
-  y0: number;
-  y1: number;
-}) {
+function Peak({ chatStore, active }: { chatStore: ChatStoreApi; active: boolean }) {
   const streaming = useStore(chatStore, (s) => s.isStreaming);
   return (
-    <path
-      className={`pi-swave-crest${active ? " pi-swave-crest--active" : ""}${streaming ? " pi-swave-crest--live" : ""}`}
-      d={crestPath(y0, y1, active ? 18 : 11)}
-    />
+    <div
+      className={`pi-swave-peak${active ? " pi-swave-peak--active" : ""}${streaming ? " pi-swave-peak--live" : ""}`}
+    >
+      {PEAK_BARS.map((len, i) => (
+        <span
+          key={i}
+          className="pi-swave-bar"
+          style={{ width: `${len}px`, ["--bar-i" as string]: i }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -50,7 +41,6 @@ export function SessionWindowStrings() {
   const lastPickRef = useRef<string | null>(null);
 
   if (windows.length === 0) return null;
-  const height = windows.length * SLOT_H;
 
   function pickAt(clientY: number) {
     const host = hostRef.current;
@@ -84,23 +74,13 @@ export function SessionWindowStrings() {
       onPointerUp={() => setTouching(false)}
       onPointerCancel={() => setTouching(false)}
     >
-      <svg
-        className="pi-swave"
-        width={WAVE_W}
-        height={height}
-        viewBox={`0 0 ${WAVE_W} ${height}`}
-        aria-hidden="true"
-      >
-        {windows.map((w, i) => (
-          <Crest
-            key={w.sessionId}
-            chatStore={ensureChatStore(w.sessionId)}
-            active={w.sessionId === activeId}
-            y0={i * SLOT_H}
-            y1={(i + 1) * SLOT_H}
-          />
-        ))}
-      </svg>
+      {windows.map((w) => (
+        <Peak
+          key={w.sessionId}
+          chatStore={ensureChatStore(w.sessionId)}
+          active={w.sessionId === activeId}
+        />
+      ))}
     </div>
   );
 }

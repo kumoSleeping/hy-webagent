@@ -34,7 +34,6 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
   const attached = useStore(chatStore, (s) => s.hydratedPiSessionId === sessionId);
   const activeId = useSessionStore((s) => s.activePiSessionId);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
-  const sessions = useSessionStore((s) => s.sessions);
   const bringToFront = useSessionWindowsStore((s) => s.bringToFront);
   const closeWindow = useSessionWindowsStore((s) => s.close);
 
@@ -43,7 +42,6 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
   // 继续用本窗自己的直播 store 渲染 —— 切换零白屏零「连接中」。
   const mainHydrated = useChatStore((s) => s.hydratedPiSessionId);
   const mirrorMain = isActive && mainHydrated === sessionId;
-  const title = sessions.find((entry) => entry.id === sessionId)?.title ?? "New Session";
 
   // 对账 (a):本窗从激活变非激活 —— 主链路可能吃掉了在途半条,重拉。
   const isActiveRef = useRef(isActive);
@@ -85,7 +83,6 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
       {/* 统一窗口套件:标题栏左端红 ✕ 关窗(会话在列表还能找回,小窗模式下
           点历史行重新弹窗);拖标题栏移动、拖边缘/角改大小。 */}
       <ComposerPanelChrome
-        title={title}
         panelRef={panelRef}
         storageKey={`pi-swin-rect:${sessionId}`}
         onClose={() => {

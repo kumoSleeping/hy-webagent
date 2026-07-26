@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AppWindow, Command, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useConnectionState } from "../../context/useChatConnection";
@@ -171,24 +172,6 @@ function toolbarTitle(item: ToolbarItemDef, hasWindows: boolean): string {
   }
 }
 
-/** Header label for the floating panel — mirrors toolbarTitle. */
-function panelChromeTitle(kind: Exclude<ComposerPanelKind, null>): string {
-  switch (kind) {
-    case "commands":
-      return "Commands";
-    case "model":
-      return "Model";
-    case "tree":
-      return "Tree";
-    case "history":
-      return "History";
-    case "files":
-      return "Files";
-    case "account":
-      return "Account & budget";
-  }
-}
-
 function toolbarAriaLabel(item: ToolbarItemDef, hasWindows: boolean): string {
   switch (item.id) {
     case "commands":
@@ -246,8 +229,19 @@ export function ComposerBar({
 }: ComposerBarProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const connectionState = useConnectionState();
-  const isConnecting = connectionState === 'connecting' || connectionState === 'reconnecting';
+  const isConnectingRaw = connectionState === 'connecting' || connectionState === 'reconnecting';
   const isSendUnavailable = connectionState !== 'connected';
+  // 同页切会话会重挂主 socket,瞬时的 connecting 不闪指示器 ——
+  // 持续 >900ms(冷加载/断网)才显示,已加载内容间的切换保持顺滑。
+  const [showConnecting, setShowConnecting] = useState(false);
+  useEffect(() => {
+    if (!isConnectingRaw) {
+      setShowConnecting(false);
+      return;
+    }
+    const t = window.setTimeout(() => setShowConnecting(true), 900);
+    return () => window.clearTimeout(t);
+  }, [isConnectingRaw]);
   const draftCacheKey = `${DRAFT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   const pastedTextCacheKey = `${PASTED_TEXT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   // 接管/编号方块概念已删:长按新建按钮整体进/出小窗模式。
@@ -630,6 +624,14 @@ export function ComposerBar({
   // 浮层最新召的在上:面板每次打开/被点到都升到共用 z 序栈的顶
   // (否则固定 z=60 会被会话窗永久压底);点面板本体见 div 的 pointerdown。
   const floatPanelZ = useSessionWindowsStore((s) => floatZ(s.stack, "panel"));
+  // 面板的 portal 宿主(ChatPanel 的 #pi-float-layer,在 shell 层):
+  // 面板留在输入坞里会被坞的 z=500 stacking context 困住,以 500 层
+  // 压死会话窗和预览 —— raise 无效。首帧宿主还没挂上时先原位渲染
+  // (data-open 关着,不可见)。
+  const [floatLayer, setFloatLayer] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setFloatLayer(document.getElementById("pi-float-layer"));
+  }, []);
   useEffect(() => {
     if (panel !== null) useSessionWindowsStore.getState().raisePanel();
   }, [panel]);
@@ -1415,7 +1417,7 @@ export function ComposerBar({
     >
       {/* Corner badge is positioned on the shell's top-left vertex
           (translate -50/-50). Working text + queue sit just to its right. */}
-      {isStreaming && !isConnecting && (
+      {isStreaming && !isConnectingRaw && (
         <button
           type="button"
           className="pi-composer-working pi-composer-working--shell"
@@ -1429,7 +1431,7 @@ export function ComposerBar({
           </span>
         </button>
       )}
-      {isConnecting && (
+      {showConnecting && (
         <div
           className="pi-composer-working pi-composer-working--shell pi-composer-connecting"
           aria-label="连接中…"
@@ -1477,22 +1479,28 @@ export function ComposerBar({
       </div>
 
       {/* 独立悬浮面板(设计稿 D)— fixed 定位,与输入框零几何关联;
-          位置由 design.css + --pi-float-bottom 决定,内容多高卡多高。 */}
-      <div
-        className="pi-float-panel"
-        ref={panelRef}
-        data-open={toolbarActive ? "true" : "false"}
-        style={{ zIndex: floatPanelZ }}
-        onPointerDownCapture={() => useSessionWindowsStore.getState().raisePanel()}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {toolbarActive && panel && (
-          <>
-            <ComposerPanelChrome title={panelChromeTitle(panel)} panelRef={panelRef} onClose={closePanel} closeLabel="关闭面板" />
-            {renderPanelBody()}
-          </>
-        )}
-      </div>
+          位置由 design.css + --pi-float-bottom 决定,内容多高卡多高。
+          portal 到 shell 层的 #pi-float-layer,与会话窗/预览同域比 z。 */}
+      {(() => {
+        const panelNode = (
+          <div
+            className="pi-float-panel"
+            ref={panelRef}
+            data-open={toolbarActive ? "true" : "false"}
+            style={{ zIndex: floatPanelZ }}
+            onPointerDownCapture={() => useSessionWindowsStore.getState().raisePanel()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {toolbarActive && panel && (
+              <>
+                <ComposerPanelChrome panelRef={panelRef} onClose={closePanel} closeLabel="关闭面板" />
+                {renderPanelBody()}
+              </>
+            )}
+          </div>
+        );
+        return floatLayer ? createPortal(panelNode, floatLayer) : panelNode;
+      })()}
 
       <div className="pi-composer-body">
         {pendingAttachments.length > 0 && (
