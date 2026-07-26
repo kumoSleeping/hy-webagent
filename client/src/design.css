@@ -168,14 +168,13 @@ body {
   border-radius: 0;
   color: var(--pi-text-body);
 }
+/* 用户发言无框(试用定稿):不要边框/底色/投影,右对齐纯文本即可 ——
+   位置本身就说明了是谁在说话。 */
 .pi-message-dialog-user {
-  border-top: 1px solid var(--pi-line);
-  border-right: 1px solid var(--pi-line);
-  border-bottom: 1px solid var(--pi-line);
-  border-left: none;
-  background-color: var(--pi-panel);
-  padding: 0.85rem 1rem 0.95rem;
-  box-shadow: var(--pi-shadow);
+  border: none;
+  background: transparent;
+  padding: 0.2rem 0 0.35rem;
+  box-shadow: none;
   width: max-content;
   max-width: min(var(--pi-user-max), 100%);
   min-width: 0;
@@ -2897,9 +2896,11 @@ button.pi-panel-row.pi-panel-row--selected {
   color: var(--pi-text);
   background: var(--pi-panel-subtle);
 }
+/* 激活瓦与工具按钮选中态同语法:浅底 + 主题色字 —— 不用整块大红
+   (切窗时一闪而过的红太重,选中本就有浅浅的加重效果)。 */
 .pi-swin-bar-tile--active {
-  color: var(--pi-theme-ink);
-  background: var(--pi-theme);
+  color: var(--pi-theme);
+  background: var(--pi-accent-soft);
 }
 
 /* 统一窗口套件:左/右/下三边 + 下两角 + 右上角 = 拖拽改大小命中带
@@ -2916,12 +2917,8 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-float-panel-edge--br { right: -4px; bottom: -4px; width: 16px; height: 16px; cursor: nwse-resize; }
 .pi-float-panel-edge--tr { right: -4px; top: -4px; width: 16px; height: 16px; cursor: nesw-resize; }
 
-/* 窗内消息:窄画幅紧凑化 —— 用户气泡补上左边框(主区的破边设计在
-   小画幅里像没画完)、去投影、留白收紧。 */
+/* 窗内消息:窄画幅下用户文本最多占 88% 宽(无框样式全局统一)。 */
 .pi-float-panel--session .pi-message-dialog-user {
-  border-left: 1px solid var(--pi-line);
-  padding: 0.55rem 0.7rem 0.6rem;
-  box-shadow: none;
   max-width: 88%;
 }
 .pi-float-panel--session .pi-message-bubble {
