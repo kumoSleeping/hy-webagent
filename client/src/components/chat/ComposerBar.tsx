@@ -251,13 +251,21 @@ export function ComposerBar({
   const pastedTextCacheKey = `${PASTED_TEXT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   // 收折的会话窗编号方块:优先级最高(仅次 commands)——先从带宽里扣它们的宽度。
   const sessionWindows = useSessionWindowsStore((s) => s.windows);
+  const zoomedSessionId = useSessionWindowsStore((s) => s.zoomedSessionId);
   const restoreSessionWindow = useSessionWindowsStore((s) => s.restore);
+  const unzoomSessionWindow = useSessionWindowsStore((s) => s.unzoom);
   const minimizedBadges = useMemo(
     () =>
       sessionWindows
-        .map((w, index) => ({ sessionId: w.sessionId, minimized: w.minimized, num: index + 1 }))
-        .filter((w) => w.minimized),
-    [sessionWindows],
+        .map((w, index) => ({
+          sessionId: w.sessionId,
+          minimized: w.minimized,
+          zoomed: w.sessionId === zoomedSessionId,
+          num: index + 1,
+        }))
+        // 收折的窗 + 接管整页的窗都上 bar:接管窗高亮,点它 = 回多任务。
+        .filter((w) => w.minimized || w.zoomed),
+    [sessionWindows, zoomedSessionId],
   );
   const btnWidthPx = useMemo(() => {
     const raw = toolbarBtnWidthPx();
@@ -1412,14 +1420,15 @@ export function ComposerBar({
                 style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
                 type="button"
                 className="pi-composer-toolbar-btn pi-swin-badge"
+                data-active={b.zoomed}
                 onPointerDown={handleToolbarPointerDown}
-                onClick={() => restoreSessionWindow(b.sessionId)}
+                onClick={() => (b.zoomed ? unzoomSessionWindow() : restoreSessionWindow(b.sessionId))}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   useSessionWindowsStore.getState().close(b.sessionId);
                 }}
-                title={`还原会话小窗 ${b.num}（右键关闭）`}
-                aria-label={`还原会话小窗 ${b.num}`}
+                title={b.zoomed ? `回到多任务（窗口 ${b.num}）` : `还原会话小窗 ${b.num}（右键关闭）`}
+                aria-label={b.zoomed ? `回到多任务` : `还原会话小窗 ${b.num}`}
               >
                 <span className="pi-swin-badge-frame">{b.num}</span>
               </button>

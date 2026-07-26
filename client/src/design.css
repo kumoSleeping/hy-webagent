@@ -2722,13 +2722,13 @@ button.pi-panel-row.pi-panel-row--selected {
   right: auto;
   bottom: auto;
 }
-/* 右下角握把 — 主题红折角,命中区放大到 22px。 */
+/* 右下角拉伸把手 — 与 隐藏/扩大 同规格同尺度(1.5×1.4rem、0.7rem 折角)。 */
 .pi-float-panel-grip {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 22px;
-  height: 22px;
+  width: 1.5rem;
+  height: 1.4rem;
   cursor: nwse-resize;
   touch-action: none;
   z-index: 5;
@@ -2736,15 +2736,15 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-float-panel-grip::before {
   content: "";
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--pi-theme);
-  border-bottom: 2px solid var(--pi-theme);
+  right: 0.4rem;
+  bottom: 0.35rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-right: 2px solid var(--pi-muted);
+  border-bottom: 2px solid var(--pi-muted);
 }
 .pi-float-panel-grip:hover::before,
-.pi-float-panel-grip:active::before { border-color: var(--pi-theme-strong); }
+.pi-float-panel-grip:active::before { border-color: var(--pi-text); }
 .pi-app-shell--mobile .pi-float-panel {
   width: calc(100vw - 1.5rem);
 }
@@ -2766,14 +2766,16 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 /* 方正控制钮(设计稿 F 终版):左上=隐藏(斜杠),右上=扩大(接管整页)。
    面板的绝对定位直接子元素,不进拖动把手的事件圈;手机命中区加大。 */
+/* 三种角控件(隐藏/扩大/拉伸)同一规格同一尺度:1.5×1.4rem 盒、0.7rem 图形、
+   muted → hover 墨色。 */
 .pi-swin-ctl {
   position: absolute;
   top: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.9rem;
-  height: 1.7rem;
+  width: 1.5rem;
+  height: 1.4rem;
   padding: 0;
   border: none;
   background: transparent;
@@ -2785,24 +2787,20 @@ button.pi-panel-row.pi-panel-row--selected {
   color: var(--pi-text);
   background: var(--pi-panel-subtle);
 }
-.pi-swin-ctl svg { width: 0.85rem; height: 0.85rem; }
+.pi-swin-ctl svg { width: 0.7rem; height: 0.7rem; }
 .pi-swin-ctl--hide { left: 0; }
 .pi-swin-ctl--zoom { right: 0; }
+.pi-swin-ctl--close {
+  top: auto;
+  bottom: 0;
+  left: 0;
+}
 /* 给两个控制钮让位 */
 .pi-float-panel--session .pi-composer-panel-handle {
-  padding-left: 2.1rem;
-  padding-right: 2.3rem;
+  padding-left: 1.7rem;
+  padding-right: 1.9rem;
 }
-/* 接管态:页面级控制钮 */
-.pi-swin-ctl--page {
-  position: fixed;
-  top: 10px;
-  z-index: 90;
-  background: var(--pi-panel);
-  border: 1px solid var(--pi-line);
-}
-.pi-swin-ctl--page-hide { left: 12px; }
-.pi-swin-ctl--page-exit { right: 12px; left: auto; }
+/* 接管态:页面四角留空 —— 控制入口是 bar 上高亮的编号方块。 */
 /* 工具栏上的收折编号方块(1234 = 第几扇窗)。 */
 .pi-swin-badge-frame {
   display: flex;
@@ -2842,17 +2840,21 @@ button.pi-panel-row.pi-panel-row--selected {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
 }
-.pi-app-shell--mobile .pi-float-panel-grip {
-  width: 28px;
-  height: 28px;
-}
+/* 手机:三种角控件同步放大(仍同规格)。 */
+.pi-app-shell--mobile .pi-float-panel-grip,
 .pi-app-shell--mobile .pi-swin-ctl {
-  width: 2.5rem;
-  height: 2.1rem;
+  width: 2.1rem;
+  height: 1.9rem;
 }
 .pi-app-shell--mobile .pi-swin-ctl svg {
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+.pi-app-shell--mobile .pi-float-panel-grip::before {
+  width: 0.95rem;
+  height: 0.95rem;
+  right: 0.5rem;
+  bottom: 0.45rem;
 }
 
 /* 第二扇小窗:文件/图片预览体 — EditorPanel 填满窗身。 */

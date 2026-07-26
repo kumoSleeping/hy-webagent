@@ -7,7 +7,7 @@
  * 对账:切走 / 回合结束时 refresh() 重拉全量历史,自愈中途开窗丢的半条。
  */
 import { useEffect, useRef } from "react";
-import { Maximize2, Minimize2, Slash } from "lucide-react";
+import { Maximize2, Minus, X } from "lucide-react";
 import { useStore } from "zustand";
 import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { MessageFeed } from "./MessageFeed";
@@ -40,6 +40,7 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
   const sessions = useSessionStore((s) => s.sessions);
   const bringToFront = useSessionWindowsStore((s) => s.bringToFront);
   const minimizeWindow = useSessionWindowsStore((s) => s.minimize);
+  const closeWindow = useSessionWindowsStore((s) => s.close);
   const zoomWindow = useSessionWindowsStore((s) => s.zoom);
 
   const isActive = activeId === sessionId;
@@ -107,7 +108,7 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
         title="隐藏到工具栏"
         aria-label="隐藏到工具栏编号方块"
       >
-        <Slash strokeWidth={2} aria-hidden="true" />
+        <Minus strokeWidth={2} aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -121,6 +122,19 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
         aria-label="本会话扩展至整个页面"
       >
         <Maximize2 strokeWidth={2} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="pi-swin-ctl pi-swin-ctl--close"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          closeWindow(sessionId);
+        }}
+        title="完全关闭小窗（会话保留）"
+        aria-label="完全关闭会话小窗"
+      >
+        <X strokeWidth={2} aria-hidden="true" />
       </button>
       <div className="pi-swin-body">
         {attached || isActive ? (
@@ -151,35 +165,7 @@ export function SessionWindowsHost() {
           hidden={zoomedSessionId !== null}
         />
       ))}
-      {zoomedSessionId !== null && <ZoomedControls sessionId={zoomedSessionId} />}
     </>
   );
 }
 
-/** 接管态的页面级控制:左上=隐藏(收进 bar 并退出接管),右上=回到多任务。 */
-function ZoomedControls({ sessionId }: { sessionId: string }) {
-  const minimizeWindow = useSessionWindowsStore((s) => s.minimize);
-  const unzoom = useSessionWindowsStore((s) => s.unzoom);
-  return (
-    <>
-      <button
-        type="button"
-        className="pi-swin-ctl pi-swin-ctl--page pi-swin-ctl--page-hide"
-        onClick={() => minimizeWindow(sessionId)}
-        title="隐藏到工具栏"
-        aria-label="隐藏到工具栏编号方块"
-      >
-        <Slash strokeWidth={2} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="pi-swin-ctl pi-swin-ctl--page pi-swin-ctl--page-exit"
-        onClick={() => unzoom()}
-        title="回到多任务"
-        aria-label="退出接管,回到多任务"
-      >
-        <Minimize2 strokeWidth={2} aria-hidden="true" />
-      </button>
-    </>
-  );
-}

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { apiGet, apiPost, apiDelete } from "../lib/api";
 import { navigateToSession } from "../lib/sessionNavigation";
 import { useChatStore } from "./chatStore";
+import { peekChatStore } from "./chatStores";
 import { useStatusBarStore } from "./statusBarStore";
 
 export interface SessionSummary {
@@ -34,8 +35,24 @@ function maybeSyncUrl(sessionId: string | null, syncUrl: boolean | undefined) {
   }
 }
 
-function onPiSessionChange(prev: string | null, _next: string | null) {
-  useChatStore.getState().resetForSessionChange();
+function onPiSessionChange(prev: string | null, next: string | null) {
+  // 根治「聚焦小窗会话闪一下」:目标会话开着小窗且已水合时,把小窗的
+  // transcript 无缝克隆进单例 —— 不清屏、不闪;随后主链路推来的
+  // chat:history 静默对账(无 id 消息的 h-<位置> 稳定 id 保证零跳动)。
+  const windowStore = next ? peekChatStore(next) : null;
+  const windowState = windowStore?.getState();
+  if (next && windowState && windowState.hydratedPiSessionId === next) {
+    useChatStore.setState({
+      messages: windowState.messages,
+      isStreaming: windowState.isStreaming,
+      currentAssistantId: windowState.currentAssistantId,
+      queuedSteering: windowState.queuedSteering,
+      queuedFollowUp: windowState.queuedFollowUp,
+      hydratedPiSessionId: next,
+    });
+  } else {
+    useChatStore.getState().resetForSessionChange();
+  }
   if (prev !== null) useStatusBarStore.getState().clear();
 }
 
