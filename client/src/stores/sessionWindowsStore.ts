@@ -18,6 +18,7 @@
  */
 import { create } from "zustand";
 import { dropChatStore } from "./chatStores";
+import { registerWindowedChecker, touchKeepAlive } from "./sessionKeepAliveStore";
 
 export interface SessionWindowEntry {
   sessionId: string;
@@ -102,8 +103,9 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
     set((s) => {
       const windows = s.windows.filter((w) => w.sessionId !== sessionId);
       persist(windows, s.stashedWindows);
-      // 注册表注销跟着窗列表走(不是组件卸载 —— StrictMode 双挂载会误杀)。
-      dropChatStore(sessionId);
+      // 关窗不拆管道:store 交给保活 LRU(切回去零加载),窗 socket 随
+      // 组件卸载断开,SessionKeepAliveHost 接管同一 store 并对账。
+      touchKeepAlive(sessionId);
       return {
         windows,
         stack: s.stack.filter((k) => k !== sessionId),
@@ -125,7 +127,8 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
   exitWindowMode: () =>
     set((s) => {
       const stash = s.windows.map((w) => w.sessionId);
-      for (const w of s.windows) dropChatStore(w.sessionId);
+      // 不拆管道:交给保活 LRU,再进小窗模式原样弹回时零加载。
+      for (const w of s.windows) touchKeepAlive(w.sessionId);
       persist([], stash);
       return {
         windows: [],
@@ -156,6 +159,11 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
   raisePanel: () => set((s) => ({ stack: raised(s.stack, "panel") })),
   raisePreview: () => set((s) => ({ stack: raised(s.stack, "preview") })),
 }));
+
+// 保活 LRU 淘汰时要避开正开着窗的会话(它们有自己的生命周期)。
+registerWindowedChecker((sessionId) =>
+  useSessionWindowsStore.getState().windows.some((w) => w.sessionId === sessionId),
+);
 
 /** 新窗出生位:贴着当前栈顶窗**右下错开一点**生成同尺寸板块 ——
  * 桌面 20px、手机约 1cm(38px);固定方向不挑空隙,窗不「飞来飞去」。

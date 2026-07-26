@@ -46,6 +46,33 @@ openai 上从未被启用。本轮:
    放开就改 server/config/model-templates.json 的 core-3 模板。
    用户本人的号是 **admin**(工作区 admin-zsx0vltj)。
 
+## 试用返工(同日批五:会话常驻,切换零加载)
+
+「为什么切一下就要加载」的根:主聊天管道是单例 —— 一条主 WS 只绑
+激活会话,每切一次 = 拆线重连 + 全量重灌单例 store。小窗顺滑正是
+因为每窗有自己的 store + socket。本批把小窗机制推广到全页:
+
+- **sessionKeepAliveStore(LRU=6)**:看过的会话(激活过/关过窗的)
+  store + 只读 socket 常驻;淘汰时非在窗会话才 dropChatStore。
+  SessionKeepAliveHost 为 kept 中未开窗的会话各挂一条只读管道
+  (开窗的由窗自己挂,避免双 socket 灌同一 store;窗关掉后 keeper
+  接管同一 store 并 snapshot 对账)。服务器 8 路/用户上限,留 2 路余量。
+- **关窗/退小窗模式不再 dropChatStore**,改 touch 进保活 ——
+  大屏⇄多任务往返、弹回窗组,全部零加载(onPiSessionChange 的
+  暖克隆路径本就存在:kept store 已水合时直接整段克隆进单例,
+  hydratedPiSessionId 同步置位,isHydrating 不触发)。
+- **状态行零白帧**:onPiSessionChange 原先无条件 clear() 抢在
+  useStatusBarSync 重放缓存前白一帧 —— 改成 switchToSession(缓存
+  立即换上)。/api/models 每会话只网络请求一次(切回重放缓存;
+  换模型走 refreshModels 强刷)。
+- **全关进空白页**:红方块关掉最后一扇(且为激活)窗时
+  setActiveSession(null) —— 背景不再跳进那个会话的整页。
+- 手势:html/body overscroll-behavior none + touch-action pan-y
+  pinch-zoom,拖窗不再触发浏览器横向历史滑动(iOS 最贴边的系统
+  返回手势仅 PWA standalone 可全禁)。
+- 顶带渐变改可见淡影(line 色 14% 起 —— 原 panel→transparent 叠
+  同色内容等于隐形)。
+
 ## 试用返工(同日批四:定位大改)
 
 - **左缘条重新定位**:不再管窗口切换,改为 **Codex 式当前会话时间线**

@@ -28,7 +28,8 @@ import {
   setSessionWindowsPersistScope,
   useSessionWindowsStore,
 } from "../../stores/sessionWindowsStore";
-import { SessionWindowsHost } from "./SessionWindow";
+import { SessionKeepAliveHost, SessionWindowsHost } from "./SessionWindow";
+import { clearKeepAlive } from "../../stores/sessionKeepAliveStore";
 import { SessionTimeline } from "./SessionTimeline";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { flashStatus } from "../../stores/statusBarStore";
@@ -137,6 +138,7 @@ export function ChatPanel({
   const authUserId = useAuthStore((s) => s.userId);
   useEffect(() => {
     if (!authUserId || groupPreview) return;
+    clearKeepAlive();
     const windowsStore = useSessionWindowsStore.getState();
     windowsStore.closeAll();
     const persisted = setSessionWindowsPersistScope(authUserId);
@@ -600,6 +602,9 @@ export function ChatPanel({
             否则它以 500 层压住一切,预览/会话窗永远到不了它上面。 */}
         <div id="pi-float-layer" />
         <SessionWindowsHost />
+        {/* 保活管道:看过的会话(未开窗的)各挂一条只读 socket 常驻,
+            切回/弹回零加载。 */}
+        <SessionKeepAliveHost />
         {/* 时间线:主区左缘的当前会话轮次导航(Codex 式)。窗口切换
             入口在 bar 左侧编号瓦片(ComposerBar)。 */}
         {!activeSessionWindowed && !groupPreview && <SessionTimeline />}

@@ -15,6 +15,7 @@ import { MessageFeed } from "./MessageFeed";
 import { useChatStore } from "../../stores/chatStore";
 import { ensureChatStore } from "../../stores/chatStores";
 import { floatZ, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
+import { useSessionKeepAliveStore } from "../../stores/sessionKeepAliveStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useSessionWindowSocket } from "../../hooks/useSessionWindowSocket";
 
@@ -89,7 +90,8 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
         onClose={() => {
           // 关的是激活窗且还有别的窗:焦点交给栈顶剩余窗 —— 否则
           // 背景主区会突然显示本会话(activeSessionWindowed 翻 false),
-          // 多窗模式下背景闪出会话是反逻辑的。最后一扇窗照旧回主区。
+          // 多窗模式下背景闪出会话是反逻辑的。
+          // 全关(最后一扇也是激活窗):背景进空白页,不跳进这个会话的整页。
           const ws = useSessionWindowsStore.getState();
           const remaining = ws.windows.filter((w) => w.sessionId !== sessionId);
           const nextId = isActive && remaining.length > 0
@@ -100,6 +102,8 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
           if (nextId) {
             ws.bringToFront(nextId);
             setActiveSession(nextId);
+          } else if (isActive && remaining.length === 0) {
+            setActiveSession(null);
           }
         }}
         closeLabel="关闭小窗（会话保留在列表）"
@@ -113,6 +117,28 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
         )}
       </div>
     </div>
+  );
+}
+
+/** 保活会话的隐形直播管道:kept 里不在窗中的会话,各挂一条只读
+ * socket 持续灌自己的 store —— 切回/弹回时零加载("多进程并存")。 */
+function SessionFeedKeeper({ sessionId }: { sessionId: string }) {
+  const chatStore = ensureChatStore(sessionId);
+  useSessionWindowSocket(sessionId, chatStore);
+  return null;
+}
+
+export function SessionKeepAliveHost() {
+  const kept = useSessionKeepAliveStore((s) => s.kept);
+  const windows = useSessionWindowsStore((s) => s.windows);
+  return (
+    <>
+      {kept
+        .filter((id) => !windows.some((w) => w.sessionId === id))
+        .map((id) => (
+          <SessionFeedKeeper key={id} sessionId={id} />
+        ))}
+    </>
   );
 }
 

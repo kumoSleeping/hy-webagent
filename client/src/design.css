@@ -2568,15 +2568,21 @@ button.pi-panel-row.pi-panel-row--selected {
   touch-action: none;
 }
 .pi-composer-panel-handle:active { cursor: grabbing; }
-/* 带下缘一小截渐隐:内容滚到顶时软过渡,不用分割线。 */
+/* 带下缘一小截可见的淡影渐变:顶界有个软过渡但不是分割线。
+   (原先 panel→transparent 的渐变叠在同色内容上等于隐形 —— 换成
+   line 色 14% 起的淡影才看得见。) */
 .pi-composer-panel-handle::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   top: 100%;
-  height: 0.7rem;
-  background: linear-gradient(to bottom, var(--pi-panel), transparent);
+  height: 0.55rem;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--pi-line) 14%, transparent),
+    transparent
+  );
   pointer-events: none;
   z-index: 1;
 }

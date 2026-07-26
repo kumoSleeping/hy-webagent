@@ -4,6 +4,7 @@ import { navigateToSession } from "../lib/sessionNavigation";
 import { useChatStore } from "./chatStore";
 import { peekChatStore } from "./chatStores";
 import { useStatusBarStore } from "./statusBarStore";
+import { touchKeepAlive } from "./sessionKeepAliveStore";
 
 export interface SessionSummary {
   id: string;
@@ -53,7 +54,15 @@ function onPiSessionChange(prev: string | null, next: string | null) {
   } else {
     useChatStore.getState().resetForSessionChange();
   }
-  if (prev !== null) useStatusBarStore.getState().clear();
+  // 状态行同样零闪:有缓存立即换上(switchToSession),而不是清空等
+  // REST —— 原先这里的 clear() 会抢在 useStatusBarSync 重放缓存前
+  // 白一帧。保活 touch:看过的会话进 LRU,管道常驻。
+  if (next) {
+    useStatusBarStore.getState().switchToSession(next);
+    touchKeepAlive(next);
+  } else if (prev !== null) {
+    useStatusBarStore.getState().clear();
+  }
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
