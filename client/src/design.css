@@ -2806,16 +2806,17 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel-subtle);
 }
 .pi-swin-ctl svg { width: 0.75rem; height: 0.75rem; }
-/* 统一窗口套件的关闭钮 = 标题栏左端一根小红杠(最小化观感,无方框)。 */
+/* 统一窗口套件的关闭钮 = 左上角一颗小正方形,与连接呼吸灯同形同尺
+   (呼吸灯最大档 6px),红色常亮;连接中由呼吸灯顶替(chrome loading)。 */
 .pi-swin-ctl-dash {
   display: block;
-  width: 0.8rem;
-  height: 3px;
+  width: 6px;
+  height: 6px;
   background: var(--pi-theme);
   transition: transform 120ms ease-out;
 }
 .pi-swin-ctl--close:hover .pi-swin-ctl-dash {
-  transform: scaleX(1.35);
+  transform: scale(1.4);
 }
 .pi-swin-body {
   display: flex;
