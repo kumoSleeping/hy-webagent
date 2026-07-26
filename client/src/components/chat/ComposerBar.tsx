@@ -250,18 +250,8 @@ export function ComposerBar({
   const isSendUnavailable = connectionState !== 'connected';
   const draftCacheKey = `${DRAFT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   const pastedTextCacheKey = `${PASTED_TEXT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
-  // 接管中的窗上 bar:高亮编号方块 = 回多任务的唯一入口(页面四角留空)。
-  // 收折概念已移除 —— 关掉的窗从历史列表点回来(小窗模式下点击即弹窗)。
+  // 接管/编号方块概念已删:长按新建按钮整体进/出小窗模式。
   const sessionWindows = useSessionWindowsStore((s) => s.windows);
-  const zoomedSessionId = useSessionWindowsStore((s) => s.zoomedSessionId);
-  const unzoomSessionWindow = useSessionWindowsStore((s) => s.unzoom);
-  const zoomedBadges = useMemo(
-    () =>
-      sessionWindows
-        .map((w, index) => ({ sessionId: w.sessionId, num: index + 1 }))
-        .filter((w) => w.sessionId === zoomedSessionId),
-    [sessionWindows, zoomedSessionId],
-  );
   const btnWidthPx = useMemo(() => {
     const raw = toolbarBtnWidthPx();
     return Math.min(raw, MOBILE_TOOLBAR_BTN_MAX_PX);
@@ -270,7 +260,6 @@ export function ComposerBar({
     isMobileLayout,
     shellRef,
     groupPreview ? GROUP_PREVIEW_TOOLBAR_ITEMS : undefined,
-    zoomedBadges.length * btnWidthPx,
   );
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
     panelToolbarIndex(kind, toolbarItems);
@@ -429,12 +418,13 @@ export function ComposerBar({
     await activateSession(piSessionId);
   }
 
-  /** 长按新建按钮(无窗时)= 进入小窗模式:当前主区会话弹成直播小窗
-   * (已有窗则置顶);空态没有会话就新建一路直接以小窗开场。 */
+  /** 长按新建按钮(无窗时)= 进入小窗模式:上次退出时的窗口集合原样弹回;
+   * 无暂存则当前主区会话弹成直播小窗(已有窗则置顶);空态没有会话就
+   * 新建一路直接以小窗开场。面板不动 —— 小窗模式下面板与窗共存。 */
   function enterWindowMode() {
-    closePanel();
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
+    if (useSessionWindowsStore.getState().restoreStash() > 0) return;
     const active = useSessionStore.getState().activePiSessionId;
     if (active) {
       useSessionWindowsStore.getState().open(active);
@@ -1468,25 +1458,6 @@ export function ComposerBar({
         <div className="pi-composer-toolbar-bar">
           {isMobileLayout && <div className="pi-composer-toolbar-bar-fill" aria-hidden="true" />}
           <div className="pi-composer-toolbar-bar-tail">
-            {zoomedBadges.map((b) => (
-              <button
-                key={`swin-${b.sessionId}`}
-                style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
-                type="button"
-                className="pi-composer-toolbar-btn pi-swin-badge"
-                data-active
-                onPointerDown={handleToolbarPointerDown}
-                onClick={() => unzoomSessionWindow()}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  useSessionWindowsStore.getState().close(b.sessionId);
-                }}
-                title={`回到多任务（窗口 ${b.num}，右键关闭）`}
-                aria-label="回到多任务"
-              >
-                <span className="pi-swin-badge-frame">{b.num}</span>
-              </button>
-            ))}
             {toolbarItems.map((item, index) => (
             <button
               style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
@@ -1523,7 +1494,7 @@ export function ComposerBar({
       >
         {toolbarActive && panel && (
           <>
-            <ComposerPanelChrome title={panelChromeTitle(panel)} panelRef={panelRef} />
+            <ComposerPanelChrome title={panelChromeTitle(panel)} panelRef={panelRef} onClose={closePanel} closeLabel="关闭面板" />
             {renderPanelBody()}
           </>
         )}

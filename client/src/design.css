@@ -2547,7 +2547,8 @@ button.pi-panel-row.pi-panel-row--selected {
   align-items: center;
   gap: 0.4rem;
   flex-shrink: 0;
-  padding: 0.3rem 0.6rem;
+  /* 左 padding 归零:红 ✕ 矩形贴左上角。 */
+  padding: 0.3rem 0.6rem 0.3rem 0;
   border-bottom: 1px solid var(--pi-line-soft);
   background: var(--pi-panel);
   user-select: none;
@@ -2557,6 +2558,10 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-composer-panel-handle:active { cursor: grabbing; }
 .pi-composer-panel-handle-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -2775,29 +2780,7 @@ button.pi-panel-row.pi-panel-row--selected {
   right: auto;
   bottom: auto;
 }
-/* 右下角拉伸把手 — 与 隐藏/扩大 同规格同尺度(1.5×1.4rem、0.7rem 折角)。 */
-.pi-float-panel-grip {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 1.5rem;
-  height: 1.4rem;
-  cursor: nwse-resize;
-  touch-action: none;
-  z-index: 5;
-}
-.pi-float-panel-grip::before {
-  content: "";
-  position: absolute;
-  right: 0.4rem;
-  bottom: 0.35rem;
-  width: 0.7rem;
-  height: 0.7rem;
-  border-right: 2px solid var(--pi-muted);
-  border-bottom: 2px solid var(--pi-muted);
-}
-.pi-float-panel-grip:hover::before,
-.pi-float-panel-grip:active::before { border-color: var(--pi-text); }
+/* 右下角握把已删:改大小全走边缘/角命中带(.pi-float-panel-edge)。 */
 .pi-app-shell--mobile .pi-float-panel {
   width: calc(100vw - 1.5rem);
 }
@@ -2817,10 +2800,9 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-float-panel--active .pi-composer-panel-handle-title {
   color: var(--pi-text);
 }
-/* 方正控制钮(设计稿 F 终版):左上=✕ 直接关窗(会话在列表里找回),
-   右上=扩大(接管整页)。下方两角留空(无关闭、无拉伸)。
-   面板的绝对定位直接子元素,不进拖动把手的事件圈;手机命中区加大。
-   两枚同一规格同一尺度:1.5×1.4rem 盒、0.7rem 图形、muted → hover 墨色。 */
+/* 统一窗口套件控制钮:每扇浮窗(会话窗/命令面板/预览)标题栏左端一枚
+   主题红矩形 ✕(chrome 的 onClose 渲染),嵌在 handle 里 flex 对齐;
+   接管/扩大概念已删 —— 长按工具栏新建按钮整体进/出小窗模式。 */
 .pi-swin-ctl {
   display: flex;
   align-items: center;
@@ -2840,32 +2822,14 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel-subtle);
 }
 .pi-swin-ctl svg { width: 0.75rem; height: 0.75rem; }
-/* 控制钮嵌在标题栏两端:左右 padding 归零让两枚钮贴边,
-   标题弹性撑开把扩大钮推到最右。 */
-.pi-float-panel--session .pi-composer-panel-handle {
-  padding-left: 0;
-  padding-right: 0;
+/* 统一窗口套件的关闭钮 = 标题栏左端主题红矩形(白 ✕)。 */
+.pi-swin-ctl--close {
+  background: var(--pi-theme);
+  color: var(--pi-theme-ink);
 }
-.pi-float-panel--session .pi-composer-panel-handle-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* 接管态:页面四角留空 —— 控制入口是 bar 上高亮的编号方块。 */
-/* 工具栏上的编号方块(1234 = 第几扇窗;仅接管中的窗上 bar)。 */
-.pi-swin-badge-frame {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.05rem;
-  height: 0.95rem;
-  border: 1.5px solid currentColor;
-  font-family: var(--pi-font-mono);
-  font-size: 0.62rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
+.pi-swin-ctl--close:hover {
+  background: color-mix(in srgb, var(--pi-theme) 82%, black);
+  color: var(--pi-theme-ink);
 }
 .pi-swin-body {
   display: flex;
@@ -2879,17 +2843,19 @@ button.pi-panel-row.pi-panel-row--selected {
   font-size: var(--pi-panel-font);
   color: var(--pi-muted);
 }
-/* 会话小窗:左/右/下三边 + 下两角 = 拖拽改大小命中带(骑在边框上,
-   顶栏留给移动)。装饰不可见,只有光标形状提示。 */
+/* 统一窗口套件:左/右/下三边 + 下两角 + 右上角 = 拖拽改大小命中带
+   (骑在边框上;顶栏留给移动,左上角是红 ✕)。装饰不可见,只有光标提示。 */
 .pi-float-panel-edge {
   position: absolute;
   z-index: 9;
+  touch-action: none;
 }
 .pi-float-panel-edge--l { left: -4px; top: 2.4rem; bottom: 14px; width: 8px; cursor: ew-resize; }
 .pi-float-panel-edge--r { right: -4px; top: 2.4rem; bottom: 14px; width: 8px; cursor: ew-resize; }
 .pi-float-panel-edge--b { bottom: -4px; left: 14px; right: 14px; height: 8px; cursor: ns-resize; }
 .pi-float-panel-edge--bl { left: -4px; bottom: -4px; width: 16px; height: 16px; cursor: nesw-resize; }
 .pi-float-panel-edge--br { right: -4px; bottom: -4px; width: 16px; height: 16px; cursor: nwse-resize; }
+.pi-float-panel-edge--tr { right: -4px; top: -4px; width: 16px; height: 16px; cursor: nesw-resize; }
 
 /* 窗内消息:窄画幅紧凑化 —— 用户气泡补上左边框(主区的破边设计在
    小画幅里像没画完)、去投影、留白收紧。 */
@@ -2911,16 +2877,12 @@ button.pi-panel-row.pi-panel-row--selected {
   display: none;
 }
 
-/* 手机:头部与握把命中区加大(拇指操作)。 */
+/* 手机:头部命中区加大(拇指操作)。 */
 .pi-app-shell--mobile .pi-composer-panel-handle {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
 }
 /* 手机:控件命中区放大(swin-ctl 高度随标题栏 stretch,只加宽)。 */
-.pi-app-shell--mobile .pi-float-panel-grip {
-  width: 2.1rem;
-  height: 1.9rem;
-}
 .pi-app-shell--mobile .pi-swin-ctl {
   width: 2.4rem;
   margin: -0.5rem 0; /* 手机 handle 纵向 padding 更大,同步吃满 */
@@ -2929,16 +2891,10 @@ button.pi-panel-row.pi-panel-row--selected {
   width: 0.95rem;
   height: 0.95rem;
 }
-/* 手机:侧边拖拽命中带加宽(拇指)。 */
+/* 手机:边缘拖拽命中带加宽(拇指)。 */
 .pi-app-shell--mobile .pi-float-panel-edge--l,
 .pi-app-shell--mobile .pi-float-panel-edge--r { width: 14px; }
 .pi-app-shell--mobile .pi-float-panel-edge--b { height: 14px; }
-.pi-app-shell--mobile .pi-float-panel-grip::before {
-  width: 0.95rem;
-  height: 0.95rem;
-  right: 0.5rem;
-  bottom: 0.45rem;
-}
 
 /* 第二扇小窗:文件/图片预览体 — EditorPanel 填满窗身。 */
 .pi-float-preview-body {

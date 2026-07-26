@@ -85,17 +85,18 @@ export function ChatPanel({
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const previewPanelRef = useRef<HTMLDivElement>(null);
   // 浮层最新召的在上:预览小窗与会话窗/命令面板共用 z 序栈。
+  // activeTabId 也在依赖里:预览开着时再点开新文件,同样要浮到最顶
+  // (点文件列表那一下会先把 Files 面板 raise 上去)。
   const previewZ = useSessionWindowsStore((s) => floatZ(s.stack, "preview"));
   useEffect(() => {
     if (previewOpen) useSessionWindowsStore.getState().raisePreview();
-  }, [previewOpen]);
+  }, [previewOpen, activeTabId]);
   const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
-  // 设计稿 F:激活会话在(未接管的)小窗里直播时,背景主区让位。
-  const activeSessionWindowed = useSessionWindowsStore(
-    (s) =>
-      s.zoomedSessionId !== activePiSessionId &&
-      s.windows.some((w) => w.sessionId === activePiSessionId),
+  // 设计稿 F:激活会话在小窗里直播时,背景主区让位。
+  const activeSessionWindowed = useSessionWindowsStore((s) =>
+    s.windows.some((w) => w.sessionId === activePiSessionId),
   );
+  const hasSessionWindows = useSessionWindowsStore((s) => s.windows.length > 0);
   // Only pick welcome vs conversation layout once the session is hydrated —
   // avoids the composer jumping from center to bottom while history loads.
   const isHydrating = Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId);
@@ -135,9 +136,12 @@ export function ChatPanel({
     if (!authUserId || groupPreview) return;
     const windowsStore = useSessionWindowsStore.getState();
     windowsStore.closeAll();
-    for (const entry of setSessionWindowsPersistScope(authUserId)) {
+    const persisted = setSessionWindowsPersistScope(authUserId);
+    for (const entry of persisted.open) {
       windowsStore.open(entry.sessionId);
     }
+    // 上次是长按退出的:窗集合在暂存里,再长按原样弹回。
+    windowsStore.seedStash(persisted.stash.map((e) => e.sessionId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
 
@@ -518,7 +522,9 @@ export function ChatPanel({
           <MessageFeed />
         </Suspense>
       )}
-      {(composerPanel || previewOpen || centerStageOpen) && (
+      {/* 小窗模式下面板/预览常驻(和会话窗一样只认红 ✕),点外不再关;
+          backdrop 只在无窗时(或扩展 CenterStage 打开时)出场。 */}
+      {(((composerPanel || previewOpen) && !hasSessionWindows) || centerStageOpen) && (
         <div
           className="pi-click-backdrop"
           onClick={dismissOverlays}
@@ -591,6 +597,8 @@ export function ChatPanel({
                 title={editorTabs.find((t) => t.id === activeTabId)?.name ?? "Preview"}
                 panelRef={previewPanelRef}
                 storageKey="pi-float-preview-rect-v1"
+                onClose={closePreview}
+                closeLabel="关闭预览"
               />
               <div className="pi-float-preview-body">
                 <EditorPanel

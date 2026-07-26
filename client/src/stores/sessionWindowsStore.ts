@@ -5,12 +5,16 @@
  * - stack = 浮层 z 序栈(末尾=最上):"panel"=命令/工具面板,"preview"=
  *   文件预览,其余为会话窗 id —— 谁最新被召出/点到谁在上。输入坞不入栈:
  *   design.css 给 .pi-composer-dock 固定 z=500,永远压在所有浮层之上。
+ *   (前提:三类浮层与输入坞同处 .pi-interactive-shell 的 stacking
+ *   context —— SessionWindowsHost 必须挂在 shell 里,别再挪出去。)
+ * - 接管(zoom)概念已删:长按工具栏新建按钮 = 进/出小窗模式;
+ *   退出时把当时开着的窗暂存(stashedWindows),再进入原样弹回。
  * - 收折概念已移除:关窗即 ✕(会话仍在列表);小窗模式下点历史行重新弹窗。
- *   bar 上的编号方块只剩接管(zoom)退出用。
- * - 布局按用户持久化:localStorage["pi-session-windows-v1:<userId>"] 存窗列表;
- *   每窗几何由 ComposerPanelChrome 以 storageKey `pi-swin-rect:<sessionId>` 各自记。
+ * - 布局按用户持久化:localStorage["pi-session-windows-v1:<userId>"] 存
+ *   {open, stash};每窗几何由 ComposerPanelChrome 以 storageKey
+ *   `pi-swin-rect:<sessionId>` 各自记。
  * - 目录切换时由 ChatPanel 按用户调 setSessionWindowsPersistScope(userId)
- *   换持久化域并返回该用户上次的窗列表用于恢复。
+ *   换持久化域并返回该用户上次的 {open, stash} 用于恢复。
  */
 import { create } from "zustand";
 import { dropChatStore } from "./chatStores";
@@ -23,21 +27,27 @@ export interface PersistedWindowEntry {
   sessionId: string;
 }
 
+export interface PersistedWindowsState {
+  open: PersistedWindowEntry[];
+  stash: PersistedWindowEntry[];
+}
+
 interface SessionWindowsState {
   windows: SessionWindowEntry[];
   /** 浮层 z 序栈,见文件头注释。 */
   stack: string[];
-  /** 接管:该会话占用整页背景(其余窗暂藏);null = 多任务态。 */
-  zoomedSessionId: string | null;
+  /** 长按退出小窗模式时暂存的窗口集合 —— 再次长按原样弹回。 */
+  stashedWindows: string[];
   open: (sessionId: string) => void;
   close: (sessionId: string) => void;
   closeAll: () => void;
-  /** 长按退出小窗模式:关全部窗且清空持久化(closeAll 是切目录换域用的,
-   *  故意不动持久化 —— 两者不可混用)。 */
+  /** 长按退出小窗模式:关全部窗,窗口集合入暂存(持久化跟着记)。 */
   exitWindowMode: () => void;
+  /** 长按进入小窗模式:有暂存就原样弹回,返回恢复的窗数(0 = 无暂存)。 */
+  restoreStash: () => number;
+  /** 换持久化域后播种暂存(不写盘 —— 值本来就来自盘)。 */
+  seedStash: (sessionIds: string[]) => void;
   bringToFront: (sessionId: string) => void;
-  zoom: (sessionId: string) => void;
-  unzoom: () => void;
   raisePanel: () => void;
   raisePreview: () => void;
 }
@@ -58,22 +68,25 @@ function raised(stack: string[], key: string): string[] {
 
 let persistKey: string | null = null;
 
-function persist(windows: SessionWindowEntry[]): void {
+function persist(windows: SessionWindowEntry[], stash: string[]): void {
   if (!persistKey) return;
   try {
     localStorage.setItem(
       persistKey,
-      JSON.stringify(windows.map((w) => ({ sessionId: w.sessionId }))),
+      JSON.stringify({
+        open: windows.map((w) => ({ sessionId: w.sessionId })),
+        stash: stash.map((sessionId) => ({ sessionId })),
+      }),
     );
   } catch {
     // 存储不可用:本次会话内仍生效。
   }
 }
 
-export const useSessionWindowsStore = create<SessionWindowsState>((set) => ({
+export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => ({
   windows: [],
   stack: ["panel", "preview"],
-  zoomedSessionId: null,
+  stashedWindows: [],
 
   open: (sessionId) =>
     set((s) => {
@@ -81,73 +94,99 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set) => ({
       const windows = s.windows.some((w) => w.sessionId === sessionId)
         ? s.windows
         : [...s.windows, { sessionId }];
-      persist(windows);
+      persist(windows, s.stashedWindows);
       return { windows, stack: raised(s.stack, sessionId) };
     }),
 
   close: (sessionId) =>
     set((s) => {
       const windows = s.windows.filter((w) => w.sessionId !== sessionId);
-      persist(windows);
+      persist(windows, s.stashedWindows);
       // 注册表注销跟着窗列表走(不是组件卸载 —— StrictMode 双挂载会误杀)。
       dropChatStore(sessionId);
       return {
         windows,
         stack: s.stack.filter((k) => k !== sessionId),
-        zoomedSessionId: s.zoomedSessionId === sessionId ? null : s.zoomedSessionId,
       };
     }),
 
   closeAll: () =>
     set((s) => {
-      // 不动持久化:目录切换走 setSessionWindowsPersistScope 换域,
-      // 旧项目的窗列表留给下次回来恢复。
+      // 不动持久化:目录/用户切换走 setSessionWindowsPersistScope 换域,
+      // 旧域的 {open, stash} 留给下次回来恢复;内存暂存随窗一并清。
       for (const w of s.windows) dropChatStore(w.sessionId);
       return {
         windows: [],
         stack: s.stack.filter((k) => k === "panel" || k === "preview"),
-        zoomedSessionId: null,
+        stashedWindows: [],
       };
     }),
 
   exitWindowMode: () =>
     set((s) => {
+      const stash = s.windows.map((w) => w.sessionId);
       for (const w of s.windows) dropChatStore(w.sessionId);
-      persist([]);
+      persist([], stash);
       return {
         windows: [],
         stack: s.stack.filter((k) => k === "panel" || k === "preview"),
-        zoomedSessionId: null,
+        stashedWindows: stash,
       };
     }),
 
-  bringToFront: (sessionId) => set((s) => ({ stack: raised(s.stack, sessionId) })),
+  restoreStash: () => {
+    const stash = get().stashedWindows;
+    if (stash.length === 0) return 0;
+    set((s) => {
+      const windows = stash.map((sessionId) => ({ sessionId }));
+      persist(windows, []);
+      return {
+        windows,
+        stack: [...s.stack.filter((k) => k === "panel" || k === "preview"), ...stash],
+        stashedWindows: [],
+      };
+    });
+    return stash.length;
+  },
 
-  zoom: (sessionId) => set({ zoomedSessionId: sessionId }),
-  unzoom: () => set({ zoomedSessionId: null }),
+  seedStash: (sessionIds) => set({ stashedWindows: sessionIds }),
+
+  bringToFront: (sessionId) => set((s) => ({ stack: raised(s.stack, sessionId) })),
 
   raisePanel: () => set((s) => ({ stack: raised(s.stack, "panel") })),
   raisePreview: () => set((s) => ({ stack: raised(s.stack, "preview") })),
 }));
 
-/** 换持久化域,返回该 scope 上次开着的窗列表(供恢复;兼容旧的
- * 纯 id 数组与带 minimized 的旧条目 —— 收折概念已移除,一律按开着恢复)。 */
-export function setSessionWindowsPersistScope(cwd: string | null): PersistedWindowEntry[] {
+/** 换持久化域,返回该 scope 上次的 {open, stash}(供恢复)。兼容旧格式:
+ * 纯 id 数组 / 带 minimized 的旧条目(一律按开着恢复,stash 空)。 */
+export function setSessionWindowsPersistScope(cwd: string | null): PersistedWindowsState {
   persistKey = cwd ? `pi-session-windows-v1:${cwd}` : null;
-  if (!persistKey) return [];
+  const empty: PersistedWindowsState = { open: [], stash: [] };
+  if (!persistKey) return empty;
   try {
-    const raw = JSON.parse(localStorage.getItem(persistKey) ?? "[]") as unknown;
-    if (!Array.isArray(raw)) return [];
-    return raw
-      .map((x): PersistedWindowEntry | null => {
-        if (typeof x === "string") return { sessionId: x };
-        if (x && typeof x === "object" && typeof (x as { sessionId?: unknown }).sessionId === "string") {
-          return { sessionId: (x as { sessionId: string }).sessionId };
-        }
-        return null;
-      })
-      .filter((x): x is PersistedWindowEntry => x !== null);
+    const raw = JSON.parse(localStorage.getItem(persistKey) ?? "null") as unknown;
+    if (Array.isArray(raw)) return { open: normalizeEntries(raw), stash: [] };
+    if (raw && typeof raw === "object") {
+      const obj = raw as { open?: unknown; stash?: unknown };
+      return {
+        open: Array.isArray(obj.open) ? normalizeEntries(obj.open) : [],
+        stash: Array.isArray(obj.stash) ? normalizeEntries(obj.stash) : [],
+      };
+    }
+    return empty;
   } catch {
-    return [];
+    return empty;
   }
+}
+
+function normalizeEntries(raw: unknown[]): PersistedWindowEntry[] {
+  return raw
+    .map((x): PersistedWindowEntry | null => {
+      if (typeof x === "string") return { sessionId: x };
+      if (x && typeof x === "object" && typeof (x as { sessionId?: unknown }).sessionId === "string") {
+        return { sessionId: (x as { sessionId: string }).sessionId };
+      }
+      return null;
+    })
+    .filter((x): x is PersistedWindowEntry => x !== null);
 }

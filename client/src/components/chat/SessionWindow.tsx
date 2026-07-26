@@ -2,13 +2,13 @@
  * 会话直播小窗(设计稿 F,与桌面 PI-HGUI 同源;docs/design-cleanup/10)。
  *
  * 每窗一条只读 WS 直播(useSessionWindowSocket);点窗任意处 = 置顶 + 激活
- * (共用输入框按回车瞬间盖章路由)。控制钮只有两枚:左上 ✕ 直接关窗
- * (会话仍在列表;小窗模式下点历史行重新弹窗),右上扩大(接管整页,
- * 其余窗暂藏,bar 上高亮编号方块是回来的路)。下方两角留空,不可拉伸。
+ * (共用输入框按回车瞬间盖章路由)。控制钮只剩一枚:标题栏左端主题红
+ * 矩形 ✕ 直接关窗(会话仍在列表;小窗模式下点历史行重新弹窗)。
+ * 接管(zoom)概念已删 —— 长按工具栏新建按钮整体进/出小窗模式。
+ * 拖标题栏移动、拖侧边/下缘改大小(edgeResizable)。
  * 对账:切走 / 回合结束时 refresh() 重拉全量历史,自愈中途开窗丢的半条。
  */
 import { useEffect, useRef } from "react";
-import { Maximize2, X } from "lucide-react";
 import { useStore } from "zustand";
 import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { MessageFeed } from "./MessageFeed";
@@ -23,11 +23,9 @@ interface SessionWindowProps {
   z: number;
   /** 级联出生位:默认锚基础上每窗偏移 24px,避免全叠在一起。 */
   cascade: number;
-  /** 接管期间全部窗暂藏(挂载与直播保持)。 */
-  hidden: boolean;
 }
 
-export function SessionWindow({ sessionId, z, cascade, hidden }: SessionWindowProps) {
+export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   // 幂等取用:注册表条目由窗口 store 的 close/closeAll 负责注销,
   // 组件卸载绝不 drop(StrictMode 双挂载会误杀开着的窗的直播)。
@@ -39,7 +37,6 @@ export function SessionWindow({ sessionId, z, cascade, hidden }: SessionWindowPr
   const sessions = useSessionStore((s) => s.sessions);
   const bringToFront = useSessionWindowsStore((s) => s.bringToFront);
   const closeWindow = useSessionWindowsStore((s) => s.close);
-  const zoomWindow = useSessionWindowsStore((s) => s.zoom);
 
   const isActive = activeId === sessionId;
   const title = sessions.find((entry) => entry.id === sessionId)?.title ?? "New Session";
@@ -68,12 +65,6 @@ export function SessionWindow({ sessionId, z, cascade, hidden }: SessionWindowPr
     if (!isActive) setActiveSession(sessionId);
   }
 
-  /** 扩大 = 接管整页:本会话回到原生整页视图,其余窗暂藏。 */
-  function enterZoom() {
-    if (!isActive) setActiveSession(sessionId);
-    zoomWindow(sessionId);
-  }
-
   return (
     <div
       className={`pi-float-panel pi-float-panel--session${isActive ? " pi-float-panel--active" : ""}`}
@@ -81,52 +72,20 @@ export function SessionWindow({ sessionId, z, cascade, hidden }: SessionWindowPr
       data-open="true"
       style={{
         zIndex: z,
-        display: hidden ? "none" : undefined,
         right: `calc(var(--pi-float-right, 1.25rem) + ${cascade * 24}px)`,
         bottom: `calc(var(--pi-float-bottom, 8.5rem) + ${cascade * 24}px)`,
       }}
       onPointerDownCapture={handleWindowPointerDown}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* 控制钮嵌在标题栏两端(chrome 的 leading/trailing 槽,天然对齐):
-          左=✕ 直接关窗(会话在列表还能找回,小窗模式下点历史行重新弹窗),
-          右=扩大(接管整页)。拖标题栏移动、拖侧边/下缘改大小(edgeResizable)。 */}
+      {/* 统一窗口套件:标题栏左端红 ✕ 关窗(会话在列表还能找回,小窗模式下
+          点历史行重新弹窗);拖标题栏移动、拖边缘/角改大小。 */}
       <ComposerPanelChrome
         title={title}
         panelRef={panelRef}
         storageKey={`pi-swin-rect:${sessionId}`}
-        resizable={false}
-        edgeResizable
-        leading={
-          <button
-            type="button"
-            className="pi-swin-ctl pi-swin-ctl--close"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              closeWindow(sessionId);
-            }}
-            title="关闭小窗（会话保留在列表）"
-            aria-label="关闭会话小窗"
-          >
-            <X strokeWidth={2} aria-hidden="true" />
-          </button>
-        }
-        trailing={
-          <button
-            type="button"
-            className="pi-swin-ctl pi-swin-ctl--zoom"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              enterZoom();
-            }}
-            title="扩展至整个页面"
-            aria-label="本会话扩展至整个页面"
-          >
-            <Maximize2 strokeWidth={2} aria-hidden="true" />
-          </button>
-        }
+        onClose={() => closeWindow(sessionId)}
+        closeLabel="关闭小窗（会话保留在列表）"
       />
       <div className="pi-swin-body">
         {attached || isActive ? (
@@ -145,7 +104,6 @@ export function SessionWindow({ sessionId, z, cascade, hidden }: SessionWindowPr
 export function SessionWindowsHost() {
   const windows = useSessionWindowsStore((s) => s.windows);
   const stack = useSessionWindowsStore((s) => s.stack);
-  const zoomedSessionId = useSessionWindowsStore((s) => s.zoomedSessionId);
   return (
     <>
       {windows.map((w, index) => (
@@ -154,7 +112,6 @@ export function SessionWindowsHost() {
           sessionId={w.sessionId}
           z={floatZ(stack, w.sessionId)}
           cascade={index % 6}
-          hidden={zoomedSessionId !== null}
         />
       ))}
     </>

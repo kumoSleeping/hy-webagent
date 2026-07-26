@@ -1,26 +1,27 @@
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { X } from "lucide-react";
 
 interface ComposerPanelChromeProps {
   /** Label in the header row — same string as the toolbar button title. */
   title: string;
   /** The .pi-float-panel element — dragged / resized / persisted as one unified card. */
   panelRef: RefObject<HTMLDivElement | null>;
-  /** localStorage slot — 第二扇小窗(预览)传自己的 key,几何互不串。 */
+  /** localStorage slot — 每扇窗传自己的 key,几何互不串。 */
   storageKey?: string;
-  /** 标题前的插槽;按钮不触发拖动(closest 守卫)。 */
+  /** 标题前的插槽(红 ✕ 之后);按钮不触发拖动(closest 守卫)。 */
   leading?: ReactNode;
   /** 标题后的插槽(右侧控制钮);同样不触发拖动。 */
   trailing?: ReactNode;
-  /** false = 不渲染右下角握把(会话小窗:下方两角留空,只拖不拉伸)。 */
-  resizable?: boolean;
-  /** true = 左/右/下三边+下两角可拖拽改大小(会话小窗:拖边调大小、
-   *  拖顶栏移动 —— 顶边留给移动,不参与改大小)。 */
-  edgeResizable?: boolean;
+  /** 给了就渲染标题栏左端的主题红矩形 ✕ —— 统一窗口套件的唯一关闭钮。 */
+  onClose?: () => void;
+  /** 红 ✕ 的 title/aria 文案(默认「关闭」)。 */
+  closeLabel?: string;
 }
 
-/** 悬浮小窗的头部(按住拖动)+ 右下角握把(改大小),设计稿 E。
- * 统一一种尺寸,无大小两态;无 ✕ / ⤢(点卡外或 Escape 关闭)。
- * 几何存 localStorage;默认(没拖过)由 CSS 右贴 composer 右缘。 */
+/** 统一浮窗套件:标题栏(按住拖动)+ 左端红 ✕ + 四周边缘拖拽改大小
+ * (左/右/下三边 + 下两角 + 右上角;顶栏留给移动)。右下角握把已删 ——
+ * 功能全走边缘,不再画提示角。几何存 localStorage;默认(没拖过)由
+ * CSS 右贴 composer 右缘。 */
 
 const DEFAULT_RECT_KEY = "pi-float-panel-rect-v1";
 const MIN_W = 240;
@@ -33,6 +34,13 @@ interface PanelRect {
   y: number;
   w: number;
   h: number;
+}
+
+interface ResizeEdges {
+  l?: boolean;
+  r?: boolean;
+  t?: boolean;
+  b?: boolean;
 }
 
 function readSavedRect(key: string): PanelRect | null {
@@ -74,10 +82,28 @@ function currentRect(el: HTMLElement): PanelRect {
   return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
 }
 
-export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT_KEY, leading, trailing, resizable = true, edgeResizable = false }: ComposerPanelChromeProps) {
+/** 边缘拖拽命中带布点:左/右/下三边、下两角、右上角(左上是红 ✕ 的地盘)。 */
+const RESIZE_ZONES: ReadonlyArray<readonly [string, ResizeEdges]> = [
+  ["l", { l: true }],
+  ["r", { r: true }],
+  ["b", { b: true }],
+  ["bl", { l: true, b: true }],
+  ["br", { r: true, b: true }],
+  ["tr", { r: true, t: true }],
+];
+
+export function ComposerPanelChrome({
+  title,
+  panelRef,
+  storageKey = DEFAULT_RECT_KEY,
+  leading,
+  trailing,
+  onClose,
+  closeLabel = "关闭",
+}: ComposerPanelChromeProps) {
   const interactRef = useRef<
     | { mode: "drag"; grabX: number; grabY: number }
-    | { mode: "resize"; edges: { l?: boolean; r?: boolean; b?: boolean } }
+    | { mode: "resize"; edges: ResizeEdges }
     | null
   >(null);
 
@@ -112,7 +138,7 @@ export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT
   }
 
   function beginDrag(e: React.PointerEvent<HTMLDivElement>) {
-    // 头部两侧的控制钮(leading/trailing)不触发拖动。
+    // 头部的控制钮(红 ✕ / leading / trailing)不触发拖动。
     if ((e.target as HTMLElement).closest("button")) return;
     const el = panelRef.current;
     if (!el) return;
@@ -122,7 +148,7 @@ export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT
     e.preventDefault();
   }
 
-  function beginResize(e: React.PointerEvent<HTMLDivElement>, edges: { l?: boolean; r?: boolean; b?: boolean }) {
+  function beginResize(e: React.PointerEvent<HTMLDivElement>, edges: ResizeEdges) {
     const el = panelRef.current;
     if (!el) return;
     freeze(el);
@@ -139,8 +165,9 @@ export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT
     if (act.mode === "drag") {
       applyRect(el, clampRect({ x: e.clientX - act.grabX, y: e.clientY - act.grabY, w: rect.width, h: rect.height }));
     } else {
-      // 各边独立跟手;拖左边时右缘钉住(x 与 w 联动)。
+      // 各边独立跟手;拖左/上边时对缘钉住(x/y 与 w/h 联动)。
       let x = rect.left;
+      let y = rect.top;
       let w = rect.width;
       let h = rect.height;
       if (act.edges.r) w = e.clientX - rect.left;
@@ -150,7 +177,12 @@ export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT
         w = rect.right - nx;
         x = nx;
       }
-      applyRect(el, clampRect({ x, y: rect.top, w, h }));
+      if (act.edges.t) {
+        const ny = Math.min(e.clientY, rect.bottom - MIN_H);
+        h = rect.bottom - ny;
+        y = ny;
+      }
+      applyRect(el, clampRect({ x, y, w, h }));
     }
   }
 
@@ -168,38 +200,36 @@ export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT
         onPointerUp={endInteract}
         onPointerCancel={endInteract}
       >
+        {onClose && (
+          <button
+            type="button"
+            className="pi-swin-ctl pi-swin-ctl--close"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            title={closeLabel}
+            aria-label={closeLabel}
+          >
+            <X strokeWidth={2} aria-hidden="true" />
+          </button>
+        )}
         {leading}
         <span className="pi-composer-panel-handle-title">{title}</span>
         {trailing}
       </div>
-      {resizable && (
+      {RESIZE_ZONES.map(([side, edges]) => (
         <div
-          className="pi-float-panel-grip"
+          key={side}
+          className={`pi-float-panel-edge pi-float-panel-edge--${side}`}
           aria-hidden="true"
-          onPointerDown={(e) => beginResize(e, { r: true, b: true })}
+          onPointerDown={(e) => beginResize(e, edges)}
           onPointerMove={onPointerMove}
           onPointerUp={endInteract}
           onPointerCancel={endInteract}
         />
-      )}
-      {edgeResizable &&
-        ([
-          ["l", { l: true }],
-          ["r", { r: true }],
-          ["b", { b: true }],
-          ["bl", { l: true, b: true }],
-          ["br", { r: true, b: true }],
-        ] as const).map(([side, edges]) => (
-          <div
-            key={side}
-            className={`pi-float-panel-edge pi-float-panel-edge--${side}`}
-            aria-hidden="true"
-            onPointerDown={(e) => beginResize(e, edges)}
-            onPointerMove={onPointerMove}
-            onPointerUp={endInteract}
-            onPointerCancel={endInteract}
-          />
-        ))}
+      ))}
     </>
   );
 }

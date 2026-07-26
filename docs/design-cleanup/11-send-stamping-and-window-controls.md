@@ -76,6 +76,18 @@
   flex 对齐,替代绝对定位角标);**拖标题栏移动、拖左/右/下边与下两角
   改大小**(chrome 新增 edgeResizable,拖左边右缘钉住);窗内用户气泡
   补左边框/去投影/收紧留白(主区破边设计在小画幅里像没画完)。
+- **统一浮窗套件(四轮返工定稿)**:会话窗/命令面板/文件预览三类浮窗
+  同一套 chrome —— ①标题栏左端**主题红矩形 ✕**(onClose prop 渲染,
+  唯一关闭钮);②**边缘改大小全量开放**(l/r/b 三边 + bl/br + tr 右上角,
+  t 边支持 y/h 联动;resizable/握把整体删除,不再画提示角);③**接管
+  (zoom)概念删除**(zoomedSessionId/zoom/unzoom/编号方块/badge CSS
+  全清)—— 长按新建按钮整体进/出小窗模式;④**退出暂存**:
+  exitWindowMode 把窗集合存 stashedWindows(持久化 {open, stash},
+  兼容旧纯数组),再长按 restoreStash 原样弹回;⑤**小窗模式下面板/预览
+  常驻**:backdrop 只在无窗时(或 CenterStage)渲染,点外不再关,
+  Files/预览一直开着直到点红 ✕(执行命令类动作仍自关);⑥预览开着时
+  再点开新文件也置顶(raise 依赖加 activeTabId —— 点文件那下会先把
+  Files 面板 raise 上去,原先第二个文件起预览一直压在下面)。
 
 ## 排查
 
