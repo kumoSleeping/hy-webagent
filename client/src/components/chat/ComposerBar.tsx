@@ -40,6 +40,7 @@ import {
   toolbarBtnWidthPx,
   type ToolbarItemDef,
   GROUP_PREVIEW_TOOLBAR_ITEMS,
+  WINDOW_MODE_TOOLBAR_ITEMS,
 } from "../../lib/composerLayout";
 import {
   insertCompressedMarker,
@@ -253,7 +254,12 @@ export function ComposerBar({
   const toolbarItems = useFittedToolbarItems(
     isMobileLayout,
     shellRef,
-    groupPreview ? GROUP_PREVIEW_TOOLBAR_ITEMS : undefined,
+    groupPreview
+      ? GROUP_PREVIEW_TOOLBAR_ITEMS
+      : sessionWindows.length > 0
+        ? WINDOW_MODE_TOOLBAR_ITEMS
+        : undefined,
+    sessionWindows.length * btnWidthPx,
   );
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
     panelToolbarIndex(kind, toolbarItems);
@@ -1463,6 +1469,7 @@ export function ComposerBar({
                 <button
                   key={w.sessionId}
                   type="button"
+                  style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
                   className={`pi-swin-bar-tile${w.sessionId === activePiSessionId ? " pi-swin-bar-tile--active" : ""}`}
                   onPointerDown={handleToolbarPointerDown}
                   onClick={() => {

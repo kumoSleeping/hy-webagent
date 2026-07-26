@@ -2542,20 +2542,17 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 /* 悬浮小窗头部 — 只有标题,整条都是拖动把手(设计稿 E)。
    无 ✕ / ⤢:点卡外或 Escape 关闭;大小两态已删,统一一种尺寸。 */
-/* 隐形顶栏:无标题、无分割线、无底色 —— 只是叠在窗顶的拖动带,
-   内容一直顶到窗顶(空间利用率优先)。左上角小红杠(关闭)仍在带内。 */
+/* 素顶栏:无标题、无分割线,但**占文档流**(试用反馈:做成隐形覆盖层
+   会压住面板顶部的按钮点不了)—— 一条与窗体同色的拖动带,
+   左上角小红杠(关闭)在带内。 */
 .pi-composer-panel-handle {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2rem;
-  z-index: 10;
   display: flex;
   align-items: stretch;
   gap: 0.4rem;
+  flex-shrink: 0;
+  height: 2rem;
   padding: 0;
-  background: transparent;
+  background: var(--pi-panel);
   user-select: none;
   -webkit-user-select: none;
   cursor: grab;
@@ -2885,7 +2882,7 @@ button.pi-panel-row.pi-panel-row--selected {
   margin-right: auto; /* 钉在 bar 左端,工具按钮带继续贴右 */
 }
 .pi-swin-bar-tile {
-  width: 1.9rem;
+  /* 宽度由 inline btnWidthPx 指定 —— 与工具按钮同尺寸,不缩小。 */
   border: none;
   padding: 0;
   background: transparent;
