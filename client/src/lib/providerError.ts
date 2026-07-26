@@ -1,6 +1,6 @@
 /**
  * Turn provider/API failure blobs (often full Cloudflare HTML pages) into a
- * short user-visible line for toasts and the chat transcript.
+ * short user-visible line for the status-bar flash and the chat transcript.
  */
 export function summarizeProviderError(raw?: string | null): string {
   if (!raw?.trim()) return "Request failed";

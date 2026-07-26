@@ -403,9 +403,9 @@ body {
   gap: 3px;
 }
 .pi-thinking-dots span {
+  /* Square dots — block-cursor heritage, and the system is zero-radius throughout */
   width: 3px;
   height: 3px;
-  border-radius: 50%;
   background-color: var(--pi-muted);
   animation: pi-thinking-bounce 1.2s ease-in-out infinite;
 }
@@ -2234,13 +2234,13 @@ button.pi-panel-row.pi-panel-row--selected {
   gap: 0.85rem;
 }
 
-/* Minimal spinner for lazy-load Suspense fallbacks */
+/* Minimal spinner for lazy-load Suspense fallbacks — a rotating square
+   frame with one dark edge; the last circle left the system with this. */
 .pi-spinner {
   width: 24px;
   height: 24px;
   border: 2.5px solid var(--pi-line, #e5e7eb);
   border-top-color: var(--pi-text, #2c2c2e);
-  border-radius: 50%;
   animation: pi-spin 600ms linear infinite;
 }
 @keyframes pi-spin {
