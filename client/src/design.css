@@ -2925,11 +2925,11 @@ button.pi-panel-row.pi-panel-row--selected {
   color: var(--pi-text);
   background: var(--pi-panel-subtle);
 }
-/* 激活瓦与工具按钮选中态同语法:浅底 + 主题色字 —— 不用整块大红
-   (切窗时一闪而过的红太重,选中本就有浅浅的加重效果)。 */
+/* 激活瓦零色块:只把数字染主题色 —— 多窗模式下总有一枚激活,
+   任何底色都会变成 bar 上的常驻色块;选中窗本身已有加重效果。 */
 .pi-swin-bar-tile--active {
   color: var(--pi-theme);
-  background: var(--pi-accent-soft);
+  background: transparent;
 }
 
 /* 统一窗口套件:左/右/下三边 + 下两角 + 右上角 = 拖拽改大小命中带
