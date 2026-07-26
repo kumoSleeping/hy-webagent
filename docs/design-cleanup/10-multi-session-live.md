@@ -13,7 +13,7 @@
 ## 客户端
 
 - 每窗一条 WS(`useSessionWindowSocket`),事件进本窗独立 chatStore(`chatStores.ts` 注册表,与桌面同源);激活窗直接镜像单例 store(与主区逐字节一致)。
-- UI 与桌面完全一致:macOS 三色灯(红关/黄收折/绿接管整页)、收折成工具栏编号方块(1234,带宽预留优先于静态项)、命令面板顶部兜底列表、新建按钮=新会话小窗、⌘点历史行开窗、激活标=灯彩色/灰、小窗滚动条隐藏、布局按用户持久化(`pi-session-windows-v1:<userId>`)。
+- UI 与桌面完全一致:控制钮、编号方块、历史行开窗、新建按钮语义等交互细节以 `11-send-stamping-and-window-controls.md` 为准(本篇写作时的三色灯/收折设计已在次轮返工中删除);激活标=灯彩色/灰、小窗滚动条隐藏、布局按用户持久化(`pi-session-windows-v1:<userId>`)。
 - "(empty)" → "New Session"(服务端标题 + 历史过滤器 + 测试 fixture)。
 
 ## 已知差异与排查

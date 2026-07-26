@@ -84,11 +84,11 @@ export function ChatPanel({
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const previewPanelRef = useRef<HTMLDivElement>(null);
   const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
-  // 设计稿 F:激活会话在(未收折、未接管的)小窗里直播时,背景主区让位。
+  // 设计稿 F:激活会话在(未接管的)小窗里直播时,背景主区让位。
   const activeSessionWindowed = useSessionWindowsStore(
     (s) =>
       s.zoomedSessionId !== activePiSessionId &&
-      s.windows.some((w) => w.sessionId === activePiSessionId && !w.minimized),
+      s.windows.some((w) => w.sessionId === activePiSessionId),
   );
   // Only pick welcome vs conversation layout once the session is hydrated —
   // avoids the composer jumping from center to bottom while history loads.
@@ -123,7 +123,7 @@ export function ChatPanel({
 
   useStatusBarSync();
 
-  // 会话小窗布局按用户持久化;进入工作区恢复上次的窗(含收折态)。
+  // 会话小窗布局按用户持久化;进入工作区恢复上次开着的窗。
   const authUserId = useAuthStore((s) => s.userId);
   useEffect(() => {
     if (!authUserId || groupPreview) return;
@@ -131,7 +131,6 @@ export function ChatPanel({
     windowsStore.closeAll();
     for (const entry of setSessionWindowsPersistScope(authUserId)) {
       windowsStore.open(entry.sessionId);
-      if (entry.minimized) windowsStore.minimize(entry.sessionId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);

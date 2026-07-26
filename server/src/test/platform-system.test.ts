@@ -25,7 +25,9 @@ describe("platform-system", () => {
     expect(text).toContain("百科式");
     expect(text).toContain("emoji");
     expect(text).not.toMatch(/cwd\s*为/i);
-    expect(text).not.toContain("projects/");
+    // 聊天附件一节明确图片落盘位置「Pictures/(相对 projects/)」,
+    // 旧的「正文不得出现 projects/」全域断言随之作废,收窄为不暴露 cwd。
+    expect(text).toContain("Pictures/");
   });
 
   it("loads SYSTEM_BOT.md with bot upload rules", async () => {

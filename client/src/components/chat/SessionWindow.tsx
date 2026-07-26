@@ -2,12 +2,13 @@
  * 会话直播小窗(设计稿 F,与桌面 PI-HGUI 同源;docs/design-cleanup/10)。
  *
  * 每窗一条只读 WS 直播(useSessionWindowSocket);点窗任意处 = 置顶 + 激活
- * (共用输入框走主 socket 发激活会话)。头部 macOS 三色灯:红=关窗、
- * 黄=收折成工具栏编号方块、绿=接管整页(本会话回原生整页视图,其余窗暂藏)。
+ * (共用输入框按回车瞬间盖章路由)。控制钮只有两枚:左上 ✕ 直接关窗
+ * (会话仍在列表;小窗模式下点历史行重新弹窗),右上扩大(接管整页,
+ * 其余窗暂藏,bar 上高亮编号方块是回来的路)。下方两角留空,不可拉伸。
  * 对账:切走 / 回合结束时 refresh() 重拉全量历史,自愈中途开窗丢的半条。
  */
 import { useEffect, useRef } from "react";
-import { Maximize2, Minus, X } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
 import { useStore } from "zustand";
 import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { MessageFeed } from "./MessageFeed";
@@ -22,13 +23,11 @@ interface SessionWindowProps {
   z: number;
   /** 级联出生位:默认锚基础上每窗偏移 24px,避免全叠在一起。 */
   cascade: number;
-  /** 黄灯收折:窗保持挂载与直播(store 不动),只是 display:none。 */
-  minimized: boolean;
-  /** 绿灯接管期间全部窗暂藏(挂载与直播保持)。 */
+  /** 接管期间全部窗暂藏(挂载与直播保持)。 */
   hidden: boolean;
 }
 
-export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: SessionWindowProps) {
+export function SessionWindow({ sessionId, z, cascade, hidden }: SessionWindowProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   // 幂等取用:注册表条目由窗口 store 的 close/closeAll 负责注销,
   // 组件卸载绝不 drop(StrictMode 双挂载会误杀开着的窗的直播)。
@@ -39,7 +38,6 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
   const sessions = useSessionStore((s) => s.sessions);
   const bringToFront = useSessionWindowsStore((s) => s.bringToFront);
-  const minimizeWindow = useSessionWindowsStore((s) => s.minimize);
   const closeWindow = useSessionWindowsStore((s) => s.close);
   const zoomWindow = useSessionWindowsStore((s) => s.zoom);
 
@@ -63,8 +61,8 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
   }, [chatStore, refresh]);
 
   function handleWindowPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    // 三色灯不参与「点窗置顶/激活」:点背景窗的关闭键不该先激活它;
-    // 捕获阶段的状态更新也会打断灯按钮的 click 合成。
+    // 控制钮不参与「点窗置顶/激活」:点背景窗的关闭键不该先激活它;
+    // 捕获阶段的状态更新也会打断按钮的 click 合成。
     if ((e.target as HTMLElement).closest(".pi-swin-ctl")) return;
     bringToFront(sessionId);
     if (!isActive) setActiveSession(sessionId);
@@ -83,7 +81,7 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
       data-open="true"
       style={{
         zIndex: z,
-        display: minimized || hidden ? "none" : undefined,
+        display: hidden ? "none" : undefined,
         right: `calc(var(--pi-float-right, 1.25rem) + ${cascade * 24}px)`,
         bottom: `calc(var(--pi-float-bottom, 8.5rem) + ${cascade * 24}px)`,
       }}
@@ -94,21 +92,23 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
         title={title}
         panelRef={panelRef}
         storageKey={`pi-swin-rect:${sessionId}`}
+        resizable={false}
       />
-      {/* 两个方正控制钮 —— 面板的绝对定位直接子元素,完全不进拖动把手的
-          事件圈;命中区手机端加大。左=隐藏(收进 bar),右=扩大(接管整页)。 */}
+      {/* 两个方正控制钮(同规格) —— 面板的绝对定位直接子元素,完全不进拖动
+          把手的事件圈;命中区手机端加大。左上=✕ 直接关窗(会话在列表还能找回,
+          小窗模式下点历史行重新弹窗),右上=扩大(接管整页)。下方两角留空。 */}
       <button
         type="button"
-        className="pi-swin-ctl pi-swin-ctl--hide"
+        className="pi-swin-ctl pi-swin-ctl--close"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
-          minimizeWindow(sessionId);
+          closeWindow(sessionId);
         }}
-        title="隐藏到工具栏"
-        aria-label="隐藏到工具栏编号方块"
+        title="关闭小窗（会话保留在列表）"
+        aria-label="关闭会话小窗"
       >
-        <Minus strokeWidth={2} aria-hidden="true" />
+        <X strokeWidth={2} aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -122,19 +122,6 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
         aria-label="本会话扩展至整个页面"
       >
         <Maximize2 strokeWidth={2} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="pi-swin-ctl pi-swin-ctl--close"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          closeWindow(sessionId);
-        }}
-        title="完全关闭小窗（会话保留）"
-        aria-label="完全关闭会话小窗"
-      >
-        <X strokeWidth={2} aria-hidden="true" />
       </button>
       <div className="pi-swin-body">
         {attached || isActive ? (
@@ -161,7 +148,6 @@ export function SessionWindowsHost() {
           sessionId={w.sessionId}
           z={w.z}
           cascade={index % 6}
-          minimized={w.minimized}
           hidden={zoomedSessionId !== null}
         />
       ))}

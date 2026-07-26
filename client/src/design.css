@@ -2764,10 +2764,10 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-float-panel--active .pi-composer-panel-handle-title {
   color: var(--pi-text);
 }
-/* 方正控制钮(设计稿 F 终版):左上=隐藏(斜杠),右上=扩大(接管整页)。
-   面板的绝对定位直接子元素,不进拖动把手的事件圈;手机命中区加大。 */
-/* 三种角控件(隐藏/扩大/拉伸)同一规格同一尺度:1.5×1.4rem 盒、0.7rem 图形、
-   muted → hover 墨色。 */
+/* 方正控制钮(设计稿 F 终版):左上=✕ 直接关窗(会话在列表里找回),
+   右上=扩大(接管整页)。下方两角留空(无关闭、无拉伸)。
+   面板的绝对定位直接子元素,不进拖动把手的事件圈;手机命中区加大。
+   两枚同一规格同一尺度:1.5×1.4rem 盒、0.7rem 图形、muted → hover 墨色。 */
 .pi-swin-ctl {
   position: absolute;
   top: 0;
@@ -2788,20 +2788,15 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-panel-subtle);
 }
 .pi-swin-ctl svg { width: 0.7rem; height: 0.7rem; }
-.pi-swin-ctl--hide { left: 0; }
+.pi-swin-ctl--close { left: 0; }
 .pi-swin-ctl--zoom { right: 0; }
-.pi-swin-ctl--close {
-  top: auto;
-  bottom: 0;
-  left: 0;
-}
 /* 给两个控制钮让位 */
 .pi-float-panel--session .pi-composer-panel-handle {
   padding-left: 1.7rem;
   padding-right: 1.9rem;
 }
 /* 接管态:页面四角留空 —— 控制入口是 bar 上高亮的编号方块。 */
-/* 工具栏上的收折编号方块(1234 = 第几扇窗)。 */
+/* 工具栏上的编号方块(1234 = 第几扇窗;仅接管中的窗上 bar)。 */
 .pi-swin-badge-frame {
   display: flex;
   align-items: center;

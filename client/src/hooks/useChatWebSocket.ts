@@ -508,13 +508,18 @@ export function useChatWebSocket(): ChatWebSocketApi {
     };
   }, [sessionId, piSessionId, isGuestView]);
 
+  // 回车即时盖章(docs/design-cleanup/11):聊天动词一律带上「按下发送那一刻」
+  // 的激活会话 id。服务端按章路由 —— 第一问还在流式时切换/新建会话,第二问
+  // 绝不会落回旧会话的 steering 队列(主 socket 换绑窗口期也不例外)。
+  const stamp = () => ({ piSessionId: useSessionStore.getState().activePiSessionId ?? undefined });
+
   return {
     sendPrompt: (text: string, images?: { mediaType: string; data: string }[]) =>
-      send("chat:prompt", { text, images }),
-    sendSteer: (text: string) => send("chat:steer", { text }),
-    sendFollowUp: (text: string) => send("chat:followup", { text }),
-    sendAbort: () => send("chat:abort"),
-    sendDequeue: () => send("chat:dequeue"),
+      send("chat:prompt", { text, images, ...stamp() }),
+    sendSteer: (text: string) => send("chat:steer", { text, ...stamp() }),
+    sendFollowUp: (text: string) => send("chat:followup", { text, ...stamp() }),
+    sendAbort: () => send("chat:abort", { ...stamp() }),
+    sendDequeue: () => send("chat:dequeue", { ...stamp() }),
     sendSlash: (command: string, args?: Record<string, unknown>) =>
       send("slash:execute", { command, args }),
     sendExtensionUiResponse: (response: {

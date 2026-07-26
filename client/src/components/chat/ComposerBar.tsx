@@ -149,7 +149,8 @@ function toolbarIcon(item: ToolbarItemDef) {
   }
 }
 
-function toolbarTitle(item: ToolbarItemDef): string {
+/** hasWindows:新建按钮随模式换义 —— 无小窗=纯新建会话,有小窗=新建会话小窗。 */
+function toolbarTitle(item: ToolbarItemDef, hasWindows: boolean): string {
   switch (item.id) {
     case "commands":
       return "Commands";
@@ -164,7 +165,7 @@ function toolbarTitle(item: ToolbarItemDef): string {
     case "account":
       return "Account & budget";
     case "new-chat":
-      return "新会话小窗 (Enter)";
+      return hasWindows ? "新会话小窗 (Enter)" : "新建会话 (Enter)";
     case "return-chat":
       return "返回正常聊天";
   }
@@ -188,7 +189,7 @@ function panelChromeTitle(kind: Exclude<ComposerPanelKind, null>): string {
   }
 }
 
-function toolbarAriaLabel(item: ToolbarItemDef): string {
+function toolbarAriaLabel(item: ToolbarItemDef, hasWindows: boolean): string {
   switch (item.id) {
     case "commands":
       return "Toggle commands";
@@ -203,7 +204,7 @@ function toolbarAriaLabel(item: ToolbarItemDef): string {
     case "account":
       return "Toggle account panel";
     case "new-chat":
-      return "新建会话并开小窗";
+      return hasWindows ? "新建会话并开小窗" : "新建会话";
     case "return-chat":
       return "返回正常聊天";
   }
@@ -249,22 +250,16 @@ export function ComposerBar({
   const isSendUnavailable = connectionState !== 'connected';
   const draftCacheKey = `${DRAFT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   const pastedTextCacheKey = `${PASTED_TEXT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
-  // 收折的会话窗编号方块:优先级最高(仅次 commands)——先从带宽里扣它们的宽度。
+  // 接管中的窗上 bar:高亮编号方块 = 回多任务的唯一入口(页面四角留空)。
+  // 收折概念已移除 —— 关掉的窗从历史列表点回来(小窗模式下点击即弹窗)。
   const sessionWindows = useSessionWindowsStore((s) => s.windows);
   const zoomedSessionId = useSessionWindowsStore((s) => s.zoomedSessionId);
-  const restoreSessionWindow = useSessionWindowsStore((s) => s.restore);
   const unzoomSessionWindow = useSessionWindowsStore((s) => s.unzoom);
-  const minimizedBadges = useMemo(
+  const zoomedBadges = useMemo(
     () =>
       sessionWindows
-        .map((w, index) => ({
-          sessionId: w.sessionId,
-          minimized: w.minimized,
-          zoomed: w.sessionId === zoomedSessionId,
-          num: index + 1,
-        }))
-        // 收折的窗 + 接管整页的窗都上 bar:接管窗高亮,点它 = 回多任务。
-        .filter((w) => w.minimized || w.zoomed),
+        .map((w, index) => ({ sessionId: w.sessionId, num: index + 1 }))
+        .filter((w) => w.sessionId === zoomedSessionId),
     [sessionWindows, zoomedSessionId],
   );
   const btnWidthPx = useMemo(() => {
@@ -275,7 +270,7 @@ export function ComposerBar({
     isMobileLayout,
     shellRef,
     groupPreview ? GROUP_PREVIEW_TOOLBAR_ITEMS : undefined,
-    minimizedBadges.length * btnWidthPx,
+    zoomedBadges.length * btnWidthPx,
   );
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
     panelToolbarIndex(kind, toolbarItems);
@@ -434,11 +429,13 @@ export function ComposerBar({
     await activateSession(piSessionId);
   }
 
-  /** 设计稿 F:新建按钮 = 新建会话即开直播小窗并激活。 */
+  /** 新建按钮随模式换义:无小窗 = 纯新建会话(主区直接切过去);
+   * 有小窗 = 新建会话并开直播小窗(多任务再加一路)。 */
   function handleNewWindowChatClick() {
     closePanel();
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
+    const asWindow = useSessionWindowsStore.getState().windows.length > 0;
     void (async () => {
       const id = await useSessionStore.getState().createSession();
       if (!id) {
@@ -446,7 +443,7 @@ export function ComposerBar({
         return;
       }
       useSessionStore.getState().setActiveSession(id);
-      useSessionWindowsStore.getState().open(id);
+      if (asWindow) useSessionWindowsStore.getState().open(id);
       void useSessionStore.getState().fetchSessions();
     })();
   }
@@ -1212,25 +1209,8 @@ export function ComposerBar({
   const commandListContent = (
     <PanelBody
       variant="list"
-      empty={filtered.length === 0 && minimizedBadges.length === 0 ? "No matching commands" : undefined}
+      empty={filtered.length === 0 ? "No matching commands" : undefined}
     >
-      {minimizedBadges.length > 0 && (!query || query === "/") && (
-        <>
-          <div className="pi-hist-section">小窗</div>
-          {minimizedBadges.map((b) => (
-            <PanelListRow
-              key={`swin-cmd-${b.sessionId}`}
-              leading={String(b.num)}
-              leadingKind="index"
-              title={sessions.find((entry) => entry.id === b.sessionId)?.title ?? "New Session"}
-              onClick={() => {
-                restoreSessionWindow(b.sessionId);
-                closePanel();
-              }}
-            />
-          ))}
-        </>
-      )}
       {filtered.map((cmd, index) => (
         <SlashCommandListItem
           key={cmd.id}
@@ -1269,9 +1249,14 @@ export function ComposerBar({
             selected={isCursor}
             titleAttr={`${formatUserMessagePreview(s.title)}（⌘点击开小窗）`}
             onClick={(e) => {
-              if (e?.metaKey || e?.ctrlKey) {
+              // 小窗模式(有窗开着)下点历史 = 重新弹窗并激活 —— ✕ 关掉的窗
+              // 从这里找回;⌘/Ctrl 点任何时候都强制开窗。
+              const inWindowMode = useSessionWindowsStore.getState().windows.length > 0;
+              if (!groupPreview && (e?.metaKey || e?.ctrlKey || inWindowMode)) {
                 useSessionWindowsStore.getState().open(s.id);
+                useSessionStore.getState().setActiveSession(s.id);
                 closePanel();
+                blurComposerInput();
                 return;
               }
               void handleSessionClick(s.id);
@@ -1414,21 +1399,21 @@ export function ComposerBar({
         <div className="pi-composer-toolbar-bar">
           {isMobileLayout && <div className="pi-composer-toolbar-bar-fill" aria-hidden="true" />}
           <div className="pi-composer-toolbar-bar-tail">
-            {minimizedBadges.map((b) => (
+            {zoomedBadges.map((b) => (
               <button
                 key={`swin-${b.sessionId}`}
                 style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
                 type="button"
                 className="pi-composer-toolbar-btn pi-swin-badge"
-                data-active={b.zoomed}
+                data-active
                 onPointerDown={handleToolbarPointerDown}
-                onClick={() => (b.zoomed ? unzoomSessionWindow() : restoreSessionWindow(b.sessionId))}
+                onClick={() => unzoomSessionWindow()}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   useSessionWindowsStore.getState().close(b.sessionId);
                 }}
-                title={b.zoomed ? `回到多任务（窗口 ${b.num}）` : `还原会话小窗 ${b.num}（右键关闭）`}
-                aria-label={b.zoomed ? `回到多任务` : `还原会话小窗 ${b.num}`}
+                title={`回到多任务（窗口 ${b.num}，右键关闭）`}
+                aria-label="回到多任务"
               >
                 <span className="pi-swin-badge-frame">{b.num}</span>
               </button>
@@ -1443,8 +1428,8 @@ export function ComposerBar({
               data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === index}
               onPointerDown={item.id === "new-chat" ? undefined : handleToolbarPointerDown}
               onClick={() => handleToolbarItemClick(item)}
-              title={toolbarTitle(item)}
-              aria-label={toolbarAriaLabel(item)}
+              title={toolbarTitle(item, sessionWindows.length > 0)}
+              aria-label={toolbarAriaLabel(item, sessionWindows.length > 0)}
             >
               {toolbarIcon(item)}
             </button>

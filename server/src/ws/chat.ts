@@ -391,6 +391,34 @@ export function handleChatWs(
     return getActiveSession();
   }
 
+  /**
+   * 回车即时盖章的目标会话(docs/design-cleanup/11)。聊天动词的 payload 可带
+   * piSessionId = 客户端按下发送那一刻的激活会话;有章按章路由,别的会话
+   * 正在流式也抢不走这条消息(切换激活的换绑窗口期同样安全)。无章 = 旧
+   * 客户端,退回连接绑定会话。
+   */
+  async function resolveTargetSession(stampValue: unknown): Promise<ReturnType<typeof getActiveSession>> {
+    const stamp = typeof stampValue === "string" && stampValue ? stampValue : undefined;
+    if (!stamp || isViewOnly) return await ensureSessionReady();
+    const named = sessionManager.getSession(stamp);
+    if (named) {
+      if (named.userId !== userId) {
+        log.warn("rejected cross-user stamped send", { userId, piSessionId: stamp });
+        return undefined;
+      }
+      return named;
+    }
+    // 章指向的会话不在内存(服务重启/被淘汰):以本人身份按需冷启入池。
+    // 基座 onEvent 传空 —— 事件槽归绑定该会话的主 socket(subscribeToSession)。
+    try {
+      const workspacePath = isolator.getUserWorkspace(userId);
+      return await sessionManager.createSession(userId, workspacePath, () => {}, stamp);
+    } catch (err) {
+      log.warn(`stamped session cold-open failed: ${(err as Error).message}`, { userId, piSessionId: stamp });
+      return undefined;
+    }
+  }
+
   const existing = getActiveSession();
   let eventUnsubscribe: (() => void) | undefined;
   /** 小窗只读 socket 的直连订阅(不占 onEvent 槽);主 socket 不用它。 */
@@ -758,7 +786,6 @@ export function handleChatWs(
           sendUiSnapshot();
           // 小窗对账(回合结束/切走时重拉全量)与主链路水合共用这一发。
           sendHistorySnapshot();
-          sendHistorySnapshot();
           break;
         }
         case "ui:set_layout": {
@@ -809,7 +836,7 @@ export function handleChatWs(
             return;
           }
           log.info(`prompt: ${result.clean.slice(0, 100)}`, { userId });
-          const promptSession = await ensureSessionReady();
+          const promptSession = await resolveTargetSession((msg.payload as any)?.piSessionId);
           if (!promptSession) {
             send({
               type: "chat:error",
@@ -831,25 +858,25 @@ export function handleChatWs(
         }
         case "chat:steer": {
           const { text } = msg.payload as any;
-          const steerSessionId = getActiveSessionId();
-          if (!steerSessionId) return;
-          await sessionManager.sendSteer(steerSessionId, text);
+          const steerTarget = await resolveTargetSession((msg.payload as any)?.piSessionId);
+          if (!steerTarget) return;
+          await sessionManager.sendSteer(steerTarget.sessionId, text);
           break;
         }
         case "chat:followup": {
           const { text } = msg.payload as any;
-          const followUpSessionId = getActiveSessionId();
-          if (!followUpSessionId) return;
-          await sessionManager.sendFollowUp(followUpSessionId, text);
+          const followUpTarget = await resolveTargetSession((msg.payload as any)?.piSessionId);
+          if (!followUpTarget) return;
+          await sessionManager.sendFollowUp(followUpTarget.sessionId, text);
           break;
         }
         case "chat:abort": {
-          const abortSessionId = getActiveSessionId();
-          if (abortSessionId) await sessionManager.abort(abortSessionId);
+          const abortTarget = await resolveTargetSession((msg.payload as any)?.piSessionId);
+          if (abortTarget) await sessionManager.abort(abortTarget.sessionId);
           break;
         }
         case "chat:dequeue": {
-          const dequeueSessionId = getActiveSessionId();
+          const dequeueSessionId = (await resolveTargetSession((msg.payload as any)?.piSessionId))?.sessionId;
           if (!dequeueSessionId) return;
           // clearQueue() itself emits queue_update through the normal
           // subscription (handled by the "queue_update" case above), so we
