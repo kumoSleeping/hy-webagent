@@ -311,14 +311,13 @@ body {
 .pi-process-step-toggle:hover {
   color: var(--pi-text);
 }
-/* Tool name reads as the step's signature — theme red, like the corner
-   badges, so the tool chain scans at a glance against the muted trace. */
+/* Tool name reads as the step's signature — bold against the muted
+   trace (red was tried and read too loud at this size). */
 .pi-process-step-label {
   flex-shrink: 0;
   white-space: nowrap;
-  color: var(--pi-theme);
   font-family: var(--pi-font-mono);
-  opacity: 0.85;
+  font-weight: 700;
 }
 .pi-process-step-summary {
   min-width: 0;
@@ -365,11 +364,16 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* Tool I/O drawer — a flat white plane on the gray page. No border, no
+   divider, no badge: the surface change plus padding alone says "block".
+   Input sits on top, output below; the gap is the only separator. */
 .pi-process-step-body--tool {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.7rem;
   max-height: none;
+  background: var(--pi-panel);
+  padding: 0.65rem 0.8rem;
 }
 .pi-process-step-meta {
   margin: 0 0 0.25rem;
@@ -381,7 +385,8 @@ body {
   opacity: 0.75;
 }
 .pi-process-step-output {
-  max-height: 12rem;
+  /* 5 text lines exactly (line-height 1.5) — a peek window, not a dump. */
+  max-height: calc(1.5em * 5);
   overflow: auto;
   color: var(--pi-muted);
   font-family: var(--pi-font-mono);

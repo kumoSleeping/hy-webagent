@@ -3,7 +3,7 @@ import { ChevronRight, Loader2, XCircle } from "lucide-react";
 import type { ActivityItem } from "../../lib/assistantTurnState";
 import { formatProcessDuration } from "../../lib/messageGrouping";
 import type { ToolCallRecord } from "../../types";
-import { extractToolTarget, getToolDisplayLabel, resolveToolOutput } from "../../lib/toolDisplay";
+import { extractToolTarget, formatToolInput, getToolDisplayLabel, resolveToolOutput } from "../../lib/toolDisplay";
 
 interface ProcessTraceProps {
   /** Closed or live run of thinking + tool calls, in arrival order. */
@@ -176,8 +176,9 @@ const ProcessTextStep = memo(function ProcessTextStep({
 
 /**
  * Every tool call — web actions included — gets the same expandable row:
- * label + target summary on the toggle, Input/Output as light mono blocks
- * in the drawer. One disclosure idiom, one inspection surface.
+ * label + target summary on the toggle; the drawer is one flat white
+ * block (no border, no headings) — input on top, output below, each a
+ * short scrollable window. Position alone says which is which.
  */
 const ToolStep = memo(function ToolStep({ toolCall }: { toolCall: ToolCallRecord }) {
   const [expanded, setExpanded] = useState(false);
@@ -205,19 +206,11 @@ const ToolStep = memo(function ToolStep({ toolCall }: { toolCall: ToolCallRecord
       {expanded && (
         <div className="pi-process-step-body pi-process-step-body--tool">
           {hasInput && (
-            <div>
-              <p className="pi-process-step-meta">Input</p>
-              <div className="pi-process-step-output">
-                {JSON.stringify(input, null, 2)}
-              </div>
-            </div>
+            <div className="pi-process-step-output">{formatToolInput(input)}</div>
           )}
           {resultText ? (
-            <div>
-              <p className="pi-process-step-meta">Output</p>
-              <div className={`pi-process-step-output${errored ? " pi-process-step-output--error" : ""}`}>
-                {resultText}
-              </div>
+            <div className={`pi-process-step-output${errored ? " pi-process-step-output--error" : ""}`}>
+              {resultText}
             </div>
           ) : status === "running" ? (
             <p className="pi-process-step-meta">Running…</p>

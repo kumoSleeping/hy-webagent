@@ -120,13 +120,14 @@ describe("ProcessTrace", () => {
       />,
     );
 
-    expect(screen.queryByText("Input")).not.toBeInTheDocument();
-    expect(screen.queryByText("Output")).not.toBeInTheDocument();
+    expect(screen.queryByText("path: Pictures/example.jpg")).not.toBeInTheDocument();
     expect(screen.queryByText("output-read")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /readPictures\/example\.jpg/ }));
-    expect(screen.getByText("Input")).toBeVisible();
-    expect(screen.getByText("Output")).toBeVisible();
+    // No Input/Output headings — plain-text input block above, output below.
+    expect(screen.queryByText("Input")).not.toBeInTheDocument();
+    expect(screen.queryByText("Output")).not.toBeInTheDocument();
+    expect(screen.getByText("path: Pictures/example.jpg")).toBeVisible();
     expect(screen.getByText("output-read")).toBeVisible();
   });
 
@@ -151,10 +152,10 @@ describe("ProcessTrace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Working process" }));
     expect(screen.getByText("Web Search")).toBeVisible();
     expect(screen.getByText('"AI news" · 1 sources')).toBeVisible();
-    expect(screen.queryByText("Output")).not.toBeInTheDocument();
+    expect(screen.queryByText("3 results")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Web Search/ }));
-    expect(screen.getByText("Input")).toBeVisible();
+    expect(screen.getByText(/query: AI news/)).toBeVisible();
     expect(screen.getByText("3 results")).toBeVisible();
   });
 

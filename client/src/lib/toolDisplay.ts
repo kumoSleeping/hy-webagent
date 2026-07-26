@@ -197,3 +197,35 @@ function extractGenericTarget(input: Record<string, unknown>): string | undefine
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
+
+/**
+ * Tool input as plain indented text — no braces, no quotes. The trace
+ * drawer is for eyeballing a call, not copying JSON; structure shows
+ * only through indentation and `-` list markers.
+ */
+export function formatToolInput(input: Record<string, unknown>): string {
+  return plainLines(input, "").join("\n");
+}
+
+function plainLines(value: unknown, indent: string): string[] {
+  if (value == null || typeof value !== "object") {
+    return String(value ?? "")
+      .split("\n")
+      .map((line) => indent + line);
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => {
+      const sub = plainLines(item, `${indent}  `);
+      if (sub.length > 0) sub[0] = `${indent}- ${sub[0].trimStart()}`;
+      return sub;
+    });
+  }
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, v]) => {
+    if (v == null || typeof v !== "object") {
+      const text = String(v ?? "");
+      if (!text.includes("\n")) return [`${indent}${key}: ${text}`];
+      return [`${indent}${key}:`, ...text.split("\n").map((line) => `${indent}  ${line}`)];
+    }
+    return [`${indent}${key}:`, ...plainLines(v, `${indent}  `)];
+  });
+}
