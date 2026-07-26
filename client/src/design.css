@@ -435,6 +435,10 @@ body {
  * ========================================================== */
 .pi-composer-dock {
   position: relative;
+  /* 输入坞永远压在所有浮层之上:浮层 z 序栈有界(60+浮层数,见
+     sessionWindowsStore),500 是它们永远够不到的顶 —— 会话窗/命令面板/
+     预览怎么拖都盖不住输入框。 */
+  z-index: 500;
   display: flex;
   flex-direction: column;
   overflow: visible;
@@ -2702,8 +2706,8 @@ button.pi-panel-row.pi-panel-row--selected {
   position: fixed;
   right: var(--pi-float-right, 1.25rem);
   bottom: var(--pi-float-bottom, 8.5rem);
-  /* 兜底 z;运行时由 sessionWindowsStore 共用 z 池 inline 接管 ——
-     命令面板/预览/会话窗同池竞争,最新召的浮层在上。 */
+  /* 兜底 z;运行时由 sessionWindowsStore 的 z 序栈 inline 接管 ——
+     命令面板/预览/会话窗同栈竞争,最新召的浮层在上;全体 < 输入坞的 500。 */
   z-index: 60;
   display: none;
   flex-direction: column;

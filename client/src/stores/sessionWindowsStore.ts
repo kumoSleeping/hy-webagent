@@ -1,7 +1,10 @@
 /**
  * 会话直播小窗的窗口管理(设计稿 F,docs/10 §4)。
  *
- * - windows 数组 = 开着的窗(带 z 序);点谁谁置顶(topZ 递增)。
+ * - windows 数组 = 开着的窗(按开窗顺序,供级联出生位);z 序由 stack 派生。
+ * - stack = 浮层 z 序栈(末尾=最上):"panel"=命令/工具面板,"preview"=
+ *   文件预览,其余为会话窗 id —— 谁最新被召出/点到谁在上。输入坞不入栈:
+ *   design.css 给 .pi-composer-dock 固定 z=500,永远压在所有浮层之上。
  * - 收折概念已移除:关窗即 ✕(会话仍在列表);小窗模式下点历史行重新弹窗。
  *   bar 上的编号方块只剩接管(zoom)退出用。
  * - 布局按用户持久化:localStorage["pi-session-windows-v1:<userId>"] 存窗列表;
@@ -14,7 +17,6 @@ import { dropChatStore } from "./chatStores";
 
 export interface SessionWindowEntry {
   sessionId: string;
-  z: number;
 }
 
 export interface PersistedWindowEntry {
@@ -23,13 +25,10 @@ export interface PersistedWindowEntry {
 
 interface SessionWindowsState {
   windows: SessionWindowEntry[];
-  topZ: number;
+  /** 浮层 z 序栈,见文件头注释。 */
+  stack: string[];
   /** 接管:该会话占用整页背景(其余窗暂藏);null = 多任务态。 */
   zoomedSessionId: string | null;
-  /** 命令/工具面板与文件预览小窗的 z —— 与会话窗同池竞争,
-   *  谁最新被召出/点到谁在上(不再固定压在会话窗底下)。 */
-  panelZ: number;
-  previewZ: number;
   open: (sessionId: string) => void;
   close: (sessionId: string) => void;
   closeAll: () => void;
@@ -40,10 +39,19 @@ interface SessionWindowsState {
   raisePreview: () => void;
 }
 
-/** 浮层基线 z(CSS 里 .pi-float-panel 的 60 只是未接管前的兜底);
- *  会话窗从 70 起,所有浮层此后共用 topZ 递增。 */
-const PANEL_BASE_Z = 60;
-const BASE_Z = 70;
+/** CSS .pi-float-panel 的兜底 z;栈内浮层从 +1 起按栈序递增,
+ *  数值有界(≤ 60 + 浮层数),永远够不到输入坞的 500。 */
+const FLOAT_BASE_Z = 60;
+
+/** 由栈序派生某浮层的 z(不在栈里 = 兜底基线 60)。 */
+export function floatZ(stack: string[], key: string): number {
+  return FLOAT_BASE_Z + 1 + stack.indexOf(key);
+}
+
+/** 把 key 挪到栈顶(末尾)。 */
+function raised(stack: string[], key: string): string[] {
+  return [...stack.filter((k) => k !== key), key];
+}
 
 let persistKey: string | null = null;
 
@@ -61,25 +69,17 @@ function persist(windows: SessionWindowEntry[]): void {
 
 export const useSessionWindowsStore = create<SessionWindowsState>((set) => ({
   windows: [],
-  topZ: BASE_Z,
+  stack: ["panel", "preview"],
   zoomedSessionId: null,
-  panelZ: PANEL_BASE_Z,
-  previewZ: PANEL_BASE_Z,
 
   open: (sessionId) =>
     set((s) => {
-      const topZ = s.topZ + 1;
-      if (s.windows.some((w) => w.sessionId === sessionId)) {
-        // 已有窗 = 置顶。
-        const windows = s.windows.map((w) =>
-          w.sessionId === sessionId ? { ...w, z: topZ } : w,
-        );
-        persist(windows);
-        return { topZ, windows };
-      }
-      const windows = [...s.windows, { sessionId, z: topZ }];
+      // 已有窗 = 只置顶;新窗按开窗顺序入列(级联出生位跟 windows 序走)。
+      const windows = s.windows.some((w) => w.sessionId === sessionId)
+        ? s.windows
+        : [...s.windows, { sessionId }];
       persist(windows);
-      return { windows, topZ };
+      return { windows, stack: raised(s.stack, sessionId) };
     }),
 
   close: (sessionId) =>
@@ -88,7 +88,11 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set) => ({
       persist(windows);
       // 注册表注销跟着窗列表走(不是组件卸载 —— StrictMode 双挂载会误杀)。
       dropChatStore(sessionId);
-      return { windows, zoomedSessionId: s.zoomedSessionId === sessionId ? null : s.zoomedSessionId };
+      return {
+        windows,
+        stack: s.stack.filter((k) => k !== sessionId),
+        zoomedSessionId: s.zoomedSessionId === sessionId ? null : s.zoomedSessionId,
+      };
     }),
 
   closeAll: () =>
@@ -96,23 +100,20 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set) => ({
       // 不动持久化:目录切换走 setSessionWindowsPersistScope 换域,
       // 旧项目的窗列表留给下次回来恢复。
       for (const w of s.windows) dropChatStore(w.sessionId);
-      return { windows: [], topZ: BASE_Z, zoomedSessionId: null };
-    }),
-
-  bringToFront: (sessionId) =>
-    set((s) => {
-      const topZ = s.topZ + 1;
       return {
-        topZ,
-        windows: s.windows.map((w) => (w.sessionId === sessionId ? { ...w, z: topZ } : w)),
+        windows: [],
+        stack: s.stack.filter((k) => k === "panel" || k === "preview"),
+        zoomedSessionId: null,
       };
     }),
+
+  bringToFront: (sessionId) => set((s) => ({ stack: raised(s.stack, sessionId) })),
 
   zoom: (sessionId) => set({ zoomedSessionId: sessionId }),
   unzoom: () => set({ zoomedSessionId: null }),
 
-  raisePanel: () => set((s) => ({ topZ: s.topZ + 1, panelZ: s.topZ + 1 })),
-  raisePreview: () => set((s) => ({ topZ: s.topZ + 1, previewZ: s.topZ + 1 })),
+  raisePanel: () => set((s) => ({ stack: raised(s.stack, "panel") })),
+  raisePreview: () => set((s) => ({ stack: raised(s.stack, "preview") })),
 }));
 
 /** 换持久化域,返回该 scope 上次开着的窗列表(供恢复;兼容旧的

@@ -48,11 +48,16 @@
   置顶 = store.open 原语义);空态没会话就新建一路直接以小窗开场。
   排在 new-chat 左边;窄屏裁剪序里排第二早(tree 之后)——手机上拖小窗
   本就勉强,先让位,`composerLayout.test.ts` 各断言随 8 项池同步更新。
-- **浮层最新召的在上**:命令/工具面板与文件预览小窗原先固定 z=60,
-  会话窗 70 递增 —— 开过小窗后面板永久被压底。现在三类浮层共用
-  sessionWindowsStore 的 topZ 池(新增 panelZ/previewZ +
-  raisePanel/raisePreview):面板打开、点面板本体(pointerdown capture)、
-  预览打开/点到,都 raise 到新顶;CSS 的 60 只剩未 raise 前的兜底。
+- **浮层层级模型(二次返工定稿)**:命令/工具面板、文件预览、会话窗
+  三类浮层共用 sessionWindowsStore 的 **z 序栈 stack**(末尾=最上,
+  key = "panel"/"preview"/会话 id),z 由栈序派生(`floatZ`,61 起有界
+  递增),谁最新被召出/点到(open/bringToFront/raisePanel/raisePreview,
+  含面板 div 的 pointerdown capture)谁在上。**输入坞不入栈**:
+  `.pi-composer-dock` 固定 `z-index: 500`,浮层数值永远够不到 ——
+  会话窗/面板怎么拖都盖不住输入框。首版用无界 topZ 计数器 + 面板固定
+  z=60,被会话窗永久压底,已废弃。前提:三类浮层与输入坞同处
+  `.pi-interactive-shell`(isolation)的 stacking context;
+  SessionWindowsHost 必须挂在 shell 里,别挪出去。
 
 ## 排查
 

@@ -24,6 +24,7 @@ import { openToolbarSlashPanel, resolveToolbarSlash } from "../../lib/toolbarSla
 import { stripFileAttachmentTags } from "../../lib/prepareAttachments";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import {
+  floatZ,
   setSessionWindowsPersistScope,
   useSessionWindowsStore,
 } from "../../stores/sessionWindowsStore";
@@ -83,8 +84,8 @@ export function ChatPanel({
   const closePreview = useComposerPanelStore((s) => s.closePreview);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const previewPanelRef = useRef<HTMLDivElement>(null);
-  // 浮层最新召的在上:预览小窗与会话窗/命令面板共用 z 池。
-  const previewZ = useSessionWindowsStore((s) => s.previewZ);
+  // 浮层最新召的在上:预览小窗与会话窗/命令面板共用 z 序栈。
+  const previewZ = useSessionWindowsStore((s) => floatZ(s.stack, "preview"));
   useEffect(() => {
     if (previewOpen) useSessionWindowsStore.getState().raisePreview();
   }, [previewOpen]);

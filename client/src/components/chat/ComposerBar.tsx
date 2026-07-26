@@ -30,7 +30,7 @@ import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
 import { flashStatus } from "../../stores/statusBarStore";
-import { useSessionWindowsStore } from "../../stores/sessionWindowsStore";
+import { floatZ, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
 import { useAuthStore } from "../../stores/authStore";
 import type { FileEntry } from "../../types";
 import {
@@ -614,9 +614,9 @@ export function ComposerBar({
     }
   }, [toolbarIndex, toolbarItems.length, setToolbarIndex]);
 
-  // 浮层最新召的在上:面板每次打开都从共用 z 池取新顶(否则固定 z=60
-  // 会被 70+ 的会话窗永久压底);点面板本体同理(见 div 的 pointerdown)。
-  const floatPanelZ = useSessionWindowsStore((s) => s.panelZ);
+  // 浮层最新召的在上:面板每次打开/被点到都升到共用 z 序栈的顶
+  // (否则固定 z=60 会被会话窗永久压底);点面板本体见 div 的 pointerdown。
+  const floatPanelZ = useSessionWindowsStore((s) => floatZ(s.stack, "panel"));
   useEffect(() => {
     if (panel !== null) useSessionWindowsStore.getState().raisePanel();
   }, [panel]);

@@ -14,7 +14,7 @@ import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { MessageFeed } from "./MessageFeed";
 import { useChatStore } from "../../stores/chatStore";
 import { ensureChatStore } from "../../stores/chatStores";
-import { useSessionWindowsStore } from "../../stores/sessionWindowsStore";
+import { floatZ, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useSessionWindowSocket } from "../../hooks/useSessionWindowSocket";
 
@@ -139,6 +139,7 @@ export function SessionWindow({ sessionId, z, cascade, hidden }: SessionWindowPr
 /** 全部会话小窗的宿主 —— 与聊天面板解耦。 */
 export function SessionWindowsHost() {
   const windows = useSessionWindowsStore((s) => s.windows);
+  const stack = useSessionWindowsStore((s) => s.stack);
   const zoomedSessionId = useSessionWindowsStore((s) => s.zoomedSessionId);
   return (
     <>
@@ -146,7 +147,7 @@ export function SessionWindowsHost() {
         <SessionWindow
           key={w.sessionId}
           sessionId={w.sessionId}
-          z={w.z}
+          z={floatZ(stack, w.sessionId)}
           cascade={index % 6}
           hidden={zoomedSessionId !== null}
         />
