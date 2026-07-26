@@ -67,6 +67,15 @@
   首发时被幕的不透明段盖掉 —— 手机端「底下几行字消失」即此)。
 - **new-chat 永不裁剪**:加入 TOOLBAR_PROTECTED(手机再窄也得能新建
   会话),窄屏兜底集为 commands + new-chat。
+- **单按钮定稿(仅 Web,桌面停更)**:独立 open-window 按钮撤销,
+  new-chat 一钮双义 —— 点击=新建(随模式),长按 500ms=进/出小窗模式
+  (exitWindowMode 清持久化,区别于切目录的 closeAll)。长按按住期间
+  body 挂 `.pi-no-select` 全局禁选 + 触发瞬间 removeAllRanges,
+  压掉 iOS 长按拉起的整页文字选择;按钮 touch-action: manipulation。
+- **小窗窗体交互定稿**:控制钮嵌进标题栏两端(chrome 新增 trailing 槽,
+  flex 对齐,替代绝对定位角标);**拖标题栏移动、拖左/右/下边与下两角
+  改大小**(chrome 新增 edgeResizable,拖左边右缘钉住);窗内用户气泡
+  补左边框/去投影/收紧留白(主区破边设计在小画幅里像没画完)。
 
 ## 排查
 

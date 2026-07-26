@@ -88,41 +88,46 @@ export function SessionWindow({ sessionId, z, cascade, hidden }: SessionWindowPr
       onPointerDownCapture={handleWindowPointerDown}
       onClick={(e) => e.stopPropagation()}
     >
+      {/* 控制钮嵌在标题栏两端(chrome 的 leading/trailing 槽,天然对齐):
+          左=✕ 直接关窗(会话在列表还能找回,小窗模式下点历史行重新弹窗),
+          右=扩大(接管整页)。拖标题栏移动、拖侧边/下缘改大小(edgeResizable)。 */}
       <ComposerPanelChrome
         title={title}
         panelRef={panelRef}
         storageKey={`pi-swin-rect:${sessionId}`}
         resizable={false}
+        edgeResizable
+        leading={
+          <button
+            type="button"
+            className="pi-swin-ctl pi-swin-ctl--close"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              closeWindow(sessionId);
+            }}
+            title="关闭小窗（会话保留在列表）"
+            aria-label="关闭会话小窗"
+          >
+            <X strokeWidth={2} aria-hidden="true" />
+          </button>
+        }
+        trailing={
+          <button
+            type="button"
+            className="pi-swin-ctl pi-swin-ctl--zoom"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              enterZoom();
+            }}
+            title="扩展至整个页面"
+            aria-label="本会话扩展至整个页面"
+          >
+            <Maximize2 strokeWidth={2} aria-hidden="true" />
+          </button>
+        }
       />
-      {/* 两个方正控制钮(同规格) —— 面板的绝对定位直接子元素,完全不进拖动
-          把手的事件圈;命中区手机端加大。左上=✕ 直接关窗(会话在列表还能找回,
-          小窗模式下点历史行重新弹窗),右上=扩大(接管整页)。下方两角留空。 */}
-      <button
-        type="button"
-        className="pi-swin-ctl pi-swin-ctl--close"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          closeWindow(sessionId);
-        }}
-        title="关闭小窗（会话保留在列表）"
-        aria-label="关闭会话小窗"
-      >
-        <X strokeWidth={2} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="pi-swin-ctl pi-swin-ctl--zoom"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          enterZoom();
-        }}
-        title="扩展至整个页面"
-        aria-label="本会话扩展至整个页面"
-      >
-        <Maximize2 strokeWidth={2} aria-hidden="true" />
-      </button>
       <div className="pi-swin-body">
         {attached || isActive ? (
           // 激活窗直接镜像单例 store —— 与主区(让位前)显示的内容逐字节一致;

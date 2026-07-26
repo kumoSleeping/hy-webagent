@@ -2475,15 +2475,24 @@ button.pi-panel-row.pi-panel-row--selected {
   height: var(--pi-composer-toolbar-btn-h); padding: 0;
   cursor: pointer;
   color: var(--pi-muted);
-  /* 新建按钮支持长按(进/出小窗模式)—— 禁掉移动端长按呼出/选中。 */
+  /* 新建按钮支持长按(进/出小窗模式)—— 禁掉移动端长按呼出/选中/缩放。 */
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  touch-action: manipulation;
   border: none;
   background: transparent;
   outline: none;
   transition: background 120ms, color 120ms;
 }
+/* 长按新建按钮按住期间挂在 body 上:iOS 长按会从按钮外溢出整页文字
+   选择(Browse for Me 气泡),按住时全局禁选、松手/触发后移除。 */
+.pi-no-select,
+.pi-no-select * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
 /* 长按新建按钮触发进/出小窗模式的瞬间:图标缩-弹一下作确认反馈。 */
 @keyframes pi-longpress-pop {
   0% { transform: scale(1); }
@@ -2813,31 +2822,35 @@ button.pi-panel-row.pi-panel-row--selected {
    面板的绝对定位直接子元素,不进拖动把手的事件圈;手机命中区加大。
    两枚同一规格同一尺度:1.5×1.4rem 盒、0.7rem 图形、muted → hover 墨色。 */
 .pi-swin-ctl {
-  position: absolute;
-  top: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
-  height: 1.4rem;
+  align-self: stretch;
+  flex: 0 0 auto;
+  width: 2rem;
+  margin: -0.3rem 0; /* 吃掉 handle 的纵向 padding,贴满标题栏全高 */
   padding: 0;
   border: none;
   background: transparent;
   color: var(--pi-muted);
   cursor: pointer;
-  z-index: 8;
 }
 .pi-swin-ctl:hover {
   color: var(--pi-text);
   background: var(--pi-panel-subtle);
 }
-.pi-swin-ctl svg { width: 0.7rem; height: 0.7rem; }
-.pi-swin-ctl--close { left: 0; }
-.pi-swin-ctl--zoom { right: 0; }
-/* 给两个控制钮让位 */
+.pi-swin-ctl svg { width: 0.75rem; height: 0.75rem; }
+/* 控制钮嵌在标题栏两端:左右 padding 归零让两枚钮贴边,
+   标题弹性撑开把扩大钮推到最右。 */
 .pi-float-panel--session .pi-composer-panel-handle {
-  padding-left: 1.7rem;
-  padding-right: 1.9rem;
+  padding-left: 0;
+  padding-right: 0;
+}
+.pi-float-panel--session .pi-composer-panel-handle-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* 接管态:页面四角留空 —— 控制入口是 bar 上高亮的编号方块。 */
 /* 工具栏上的编号方块(1234 = 第几扇窗;仅接管中的窗上 bar)。 */
@@ -2866,6 +2879,30 @@ button.pi-panel-row.pi-panel-row--selected {
   font-size: var(--pi-panel-font);
   color: var(--pi-muted);
 }
+/* 会话小窗:左/右/下三边 + 下两角 = 拖拽改大小命中带(骑在边框上,
+   顶栏留给移动)。装饰不可见,只有光标形状提示。 */
+.pi-float-panel-edge {
+  position: absolute;
+  z-index: 9;
+}
+.pi-float-panel-edge--l { left: -4px; top: 2.4rem; bottom: 14px; width: 8px; cursor: ew-resize; }
+.pi-float-panel-edge--r { right: -4px; top: 2.4rem; bottom: 14px; width: 8px; cursor: ew-resize; }
+.pi-float-panel-edge--b { bottom: -4px; left: 14px; right: 14px; height: 8px; cursor: ns-resize; }
+.pi-float-panel-edge--bl { left: -4px; bottom: -4px; width: 16px; height: 16px; cursor: nesw-resize; }
+.pi-float-panel-edge--br { right: -4px; bottom: -4px; width: 16px; height: 16px; cursor: nwse-resize; }
+
+/* 窗内消息:窄画幅紧凑化 —— 用户气泡补上左边框(主区的破边设计在
+   小画幅里像没画完)、去投影、留白收紧。 */
+.pi-float-panel--session .pi-message-dialog-user {
+  border-left: 1px solid var(--pi-line);
+  padding: 0.55rem 0.7rem 0.6rem;
+  box-shadow: none;
+  max-width: 88%;
+}
+.pi-float-panel--session .pi-message-bubble {
+  margin-bottom: 0.75rem;
+}
+
 /* 小窗滚动条不可见(滚动照常)。 */
 .pi-float-panel--session .pi-scrollbar {
   scrollbar-width: none;
@@ -2879,16 +2916,23 @@ button.pi-panel-row.pi-panel-row--selected {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
 }
-/* 手机:三种角控件同步放大(仍同规格)。 */
-.pi-app-shell--mobile .pi-float-panel-grip,
-.pi-app-shell--mobile .pi-swin-ctl {
+/* 手机:控件命中区放大(swin-ctl 高度随标题栏 stretch,只加宽)。 */
+.pi-app-shell--mobile .pi-float-panel-grip {
   width: 2.1rem;
   height: 1.9rem;
+}
+.pi-app-shell--mobile .pi-swin-ctl {
+  width: 2.4rem;
+  margin: -0.5rem 0; /* 手机 handle 纵向 padding 更大,同步吃满 */
 }
 .pi-app-shell--mobile .pi-swin-ctl svg {
   width: 0.95rem;
   height: 0.95rem;
 }
+/* 手机:侧边拖拽命中带加宽(拇指)。 */
+.pi-app-shell--mobile .pi-float-panel-edge--l,
+.pi-app-shell--mobile .pi-float-panel-edge--r { width: 14px; }
+.pi-app-shell--mobile .pi-float-panel-edge--b { height: 14px; }
 .pi-app-shell--mobile .pi-float-panel-grip::before {
   width: 0.95rem;
   height: 0.95rem;

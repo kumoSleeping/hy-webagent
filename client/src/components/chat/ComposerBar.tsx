@@ -459,6 +459,7 @@ export function ComposerBar({
   const [newChatPop, setNewChatPop] = useState(false);
 
   function clearNewChatLongPress() {
+    document.body.classList.remove("pi-no-select");
     if (longPressTimerRef.current !== null) {
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
@@ -468,9 +469,13 @@ export function ComposerBar({
   function handleNewChatPointerDown() {
     longPressFiredRef.current = false;
     clearNewChatLongPress();
+    // 按住期间全局禁选:iOS 长按会从按钮外溢出整页文字选择。
+    document.body.classList.add("pi-no-select");
     longPressTimerRef.current = window.setTimeout(() => {
       longPressTimerRef.current = null;
       longPressFiredRef.current = true;
+      // 500ms 里 iOS 可能已拉出选区,触发瞬间清掉。
+      document.getSelection()?.removeAllRanges();
       setNewChatPop(true);
       window.setTimeout(() => setNewChatPop(false), 320);
       const ws = useSessionWindowsStore.getState();
