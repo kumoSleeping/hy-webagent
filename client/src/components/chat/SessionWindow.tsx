@@ -61,7 +61,10 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
     });
   }, [chatStore, refresh]);
 
-  function handleWindowPointerDown() {
+  function handleWindowPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    // 三色灯不参与「点窗置顶/激活」:点背景窗的关闭键不该先激活它;
+    // 捕获阶段的状态更新也会打断灯按钮的 click 合成。
+    if ((e.target as HTMLElement).closest(".pi-swin-light")) return;
     bringToFront(sessionId);
     if (!isActive) setActiveSession(sessionId);
   }
@@ -95,7 +98,8 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
             <button
               type="button"
               className="pi-swin-light pi-swin-light--close"
-              onClick={(e) => {
+              onPointerDown={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 closeWindow(sessionId);
               }}
@@ -105,7 +109,8 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
             <button
               type="button"
               className="pi-swin-light pi-swin-light--min"
-              onClick={(e) => {
+              onPointerDown={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 minimizeWindow(sessionId);
               }}
@@ -115,7 +120,8 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
             <button
               type="button"
               className="pi-swin-light pi-swin-light--zoom"
-              onClick={(e) => {
+              onPointerDown={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 enterZoom();
               }}
