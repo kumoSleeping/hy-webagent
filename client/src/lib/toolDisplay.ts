@@ -1,17 +1,3 @@
-/**
- * Broad category a tool belongs to, used to label a *collapsed group* of
- * consecutive tool calls (e.g. "Web" for a burst of read_url/search calls,
- * "Tools" for local bash/file-editing work) instead of a bare tool count.
- */
-export type ToolCategory = "web" | "tools";
-
-const WEB_TOOLS = new Set(["read_url", "fetch_url", "web_fetch", "parallel_search_web", "search_web", "web_search", "x_search"]);
-
-export function getToolCategory(toolName: string): ToolCategory {
-  const normalized = toolName.toLowerCase().replace(/-/g, "_");
-  return WEB_TOOLS.has(normalized) ? "web" : "tools";
-}
-
 /** Stable user-facing labels for tools and native provider actions. */
 export function getToolDisplayLabel(
   toolName: string,

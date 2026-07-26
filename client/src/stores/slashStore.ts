@@ -10,11 +10,6 @@ export interface SlashCommand {
   source?: string;
 }
 
-export interface SlashToast {
-  message: string;
-  type?: "success" | "error" | "info";
-}
-
 export interface SlashState {
   isOpen: boolean;
   query: string;
@@ -22,7 +17,6 @@ export interface SlashState {
   activePanel: string | null;
   commands: SlashCommand[];
   dynamicCommands: SlashCommand[];
-  toast: SlashToast | null;
   lastResult: unknown | null;
 
   open: () => void;
@@ -35,8 +29,6 @@ export interface SlashState {
   selectIndex: (index: number) => void;
   setActivePanel: (panel: string | null) => void;
   setLastResult: (result: unknown) => void;
-  showToast: (toast: SlashToast) => void;
-  clearToast: () => void;
 }
 
 export const defaultCommands: SlashCommand[] = [
@@ -77,7 +69,6 @@ export const useSlashStore = create<SlashState>((set, get) => ({
   activePanel: null,
   commands: defaultCommands,
   dynamicCommands: [],
-  toast: null,
   lastResult: null,
 
   open: () => set({ isOpen: true, query: "", selectedIndex: 0 }),
@@ -106,8 +97,6 @@ export const useSlashStore = create<SlashState>((set, get) => ({
   setActivePanel: (panel) => set({ activePanel: panel, isOpen: false }),
   setLastResult: (result) => set({ lastResult: result }),
   setDynamicCommands: (commands) => set({ dynamicCommands: commands }),
-  showToast: (toast) => set({ toast }),
-  clearToast: () => set({ toast: null }),
 }));
 
 

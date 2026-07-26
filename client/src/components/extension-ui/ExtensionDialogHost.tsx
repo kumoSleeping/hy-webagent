@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
+import { PanelActions, PanelButton } from "../common/panel";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 
 export type ExtensionUiResponder = (response: {
@@ -70,14 +71,14 @@ export function ExtensionDialogHost({ onRespond }: ExtensionDialogHostProps) {
       <div className="pi-ext-dialog">
         <p className="pi-ext-dialog-title">{title}</p>
         {dialog.message && <p className="pi-ext-dialog-message">{dialog.message}</p>}
-        <div className="pi-ext-dialog-actions">
-          <button type="button" className="pi-ext-dialog-btn" onClick={cancel}>
+        <PanelActions>
+          <PanelButton variant="ghost" onClick={cancel}>
             <X size={12} /> No
-          </button>
-          <button type="button" className="pi-ext-dialog-btn pi-ext-dialog-btn--primary" onClick={() => submit()}>
+          </PanelButton>
+          <PanelButton variant="primary" onClick={() => submit()}>
             <Check size={12} /> Yes
-          </button>
-        </div>
+          </PanelButton>
+        </PanelActions>
       </div>
     );
   }
@@ -93,14 +94,10 @@ export function ExtensionDialogHost({ onRespond }: ExtensionDialogHostProps) {
           onChange={(e) => setValue(e.target.value)}
           rows={8}
         />
-        <div className="pi-ext-dialog-actions">
-          <button type="button" className="pi-ext-dialog-btn" onClick={cancel}>
-            Cancel
-          </button>
-          <button type="button" className="pi-ext-dialog-btn pi-ext-dialog-btn--primary" onClick={() => submit()}>
-            Save
-          </button>
-        </div>
+        <PanelActions>
+          <PanelButton variant="ghost" onClick={cancel}>Cancel</PanelButton>
+          <PanelButton variant="primary" onClick={() => submit()}>Save</PanelButton>
+        </PanelActions>
       </div>
     );
   }
@@ -119,14 +116,10 @@ export function ExtensionDialogHost({ onRespond }: ExtensionDialogHostProps) {
           if (e.key === "Escape") cancel();
         }}
       />
-      <div className="pi-ext-dialog-actions">
-        <button type="button" className="pi-ext-dialog-btn" onClick={cancel}>
-          Cancel
-        </button>
-        <button type="button" className="pi-ext-dialog-btn pi-ext-dialog-btn--primary" onClick={() => submit()}>
-          OK
-        </button>
-      </div>
+      <PanelActions>
+        <PanelButton variant="ghost" onClick={cancel}>Cancel</PanelButton>
+        <PanelButton variant="primary" onClick={() => submit()}>OK</PanelButton>
+      </PanelActions>
     </div>
   );
 }

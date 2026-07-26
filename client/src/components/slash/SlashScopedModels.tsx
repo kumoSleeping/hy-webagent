@@ -33,7 +33,7 @@ export function SlashScopedModels({
   }
 
   return (
-    <div className="pi-glass relative p-5 pt-10">
+    <div className="pi-panel-card relative p-5 pt-10">
       <div className="pi-corner-badge">
         <Cpu size={14} />
         Scoped
@@ -91,7 +91,7 @@ export function SlashScopedModels({
         <button
           type="button"
           onClick={handleSave}
-          className="flex h-9 items-center gap-2 bg-[var(--pi-text)] px-4 text-xs uppercase tracking-wider text-white transition-all hover:bg-[#1c1c1e] cursor-pointer"
+          className="flex h-9 items-center gap-2 bg-[var(--pi-text)] px-4 text-xs uppercase tracking-wider text-[var(--pi-panel)] transition-all hover:bg-[var(--pi-text-strong)] cursor-pointer"
         >
           <Check size={14} />
           Save

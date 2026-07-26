@@ -28,7 +28,7 @@ import { useImeComposition } from "../../hooks/useImeComposition";
 import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
-import { useNotificationStore } from "../../stores/notificationStore";
+import { flashStatus } from "../../stores/statusBarStore";
 import { useAuthStore } from "../../stores/authStore";
 import type { FileEntry } from "../../types";
 import {
@@ -889,7 +889,7 @@ export function ComposerBar({
           item.id === entry.id ? { ...item, status: "error", progress: 0, error: message } : item
         )
       );
-      useNotificationStore.getState().notify(message, "info");
+      flashStatus(message, "error");
     }
   }
 
@@ -899,7 +899,7 @@ export function ComposerBar({
       .filter(isSupportedAttachmentFile);
     if (!supported.length) {
       if (files.length > 0) {
-        useNotificationStore.getState().notify("Only images and text files can be attached", "info");
+        flashStatus("Only images and text files can be attached", "error");
       }
       return;
     }
@@ -1439,7 +1439,7 @@ export function ComposerBar({
           enterKeyHint="send"
           spellCheck={false}
           {...imeProps}
-          className="pi-composer-input min-w-0 flex-1 resize-none border-none bg-transparent px-1.5 py-1.5 text-[var(--pi-text)] outline-none placeholder:text-[#a8b0bc] disabled:cursor-not-allowed"
+          className="pi-composer-input min-w-0 flex-1 resize-none border-none bg-transparent px-1.5 py-1.5 text-[var(--pi-text)] outline-none placeholder:text-[var(--pi-text-placeholder)] disabled:cursor-not-allowed"
         />
         <button
           ref={sendButtonRef}

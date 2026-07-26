@@ -18,13 +18,12 @@ import { SlashModelSelector } from "../slash/SlashModelSelector";
 import { SlashSettingsPanel } from "../slash/SlashSettingsPanel";
 import { SlashSessionTree } from "../slash/SlashSessionTree";
 import { SlashExportDialog } from "../slash/SlashExportDialog";
-import { SlashToast } from "../slash/SlashToast";
 import { isSilentCommand } from "../../lib/silentCommands";
 import { openToolbarSlashPanel, resolveToolbarSlash } from "../../lib/toolbarSlashCommands";
 import { stripFileAttachmentTags } from "../../lib/prepareAttachments";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
-import { useNotificationStore } from "../../stores/notificationStore";
+import { flashStatus } from "../../stores/statusBarStore";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
 import { useGroupPreview } from "../bot/GroupPreviewContext";
 
@@ -74,8 +73,10 @@ export function ChatPanel({
   const isMobileLayout = useMobileLayout();
   const centerStageOpen = useCenterStageOpen(isMobileLayout);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
+  const activeDialog = useExtensionUiStore((s) => s.activeDialog);
   /** File preview uses the stack above composer. */
   const elevatedOpen = previewOpen || isElevatedPanel(composerPanel, isMobileLayout);
+  const treeOpen = composerPanel === "tree" && !previewOpen && !activeDialog;
   const dockCardOpen = centerStageOpen && !elevatedOpen;
   const closeAll = useComposerPanelStore((s) => s.closeAll);
   const closeComposerPanel = useComposerPanelStore((s) => s.closePanel);
@@ -88,13 +89,10 @@ export function ChatPanel({
   const isGuestView = useAuthStore((s) => s.userId) === "__guest__";
   const isPreviewMode = useAuthStore((s) => s.isPreviewMode);
   const groupPreview = useGroupPreview();
-  const notify = useNotificationStore((s) => s.notify);
   const fetchSessions = useSessionStore((s) => s.fetchSessions);
   const activePanel = useSlashStore((s) => s.activePanel);
   const setActivePanel = useSlashStore((s) => s.setActivePanel);
   const setCommands = useSlashStore((s) => s.setCommands);
-  const toast = useSlashStore((s) => s.toast);
-  const clearToast = useSlashStore((s) => s.clearToast);
   const lastResult = useSlashStore((s) => s.lastResult);
   const {
     sendPrompt,
@@ -171,7 +169,7 @@ export function ChatPanel({
   }, [activePanel]);
 
   function notifySendFailure() {
-    notify("连接未就绪，消息未发送。请稍候再试。", "info");
+    flashStatus("连接未就绪，消息未发送。请稍候再试。", "error");
   }
 
   function handleSend(text: string, images?: { mediaType: string; data: string }[], displayText?: string) {
@@ -503,7 +501,7 @@ export function ChatPanel({
       )}
       <div className="pi-interactive-shell">
         <div
-          className={`pi-composer-dock${dockCardOpen ? " pi-composer-dock--open" : ""}${elevatedOpen ? " pi-composer-dock--preview" : ""}`}
+          className={`pi-composer-dock${dockCardOpen ? " pi-composer-dock--open" : ""}${elevatedOpen ? " pi-composer-dock--preview" : ""}${treeOpen ? " pi-composer-dock--tree" : ""}`}
         >
           <div className="pi-preview-stack">
             <CenterStage
@@ -557,12 +555,6 @@ export function ChatPanel({
           )}
         </div>
         <StatusBar />
-
-        {toast && (
-          <div className="absolute left-0 right-0 bottom-full mb-2 z-50">
-            <SlashToast message={toast.message} type={toast.type} onClose={clearToast} />
-          </div>
-        )}
       </div>
     </div>
   );

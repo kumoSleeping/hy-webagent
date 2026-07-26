@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Clipboard, ImageDown, LoaderCircle } from "lucide-react";
 import type { ChatMessage } from "../../types";
-import { GlassPanel } from "../common/GlassPanel";
+import { PanelSurface } from "../common/PanelSurface";
 import { ProcessTrace } from "./ProcessTrace";
 import { MarkdownContent } from "./MarkdownContent";
 import { splitTextWithMarkers } from "../../lib/compressedText";
@@ -10,7 +10,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { copyTextToClipboard } from "../../lib/copyToClipboard";
 import { downloadDataUri, messageExportText, messageImageFilename, renderMessageImage } from "../../lib/messageExport";
 import { buildAssistantTurnView } from "../../lib/messageGrouping";
-import { useNotificationStore } from "../../stores/notificationStore";
+import { flashStatus } from "../../stores/statusBarStore";
 
 interface MessageBubbleProps {
   /** One user message, or consecutive assistant messages coalesced into one turn. */
@@ -79,7 +79,6 @@ export const MessageBubble = memo(function MessageBubble({ messages, agentRunnin
 });
 
 function UserBubble({ message }: { message: ChatMessage }) {
-  const notify = useNotificationStore(s => s.notify);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [rendering, setRendering] = useState(false);
   const exportText = useMemo(() => messageExportText(message), [message]);
@@ -93,18 +92,18 @@ function UserBubble({ message }: { message: ChatMessage }) {
       className="pi-message-bubble flex justify-end mb-4"
       onContextMenu={(event) => openMenu(event, exportText, message.id, setMenu)}
     >
-      <GlassPanel variant="message-user" className="min-w-0">
+      <PanelSurface variant="message-user" className="min-w-0">
         {message.images && message.images.length > 0 && <MessageImages images={message.images} />}
         {message.skillInvocation && <SkillInvocationChip name={message.skillInvocation.name} />}
         {message.content ? <TextBlock text={message.content} isUser /> : null}
-      </GlassPanel>
+      </PanelSurface>
       {rendering && <span className="pi-message-exporting" title="正在生成图片"><LoaderCircle size={15} /></span>}
       {menu && (
         <MessageMenu
           x={menu.x}
           y={menu.y}
-          onCopy={() => void copyExport(exportText, notify, setMenu)}
-          onSave={() => void saveExport(exportText, message, notify, setMenu, setRendering)}
+          onCopy={() => void copyExport(exportText, setMenu)}
+          onSave={() => void saveExport(exportText, message, setMenu, setRendering)}
         />
       )}
     </div>
@@ -113,7 +112,6 @@ function UserBubble({ message }: { message: ChatMessage }) {
 
 function AssistantTurnBubble({ messages, agentRunning }: { messages: ChatMessage[]; agentRunning: boolean }) {
   const isPreviewMode = useAuthStore(s => s.isPreviewMode);
-  const notify = useNotificationStore(s => s.notify);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [rendering, setRendering] = useState(false);
 
@@ -143,7 +141,7 @@ function AssistantTurnBubble({ messages, agentRunning }: { messages: ChatMessage
       className={`pi-message-bubble flex justify-start mb-4${agentRunning ? " pi-message-bubble--live" : ""}`}
       onContextMenu={(event) => openMenu(event, exportText, turn.exportMessage.id, setMenu)}
     >
-      <GlassPanel variant="message-assistant" className="min-w-0">
+      <PanelSurface variant="message-assistant" className="min-w-0">
         {turn.images.length > 0 && <MessageImages images={turn.images} />}
         {(turn.items.length > 0 || turn.processActive) && (
           <ProcessTrace
@@ -162,14 +160,14 @@ function AssistantTurnBubble({ messages, agentRunning }: { messages: ChatMessage
             {error}
           </div>
         ))}
-      </GlassPanel>
+      </PanelSurface>
       {rendering && <span className="pi-message-exporting" title="正在生成图片"><LoaderCircle size={15} /></span>}
       {menu && (
         <MessageMenu
           x={menu.x}
           y={menu.y}
-          onCopy={() => void copyExport(exportText, notify, setMenu)}
-          onSave={() => void saveExport(exportText, turn.exportMessage, notify, setMenu, setRendering)}
+          onCopy={() => void copyExport(exportText, setMenu)}
+          onSave={() => void saveExport(exportText, turn.exportMessage, setMenu, setRendering)}
         />
       )}
     </div>
@@ -208,8 +206,9 @@ function openMenu(
 ) {
   if (!exportText) return;
   event.preventDefault();
+  // Keep in sync with .pi-message-context-menu: 2 rows × 2.25rem + 2px border.
   const width = 176;
-  const height = 92;
+  const height = 76;
   setMenu({
     x: Math.min(event.clientX, window.innerWidth - width - 8),
     y: Math.min(event.clientY, window.innerHeight - height - 8),
@@ -219,18 +218,16 @@ function openMenu(
 
 async function copyExport(
   exportText: string,
-  notify: (msg: string, kind: "success" | "info") => void,
   setMenu: (v: { x: number; y: number } | null) => void,
 ) {
   setMenu(null);
   const copied = await copyTextToClipboard(exportText);
-  notify(copied ? "消息已复制" : "复制失败，请检查浏览器权限", copied ? "success" : "info");
+  flashStatus(copied ? "消息已复制" : "复制失败，请检查浏览器权限", copied ? "info" : "error");
 }
 
 async function saveExport(
   exportText: string,
   message: ChatMessage,
-  notify: (msg: string, kind: "success" | "info") => void,
   setMenu: (v: { x: number; y: number } | null) => void,
   setRendering: (v: boolean) => void,
 ) {
@@ -239,9 +236,9 @@ async function saveExport(
   try {
     const image = await renderMessageImage(exportText);
     downloadDataUri(image.dataUri, messageImageFilename(message, image.mimeType));
-    notify("图片已生成，下载已开始", "success");
+    flashStatus("图片已生成，下载已开始");
   } catch (error) {
-    notify(`图片生成失败：${error instanceof Error ? error.message : "未知错误"}`, "info");
+    flashStatus(`图片生成失败：${error instanceof Error ? error.message : "未知错误"}`, "error");
   } finally {
     setRendering(false);
   }

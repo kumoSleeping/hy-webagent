@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, LogOut, MessagesSquare, Plus, UserRound } from "lucide-react";
+import { Activity, ArrowLeft, LogOut, MessagesSquare, Plus, UserRound, Wallet } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { fetchAccountProfile } from "../../hooks/useAccountProfileSync";
 import { apiGet, apiPost } from "../../lib/api";
@@ -97,7 +97,7 @@ function GroupBrowser({ onBack }: { onBack: () => void }) {
           </button>
         </form>
       )}
-      {error ? <div className="pi-panel-empty">{error}</div> : null}
+      {error ? <div className="pi-panel-empty text-[var(--pi-danger)]">{error}</div> : null}
       {!loading && groups.length > 0 ? (
         <p className="pi-group-browser-config-hint">列表保存在 Workspace 的 saved-groups.json，可由你或 AI 直接编辑。</p>
       ) : null}
@@ -153,20 +153,20 @@ export function AccountPanel() {
         leading={<UserRound size={14} strokeWidth={2} />}
         leadingKind="icon"
         title={`@${handle}`}
-        detail={role === "admin" ? "admin" : "account"}
+        detail={role === "admin" ? "管理员" : "账户"}
       />
       <PanelListRow
-        leading="01"
-        leadingKind="index"
+        leading={<Wallet size={14} strokeWidth={2} />}
+        leadingKind="icon"
         title={formatBudgetLine(budgetView)}
-        detail={warn || exhausted ? "Budget · warn" : "Budget"}
+        detail={warn || exhausted ? "预算 · 接近上限" : "预算"}
       />
       {todayUsd !== null && (
         <PanelListRow
-          leading="02"
-          leadingKind="index"
+          leading={<Activity size={14} strokeWidth={2} />}
+          leadingKind="icon"
           title={formatUsd(todayUsd)}
-          detail="Today"
+          detail="今日消耗"
         />
       )}
       <PanelListRow

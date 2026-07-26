@@ -425,12 +425,12 @@ export function SlashSessionTree({
             type="button"
             onClick={() => handleNodeAction(node.id)}
             title={cleanPreview(node.preview)}
-            className={`min-w-0 flex-1 truncate text-left text-[length:var(--pi-panel-font)] cursor-pointer ${
+            className={`pi-tree-label min-w-0 flex-1 truncate text-left text-[length:var(--pi-panel-font)] cursor-pointer ${
               isStructural ? "italic" : ""
             }${isCursor ? "" : isStructural ? " text-[var(--pi-muted)]" : " text-[var(--pi-text)]"}`}
           >
             {node.label && (
-              <span className="mr-1.5 not-italic rounded bg-[var(--pi-accent-soft)] px-1.5 py-0.5 font-mono text-[length:var(--pi-panel-font-meta)] uppercase tracking-wide text-[var(--pi-theme)]">
+              <span className="mr-1.5 not-italic bg-[var(--pi-accent-soft)] px-1.5 py-0.5 font-mono text-[length:var(--pi-panel-font-meta)] uppercase tracking-wide text-[var(--pi-theme)]">
                 {node.label}
               </span>
             )}
@@ -531,7 +531,11 @@ export function SlashSessionTree({
       )}
 
       <div className="flex-1 min-h-0 overflow-auto pi-scrollbar px-1 py-0.5">
-        {tree.length === 0 ? null : needle && !tree.some((node) => nodeMatches(node, needle)) ? null : (
+        {tree.length === 0 ? (
+          <div className="pi-panel-empty">No history yet</div>
+        ) : needle && !tree.some((node) => nodeMatches(node, needle)) ? (
+          <div className="pi-panel-empty">No matching entries</div>
+        ) : (
           tree.map((node) => renderNode(node))
         )}
       </div>

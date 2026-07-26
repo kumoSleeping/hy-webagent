@@ -3,9 +3,8 @@ import { useChatStore } from "../stores/chatStore";
 import { useAuthStore } from "../stores/authStore";
 import { useSessionStore } from "../stores/sessionStore";
 import { useSlashStore } from "../stores/slashStore";
-import { useNotificationStore } from "../stores/notificationStore";
 import { useComposerFocusStore } from "../stores/composerFocusStore";
-import { useStatusBarStore } from "../stores/statusBarStore";
+import { useStatusBarStore, flashStatus } from "../stores/statusBarStore";
 import { useExtensionUiStore } from "../stores/extensionUiStore";
 import { hasVisibleWidgets } from "../components/extension-ui/ExtensionWidgetBody";
 import { applyStatusPayload } from "./useStatusBarSync";
@@ -159,7 +158,7 @@ function dispatchWsMessage(
     }
     case "chat:notice":
       if (msg.payload?.message) {
-        useNotificationStore.getState().notify(msg.payload.message, "info");
+        flashStatus(msg.payload.message);
       }
       break;
     case "chat:error": {
@@ -172,7 +171,9 @@ function dispatchWsMessage(
         : store().currentAssistantId;
       if (errorMessageId) store().setAssistantError(errorMessageId, errorText);
       store().setStreaming(false);
-      useNotificationStore.getState().notify(errorText, "info");
+      // The error already renders inline in the transcript; the flash only
+      // catches eyes that are looking at the composer.
+      flashStatus(errorText, "error");
       break;
     }
     case "chat:queue_update": {
@@ -239,7 +240,7 @@ function dispatchWsMessage(
           });
           break;
         case "notify":
-          if (req.message) useNotificationStore.getState().notify(req.message, "info");
+          if (req.message) flashStatus(req.message);
           break;
         case "setTitle":
           if (req.title) document.title = req.title;
@@ -258,7 +259,7 @@ function dispatchWsMessage(
       slashStore.close();
       slashStore.setLastResult(msg.payload);
       if (msg.payload?.message) {
-        useNotificationStore.getState().notify(msg.payload.message, "success");
+        flashStatus(msg.payload.message);
       }
       if (msg.payload?.command === "session.copy" && msg.payload?.data?.text) {
         void copyTextToClipboard(String(msg.payload.data.text));
@@ -297,7 +298,7 @@ function dispatchWsMessage(
     case "slash:error": {
       const errMsg = msg.payload?.message || "Slash command failed";
       console.error("Slash error:", errMsg);
-      useNotificationStore.getState().notify(errMsg, "info");
+      flashStatus(errMsg, "error");
       break;
     }
   }

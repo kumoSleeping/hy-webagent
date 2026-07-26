@@ -17,7 +17,7 @@ export function SlashCommandMenu({
   onExecute,
 }: SlashCommandMenuProps) {
   return (
-    <div className="pi-glass absolute left-0 right-0 bottom-full mb-2 max-h-64 overflow-hidden z-50">
+    <div className="pi-panel-card absolute left-0 right-0 bottom-full mb-2 max-h-64 overflow-hidden z-50">
       <PanelBody
         variant="list"
         empty={commands.length === 0 ? "No matching commands" : undefined}

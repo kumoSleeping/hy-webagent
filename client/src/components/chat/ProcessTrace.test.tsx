@@ -130,7 +130,7 @@ describe("ProcessTrace", () => {
     expect(screen.getByText("output-read")).toBeVisible();
   });
 
-  it("renders web actions as non-expandable rows with their completed input", () => {
+  it("lets web actions expand to their input/output like any other tool", () => {
     render(
       <ProcessTrace
         items={[{
@@ -139,6 +139,7 @@ describe("ProcessTrace", () => {
             toolCallId: "web-1",
             toolName: "web_search",
             input: { type: "search", query: "AI news", sources: [{ url: "a" }] },
+            output: "3 results",
             status: "done",
           },
         }]}
@@ -150,7 +151,11 @@ describe("ProcessTrace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Working process" }));
     expect(screen.getByText("Web Search")).toBeVisible();
     expect(screen.getByText('"AI news" · 1 sources')).toBeVisible();
-    expect(screen.queryByRole("button", { name: /Web Search/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Output")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Web Search/ }));
+    expect(screen.getByText("Input")).toBeVisible();
+    expect(screen.getByText("3 results")).toBeVisible();
   });
 
   it("labels X/Twitter searches separately from web searches", () => {

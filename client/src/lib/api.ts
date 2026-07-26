@@ -80,8 +80,8 @@ export async function downloadAuthenticatedFile(apiPath: string): Promise<void> 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const message = err.error || `HTTP ${res.status}`;
-    const { useNotificationStore } = await import("../stores/notificationStore.js");
-    useNotificationStore.getState().notify(`下载失败：${message}`, "info");
+    const { flashStatus } = await import("../stores/statusBarStore.js");
+    flashStatus(`下载失败：${message}`, "error");
     throw new Error(message);
   }
 

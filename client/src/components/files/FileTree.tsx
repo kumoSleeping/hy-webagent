@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { Folder, FolderOpen, File, ChevronRight, ChevronDown, Loader2 } from "lucide-react";
+import { Folder, FolderOpen, File, ChevronRight, Loader2 } from "lucide-react";
 import { apiGet } from "../../lib/api";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import { PanelFilterBar } from "../common/PanelFilterBar";
@@ -190,7 +190,7 @@ export function FileTree({ onFileClick }: FileTreeProps) {
           role="button"
           tabIndex={-1}
           onClick={() => { void activateNode(node); }}
-          className={`pi-panel-row flex items-center gap-1 px-2 py-0.5 text-base cursor-pointer transition-colors${
+          className={`pi-panel-row flex items-center gap-1 px-2 py-0.5 text-[length:var(--pi-panel-font)] cursor-pointer transition-colors${
             isCursor ? " pi-panel-row--selected" : ""
           }`}
           style={{ paddingLeft: `${depth * 14 + 4}px` }}
@@ -199,7 +199,10 @@ export function FileTree({ onFileClick }: FileTreeProps) {
             {isDir ? (
               node.loading ? <Loader2 size={14} className="animate-spin text-[var(--pi-muted)]" /> :
               <span onClick={(e) => { e.stopPropagation(); void toggleExpand(node); }}>
-                {showChildren ? <ChevronDown size={14} className="text-[var(--pi-muted)]" /> : <ChevronRight size={14} className="text-[var(--pi-muted)]" />}
+                <ChevronRight
+                  size={14}
+                  className={`text-[var(--pi-muted)] transition-transform${showChildren ? " rotate-90" : ""}`}
+                />
               </span>
             ) : null}
           </span>
@@ -211,7 +214,7 @@ export function FileTree({ onFileClick }: FileTreeProps) {
             <File size={14} className="text-[var(--pi-muted)] shrink-0" />
           )}
 
-          <span className="truncate min-w-0">{node.name}</span>
+          <span className="pi-tree-label truncate min-w-0">{node.name}</span>
           {!isDir && openingPath === node.path ? (
             <Loader2
               size={12}
@@ -234,7 +237,7 @@ export function FileTree({ onFileClick }: FileTreeProps) {
       <PanelFilterBar value={query} onChange={setQuery} />
       <div className="flex-1 min-h-0 overflow-y-auto pi-scrollbar py-0.5">
         {noMatches ? (
-          <div className="px-2 py-1 text-base text-[var(--pi-muted)]">No matching files</div>
+          <div className="pi-panel-empty">No matching files</div>
         ) : (
           renderNode(root, 0)
         )}

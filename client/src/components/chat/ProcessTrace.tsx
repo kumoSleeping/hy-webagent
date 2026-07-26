@@ -1,10 +1,9 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, XCircle } from "lucide-react";
+import { ChevronRight, Loader2, XCircle } from "lucide-react";
 import type { ActivityItem } from "../../lib/assistantTurnState";
 import { formatProcessDuration } from "../../lib/messageGrouping";
 import type { ToolCallRecord } from "../../types";
-import { extractToolTarget, getToolCategory, getToolDisplayLabel, resolveToolOutput } from "../../lib/toolDisplay";
-import { CodeBlock } from "./CodeBlock";
+import { extractToolTarget, getToolDisplayLabel, resolveToolOutput } from "../../lib/toolDisplay";
 
 interface ProcessTraceProps {
   /** Closed or live run of thinking + tool calls, in arrival order. */
@@ -21,10 +20,14 @@ interface ProcessTraceProps {
 
 const DISCLOSURE_ICON_SIZE = 14;
 
+/** App-wide disclosure idiom: single chevron on the LEFT, rotates 90° open. */
 function DisclosureIcon({ expanded }: { expanded: boolean }) {
-  return expanded
-    ? <ChevronDown size={DISCLOSURE_ICON_SIZE} className="pi-disclosure-icon" />
-    : <ChevronRight size={DISCLOSURE_ICON_SIZE} className="pi-disclosure-icon" />;
+  return (
+    <ChevronRight
+      size={DISCLOSURE_ICON_SIZE}
+      className={`pi-disclosure-icon${expanded ? " pi-disclosure-icon--open" : ""}`}
+    />
+  );
 }
 
 /**
@@ -171,28 +174,19 @@ const ProcessTextStep = memo(function ProcessTextStep({
   );
 });
 
+/**
+ * Every tool call — web actions included — gets the same expandable row:
+ * label + target summary on the toggle, Input/Output as light mono blocks
+ * in the drawer. One disclosure idiom, one inspection surface.
+ */
 const ToolStep = memo(function ToolStep({ toolCall }: { toolCall: ToolCallRecord }) {
   const [expanded, setExpanded] = useState(false);
   const { toolName, status, input, output, details, isError } = toolCall;
-  const isWeb = getToolCategory(toolName) === "web";
   const target = extractToolTarget(toolName, input);
   const label = getToolDisplayLabel(toolName, input);
   const resultText = resolveToolOutput(output, details);
   const errored = isError || status === "error";
-
-  if (isWeb) {
-    const preview = target === "web search" || target === "…" ? "" : target;
-    return (
-      <div className="pi-process-step">
-        <div className="pi-process-step-toggle">
-          <span className="pi-process-step-label">{label}</span>
-          {preview && <span className="pi-process-step-summary">{preview}</span>}
-          {status === "running" && <Loader2 size={12} className="animate-spin shrink-0" />}
-          {errored && <XCircle size={12} className="text-[var(--pi-theme)] shrink-0" />}
-        </div>
-      </div>
-    );
-  }
+  const hasInput = input && Object.keys(input).length > 0;
 
   return (
     <div className="pi-process-step">
@@ -204,16 +198,18 @@ const ToolStep = memo(function ToolStep({ toolCall }: { toolCall: ToolCallRecord
       >
         <DisclosureIcon expanded={expanded} />
         <span className="pi-process-step-label">{label}</span>
-        <span className="pi-process-step-summary">{target}</span>
+        {target !== "…" && <span className="pi-process-step-summary">{target}</span>}
         {status === "running" && <Loader2 size={12} className="animate-spin shrink-0" />}
-        {errored && <XCircle size={12} className="text-[var(--pi-theme)] shrink-0" />}
+        {errored && <XCircle size={12} className="text-[var(--pi-danger)] shrink-0" />}
       </button>
       {expanded && (
         <div className="pi-process-step-body pi-process-step-body--tool">
-          {input && Object.keys(input).length > 0 && (
+          {hasInput && (
             <div>
               <p className="pi-process-step-meta">Input</p>
-              <CodeBlock language="json" code={JSON.stringify(input, null, 2)} />
+              <div className="pi-process-step-output">
+                {JSON.stringify(input, null, 2)}
+              </div>
             </div>
           )}
           {resultText ? (

@@ -22,7 +22,7 @@ export function FilePreviewWindow({
   tabs, activeTabId, onTabClick, onTabClose, onContentChange, onViewModeChange, onClose,
 }: FilePreviewWindowProps) {
   return (
-    <div className="pi-glass pi-file-preview relative animate-[pi-pop-in_220ms_ease-out]">
+    <div className="pi-panel-card pi-file-preview relative animate-[pi-pop-in_220ms_ease-out]">
       <button
         type="button"
         onClick={onClose}

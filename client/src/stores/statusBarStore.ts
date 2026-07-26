@@ -12,6 +12,11 @@ export interface WidgetSnapshot {
   belowEditor: Record<string, string[]>;
 }
 
+export interface StatusFlash {
+  text: string;
+  kind: "info" | "error";
+}
+
 interface StatusBarState {
   footer: FooterSnapshot | null;
   widgets: WidgetSnapshot;
@@ -19,11 +24,17 @@ interface StatusBarState {
   pluginStatuses: Record<string, string>;
   /** Rotating Working… line from ExtensionUIContext.setWorkingMessage. */
   workingMessage: string | null;
+  /** Transient status-line message — the app's only notification surface
+   *  (popup toasts were removed by design: flat status rail instead). */
+  flash: StatusFlash | null;
   setFooter: (footer: FooterSnapshot) => void;
   setWidgets: (widgets: WidgetSnapshot) => void;
   setPluginStatus: (key: string, text: string | null | undefined) => void;
   applyPluginSnapshot: (items: Record<string, string>) => void;
   setWorkingMessage: (message: string | null | undefined) => void;
+  /** Show a transient message in the status rail; auto-clears. */
+  setFlash: (text: string, kind?: StatusFlash["kind"], durationMs?: number) => void;
+  clearFlash: () => void;
   clear: () => void;
 }
 
@@ -39,11 +50,14 @@ export function normalizeWidgetSnapshot(
   };
 }
 
+let flashTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useStatusBarStore = create<StatusBarState>((set) => ({
   footer: null,
   widgets: emptyWidgets,
   pluginStatuses: {},
   workingMessage: null,
+  flash: null,
 
   setFooter: (footer) => set({ footer }),
 
@@ -71,8 +85,32 @@ export const useStatusBarStore = create<StatusBarState>((set) => ({
       return { workingMessage: next };
     }),
 
+  setFlash: (text, kind = "info", durationMs = 5000) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (flashTimer) clearTimeout(flashTimer);
+    set({ flash: { text: trimmed, kind } });
+    flashTimer = setTimeout(() => {
+      flashTimer = null;
+      set({ flash: null });
+    }, durationMs);
+  },
+
+  clearFlash: () => {
+    if (flashTimer) {
+      clearTimeout(flashTimer);
+      flashTimer = null;
+    }
+    set({ flash: null });
+  },
+
   clear: () => set({ footer: null, widgets: emptyWidgets, pluginStatuses: {}, workingMessage: null }),
 }));
+
+/** Convenience for non-React call sites (WS handlers, API helpers). */
+export function flashStatus(text: string, kind: StatusFlash["kind"] = "info", durationMs?: number) {
+  useStatusBarStore.getState().setFlash(text, kind, durationMs);
+}
 
 /** Split a below-editor widget line that uses NBSP padding (timer + signature). */
 export function splitWidgetLine(line: string): { left: string; right: string } {

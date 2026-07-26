@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { MarkdownContent } from "./MarkdownContent";
-import { GlassPanel } from "../common/GlassPanel";
+import { PanelSurface } from "../common/PanelSurface";
 
 declare global {
   interface Window {
@@ -25,9 +25,9 @@ export function MessageRenderPage() {
 
   return (
     <main className="pi-message-render-page">
-      <GlassPanel variant="message-assistant" className="pi-message-render-card" data-render-id={render.renderId}>
+      <PanelSurface variant="message-assistant" className="pi-message-render-card" data-render-id={render.renderId}>
         <MarkdownContent>{render.markdown}</MarkdownContent>
-      </GlassPanel>
+      </PanelSurface>
     </main>
   );
 }

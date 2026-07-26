@@ -44,6 +44,7 @@ export function ExtensionWidgetPanel() {
 /** Native pi footer + below-editor widgets — fixed row slots prevent composer jump. */
 export function StatusBar() {
   const footer = useStatusBarStore((s) => s.footer);
+  const flash = useStatusBarStore((s) => s.flash);
   const belowEditor = useStatusBarStore(useShallow((s) => s.widgets.belowEditor ?? {}));
 
   const widgetRow = useMemo(() => {
@@ -54,14 +55,26 @@ export function StatusBar() {
     return null;
   }, [belowEditor]);
 
+  // The transient flash (former popup notifications) borrows the topmost
+  // slot; the widget line yields for a few seconds instead of stacking a
+  // floating layer on top of the chat.
+  const topRow = flash
+    ? { left: flash.text, right: "" }
+    : widgetRow;
+
   return (
     <div className="pi-status-bar-stack" aria-live="polite">
-      <div className={`pi-status-bar pi-status-bar--widget${widgetRow ? "" : " pi-status-bar--slot-empty"}`}>
-        {widgetRow ? (
+      <div
+        className={`pi-status-bar pi-status-bar--widget${
+          flash ? ` pi-status-bar--flash${flash.kind === "error" ? " pi-status-bar--flash-error" : ""}` : ""
+        }${topRow ? "" : " pi-status-bar--slot-empty"}`}
+        role={flash ? "status" : undefined}
+      >
+        {topRow ? (
           <>
-            <span className="pi-status-bar-item">{widgetRow.left}</span>
-            {widgetRow.right && (
-              <span className="pi-status-bar-item pi-status-bar-item--right">{widgetRow.right}</span>
+            <span className="pi-status-bar-item">{topRow.left}</span>
+            {topRow.right && (
+              <span className="pi-status-bar-item pi-status-bar-item--right">{topRow.right}</span>
             )}
           </>
         ) : (

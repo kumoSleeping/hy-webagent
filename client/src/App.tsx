@@ -6,7 +6,6 @@ import { parseSessionIdFromPath, parseGroupPath, isNewChatPath } from "./lib/cha
 import { LoginView } from "./components/login/LoginView";
 import { LogoutView } from "./components/logout/LogoutView";
 import { WorkspaceLayout } from "./components/workspace/WorkspaceLayout";
-import { NotificationStack } from "./components/common/NotificationStack";
 import { LoadingGate } from "./components/common/LoadingGate";
 import { useChatSessionRoute } from "./hooks/useChatSessionRoute";
 import { useChatWebSocket } from "./hooks/useChatWebSocket";
@@ -58,7 +57,6 @@ export default function App() {
 
   return (
     <>
-      <NotificationStack />
       {isMessageRenderPath ? (
         <Suspense fallback={null}><MessageRenderPage /></Suspense>
       ) : directGroupRoute ? (
