@@ -418,6 +418,7 @@ export function ComposerBar({
     if (useSessionWindowsStore.getState().restoreStash() > 0) return;
     const active = useSessionStore.getState().activePiSessionId;
     if (active) {
+      seedSpawnRect(active); // 首扇默认板块 = 视口 50%×50%
       useSessionWindowsStore.getState().open(active);
       return;
     }
@@ -425,6 +426,7 @@ export function ComposerBar({
       const id = await useSessionStore.getState().createSession();
       if (!id) return; // 失败原因由 sessionStore 直接闪到状态行
       useSessionStore.getState().setActiveSession(id);
+      seedSpawnRect(id); // 首扇默认板块 = 视口各维 50%(方向随视口)
       useSessionWindowsStore.getState().open(id);
       void useSessionStore.getState().fetchSessions();
     })();

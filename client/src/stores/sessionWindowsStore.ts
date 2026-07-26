@@ -165,10 +165,13 @@ registerWindowedChecker((sessionId) =>
   useSessionWindowsStore.getState().windows.some((w) => w.sessionId === sessionId),
 );
 
-/** 新窗出生位:贴着当前栈顶窗**右下错开一点**生成同尺寸板块 ——
- * 桌面 20px、手机约 1cm(38px);固定方向不挑空隙,窗不「飞来飞去」。
+/** 新窗出生位与尺寸:
+ * - 有参照窗(栈顶):沿用它的尺寸(= 用户最近设定的),右下错开
+ *   一点生成(桌面 20px、手机约 1cm);固定方向,窗不「飞来飞去」。
+ * - 没有参照窗(第一扇):现场探测视口长宽,取 **50% × 50%** 建默认
+ *   板块,贴右下默认锚位。
  * 预写 pi-swin-rect,chrome 挂载即读,越界由 clampRect 兜底。
- * 该窗已有历史位置则不动(肌肉记忆优先);没有参照窗走 CSS 默认锚。 */
+ * 该窗已有历史位置则不动(肌肉记忆优先)。 */
 export function seedSpawnRect(newSessionId: string): void {
   const key = `pi-swin-rect:${newSessionId}`;
   try {
@@ -178,18 +181,26 @@ export function seedSpawnRect(newSessionId: string): void {
   }
   const s = useSessionWindowsStore.getState();
   const refKey = [...s.stack].reverse().find((k) => s.windows.some((w) => w.sessionId === k));
-  if (!refKey) return;
-  const refEl = document.querySelector(`[data-swin-id="${CSS.escape(refKey)}"]`);
-  if (!refEl) return;
-  const r = refEl.getBoundingClientRect();
+  const refEl = refKey ? document.querySelector(`[data-swin-id="${CSS.escape(refKey)}"]`) : null;
   const offset = document.querySelector(".pi-app-shell--mobile") ? 38 : 20;
+  let rect: { x: number; y: number; w: number; h: number };
+  if (refEl) {
+    const r = refEl.getBoundingClientRect();
+    rect = { x: r.left + offset, y: r.top + offset, w: r.width, h: r.height };
+  } else {
+    const w = Math.round(window.innerWidth * 0.5);
+    const h = Math.round(window.innerHeight * 0.5);
+    rect = {
+      x: Math.max(8, window.innerWidth - w - 20),
+      y: Math.max(8, window.innerHeight - h - 152),
+      w,
+      h,
+    };
+  }
   try {
-    localStorage.setItem(
-      key,
-      JSON.stringify({ x: r.left + offset, y: r.top + offset, w: r.width, h: r.height }),
-    );
+    localStorage.setItem(key, JSON.stringify(rect));
   } catch {
-    // 存储不可用:退回默认锚。
+    // 存储不可用:退回 CSS 默认锚。
   }
 }
 
