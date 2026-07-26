@@ -2545,11 +2545,12 @@ button.pi-panel-row.pi-panel-row--selected {
    会压住面板顶部的按钮点不了)—— 一条与窗体同色的拖动带,
    左上角小红杠(关闭)在带内。 */
 .pi-composer-panel-handle {
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: 0.4rem;
   flex-shrink: 0;
-  height: 2rem;
+  height: 1.4rem;
   padding: 0;
   background: var(--pi-panel);
   user-select: none;
@@ -2558,6 +2559,18 @@ button.pi-panel-row.pi-panel-row--selected {
   touch-action: none;
 }
 .pi-composer-panel-handle:active { cursor: grabbing; }
+/* 带下缘一小截渐隐:内容滚到顶时软过渡,不用分割线。 */
+.pi-composer-panel-handle::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 0.7rem;
+  background: linear-gradient(to bottom, var(--pi-panel), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
 .pi-composer-panel-stack {
   display: flex;
   flex-direction: column;
@@ -2794,7 +2807,7 @@ button.pi-panel-row.pi-panel-row--selected {
   justify-content: center;
   align-self: stretch;
   flex: 0 0 auto;
-  width: 2rem;
+  width: 1.6rem;
   padding: 0;
   border: none;
   background: transparent;
@@ -2911,8 +2924,8 @@ button.pi-panel-row.pi-panel-row--selected {
   z-index: 9;
   touch-action: none;
 }
-.pi-float-panel-edge--l { left: -4px; top: 2.4rem; bottom: 14px; width: 8px; cursor: ew-resize; }
-.pi-float-panel-edge--r { right: -4px; top: 2.4rem; bottom: 14px; width: 8px; cursor: ew-resize; }
+.pi-float-panel-edge--l { left: -4px; top: 1.6rem; bottom: 14px; width: 8px; cursor: ew-resize; }
+.pi-float-panel-edge--r { right: -4px; top: 1.6rem; bottom: 14px; width: 8px; cursor: ew-resize; }
 .pi-float-panel-edge--b { bottom: -4px; left: 14px; right: 14px; height: 8px; cursor: ns-resize; }
 .pi-float-panel-edge--bl { left: -4px; bottom: -4px; width: 16px; height: 16px; cursor: nesw-resize; }
 .pi-float-panel-edge--br { right: -4px; bottom: -4px; width: 16px; height: 16px; cursor: nwse-resize; }
@@ -2934,13 +2947,13 @@ button.pi-panel-row.pi-panel-row--selected {
   display: none;
 }
 
-/* 手机:隐形拖动带加高(拇指操作)。 */
+/* 手机:拖动带加高(拇指操作)。 */
 .pi-app-shell--mobile .pi-composer-panel-handle {
-  height: 2.5rem;
+  height: 1.9rem;
 }
 /* 手机:控件命中区放大(高度随拖动带 stretch,只加宽)。 */
 .pi-app-shell--mobile .pi-swin-ctl {
-  width: 2.4rem;
+  width: 2rem;
 }
 .pi-app-shell--mobile .pi-swin-ctl svg {
   width: 0.95rem;
