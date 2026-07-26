@@ -109,15 +109,20 @@ body {
 /* Browser-backed message export. This hidden route intentionally reuses the
    exact .pi-markdown tree and design tokens used by normal and group-preview
    conversations; the server screenshots only the white card below. */
+/* 版式沿用 hyw 卡片的精调几何(card-ui App.vue:内容列 560px、
+   px-8 py-10、居中、留白;视觉宽 ≈840 由 560×dpr 采样达成)。 */
 .pi-message-render-page {
-  width: 960px;
+  width: 640px;
   min-height: 100%;
-  padding: 32px;
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
   background: var(--pi-bg);
 }
 .pi-message-render-card {
-  width: 896px;
+  width: 560px;
   max-width: none;
+  padding: 40px 32px;
 }
 .pi-message-render-card .pi-code-copy { display: none; }
 * { box-sizing: border-box; }
@@ -2759,37 +2764,45 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-float-panel--active .pi-composer-panel-handle-title {
   color: var(--pi-text);
 }
-.pi-float-panel--session:not(.pi-float-panel--active) .pi-swin-light {
-  background: #d4d2cd;
-}
-/* macOS 三色灯(用户点名要圆点 —— 全局零圆角规则在此处刻意豁免)。 */
-.pi-swin-lights {
-  display: inline-flex;
+/* 方正控制钮(设计稿 F 终版):左上=隐藏(斜杠),右上=扩大(接管整页)。
+   面板的绝对定位直接子元素,不进拖动把手的事件圈;手机命中区加大。 */
+.pi-swin-ctl {
+  position: absolute;
+  top: 0;
+  display: flex;
   align-items: center;
-  gap: 0.32rem;
-  margin-right: 0.4rem;
-  flex-shrink: 0;
-}
-.pi-swin-light {
-  width: 10px;
-  height: 10px;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.7rem;
   padding: 0;
   border: none;
-  border-radius: 50%;
+  background: transparent;
+  color: var(--pi-muted);
   cursor: pointer;
+  z-index: 8;
 }
-.pi-swin-light--close { background: #ff5f57; }
-.pi-swin-light--min { background: #febc2e; }
-.pi-swin-light--zoom { background: #28c840; }
-.pi-swin-light:hover { filter: brightness(0.82); }
-/* 接管态:灯簇钉在页面左上角,和窗内那组一模一样。 */
-.pi-swin-lights--page {
+.pi-swin-ctl:hover {
+  color: var(--pi-text);
+  background: var(--pi-panel-subtle);
+}
+.pi-swin-ctl svg { width: 0.85rem; height: 0.85rem; }
+.pi-swin-ctl--hide { left: 0; }
+.pi-swin-ctl--zoom { right: 0; }
+/* 给两个控制钮让位 */
+.pi-float-panel--session .pi-composer-panel-handle {
+  padding-left: 2.1rem;
+  padding-right: 2.3rem;
+}
+/* 接管态:页面级控制钮 */
+.pi-swin-ctl--page {
   position: fixed;
-  top: 12px;
-  left: 14px;
+  top: 10px;
   z-index: 90;
-  margin-right: 0;
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line);
 }
+.pi-swin-ctl--page-hide { left: 12px; }
+.pi-swin-ctl--page-exit { right: 12px; left: auto; }
 /* 工具栏上的收折编号方块(1234 = 第几扇窗)。 */
 .pi-swin-badge-frame {
   display: flex;
@@ -2832,6 +2845,14 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-app-shell--mobile .pi-float-panel-grip {
   width: 28px;
   height: 28px;
+}
+.pi-app-shell--mobile .pi-swin-ctl {
+  width: 2.5rem;
+  height: 2.1rem;
+}
+.pi-app-shell--mobile .pi-swin-ctl svg {
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
 /* 第二扇小窗:文件/图片预览体 — EditorPanel 填满窗身。 */

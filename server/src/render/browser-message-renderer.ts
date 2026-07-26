@@ -70,7 +70,7 @@ export class BrowserMessageRenderer {
   private async createPage(): Promise<Page> {
     const browser = await this.getBrowser();
     const page = await browser.newPage({
-      viewport: { width: 960, height: 800 },
+      viewport: { width: 640, height: 800 },
       deviceScaleFactor: 3,
     });
     await page.route("**/*", async (route) => {

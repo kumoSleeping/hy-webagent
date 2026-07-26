@@ -1414,7 +1414,11 @@ export function ComposerBar({
                 className="pi-composer-toolbar-btn pi-swin-badge"
                 onPointerDown={handleToolbarPointerDown}
                 onClick={() => restoreSessionWindow(b.sessionId)}
-                title={`还原会话小窗 ${b.num}`}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  useSessionWindowsStore.getState().close(b.sessionId);
+                }}
+                title={`还原会话小窗 ${b.num}（右键关闭）`}
                 aria-label={`还原会话小窗 ${b.num}`}
               >
                 <span className="pi-swin-badge-frame">{b.num}</span>

@@ -7,6 +7,7 @@
  * 对账:切走 / 回合结束时 refresh() 重拉全量历史,自愈中途开窗丢的半条。
  */
 import { useEffect, useRef } from "react";
+import { Maximize2, Minimize2, Slash } from "lucide-react";
 import { useStore } from "zustand";
 import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { MessageFeed } from "./MessageFeed";
@@ -37,7 +38,6 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
   const activeId = useSessionStore((s) => s.activePiSessionId);
   const setActiveSession = useSessionStore((s) => s.setActiveSession);
   const sessions = useSessionStore((s) => s.sessions);
-  const closeWindow = useSessionWindowsStore((s) => s.close);
   const bringToFront = useSessionWindowsStore((s) => s.bringToFront);
   const minimizeWindow = useSessionWindowsStore((s) => s.minimize);
   const zoomWindow = useSessionWindowsStore((s) => s.zoom);
@@ -64,12 +64,12 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
   function handleWindowPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     // 三色灯不参与「点窗置顶/激活」:点背景窗的关闭键不该先激活它;
     // 捕获阶段的状态更新也会打断灯按钮的 click 合成。
-    if ((e.target as HTMLElement).closest(".pi-swin-light")) return;
+    if ((e.target as HTMLElement).closest(".pi-swin-ctl")) return;
     bringToFront(sessionId);
     if (!isActive) setActiveSession(sessionId);
   }
 
-  /** 绿灯 = 接管整页:本会话回到原生整页视图,其余窗暂藏。 */
+  /** 扩大 = 接管整页:本会话回到原生整页视图,其余窗暂藏。 */
   function enterZoom() {
     if (!isActive) setActiveSession(sessionId);
     zoomWindow(sessionId);
@@ -93,44 +93,35 @@ export function SessionWindow({ sessionId, z, cascade, minimized, hidden }: Sess
         title={title}
         panelRef={panelRef}
         storageKey={`pi-swin-rect:${sessionId}`}
-        leading={
-          <span className="pi-swin-lights">
-            <button
-              type="button"
-              className="pi-swin-light pi-swin-light--close"
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                closeWindow(sessionId);
-              }}
-              title="关闭小窗（会话保留）"
-              aria-label="关闭会话小窗"
-            />
-            <button
-              type="button"
-              className="pi-swin-light pi-swin-light--min"
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                minimizeWindow(sessionId);
-              }}
-              title="收折到工具栏"
-              aria-label="收折到工具栏编号方块"
-            />
-            <button
-              type="button"
-              className="pi-swin-light pi-swin-light--zoom"
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                enterZoom();
-              }}
-              title="接管整页"
-              aria-label="本会话接管整页显示"
-            />
-          </span>
-        }
       />
+      {/* 两个方正控制钮 —— 面板的绝对定位直接子元素,完全不进拖动把手的
+          事件圈;命中区手机端加大。左=隐藏(收进 bar),右=扩大(接管整页)。 */}
+      <button
+        type="button"
+        className="pi-swin-ctl pi-swin-ctl--hide"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          minimizeWindow(sessionId);
+        }}
+        title="隐藏到工具栏"
+        aria-label="隐藏到工具栏编号方块"
+      >
+        <Slash strokeWidth={2} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="pi-swin-ctl pi-swin-ctl--zoom"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          enterZoom();
+        }}
+        title="扩展至整个页面"
+        aria-label="本会话扩展至整个页面"
+      >
+        <Maximize2 strokeWidth={2} aria-hidden="true" />
+      </button>
       <div className="pi-swin-body">
         {attached || isActive ? (
           // 激活窗直接镜像单例 store —— 与主区(让位前)显示的内容逐字节一致;
@@ -160,39 +151,35 @@ export function SessionWindowsHost() {
           hidden={zoomedSessionId !== null}
         />
       ))}
-      {zoomedSessionId !== null && <ZoomedLights sessionId={zoomedSessionId} />}
+      {zoomedSessionId !== null && <ZoomedControls sessionId={zoomedSessionId} />}
     </>
   );
 }
 
-/** 接管态的页面左上角三色灯:红=关窗、黄=收折、绿=回多任务(其余窗回归)。 */
-function ZoomedLights({ sessionId }: { sessionId: string }) {
-  const closeWindow = useSessionWindowsStore((s) => s.close);
+/** 接管态的页面级控制:左上=隐藏(收进 bar 并退出接管),右上=回到多任务。 */
+function ZoomedControls({ sessionId }: { sessionId: string }) {
   const minimizeWindow = useSessionWindowsStore((s) => s.minimize);
   const unzoom = useSessionWindowsStore((s) => s.unzoom);
   return (
-    <span className="pi-swin-lights pi-swin-lights--page">
+    <>
       <button
         type="button"
-        className="pi-swin-light pi-swin-light--close"
-        onClick={() => closeWindow(sessionId)}
-        title="关闭小窗（会话保留）"
-        aria-label="关闭会话小窗"
-      />
-      <button
-        type="button"
-        className="pi-swin-light pi-swin-light--min"
+        className="pi-swin-ctl pi-swin-ctl--page pi-swin-ctl--page-hide"
         onClick={() => minimizeWindow(sessionId)}
-        title="收折到工具栏"
-        aria-label="收折到工具栏编号方块"
-      />
+        title="隐藏到工具栏"
+        aria-label="隐藏到工具栏编号方块"
+      >
+        <Slash strokeWidth={2} aria-hidden="true" />
+      </button>
       <button
         type="button"
-        className="pi-swin-light pi-swin-light--zoom"
+        className="pi-swin-ctl pi-swin-ctl--page pi-swin-ctl--page-exit"
         onClick={() => unzoom()}
         title="回到多任务"
         aria-label="退出接管,回到多任务"
-      />
-    </span>
+      >
+        <Minimize2 strokeWidth={2} aria-hidden="true" />
+      </button>
+    </>
   );
 }
