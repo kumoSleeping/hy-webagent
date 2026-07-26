@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { findSessionFilePath } from "../pi/session-files.js";
+import { findSessionFilePath, isValidSessionId } from "../pi/session-files.js";
 
 describe("findSessionFilePath", () => {
   it("finds Pi session files by header id embedded in filename", async () => {
@@ -26,5 +26,32 @@ describe("findSessionFilePath", () => {
   it("returns null when sessions directory does not exist", async () => {
     const dir = join(tmpdir(), "does-not-exist-" + Date.now());
     expect(await findSessionFilePath(dir, "any")).toBeNull();
+  });
+
+  it("does not resolve a partial id to an unrelated session", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-sessions-"));
+    const sessionId = "019f1104-1cf9-7d93-a733-eb4e4f5be525";
+    await writeFile(join(dir, `2024-01-01T00-00-00-000Z_${sessionId}.jsonl`), "{}\n");
+
+    // Every ISO timestamp contains "-", so a substring match would return the
+    // victim's file for any of these.
+    for (const partial of ["-", "019f", "1cf9", "Z_019f1104"]) {
+      expect(await findSessionFilePath(dir, partial)).toBeNull();
+    }
+  });
+
+  it("rejects path traversal in the session id", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "pi-sessions-"));
+    await writeFile(join(dir, "2024-01-01T00-00-00-000Z_019f1104-1cf9-7d93-a733-eb4e4f5be525.jsonl"), "{}\n");
+    expect(await findSessionFilePath(dir, "../../etc/passwd")).toBeNull();
+    expect(await findSessionFilePath(dir, "..")).toBeNull();
+  });
+
+  it("validates session ids as UUIDs", () => {
+    expect(isValidSessionId("019f1104-1cf9-7d93-a733-eb4e4f5be525")).toBe(true);
+    expect(isValidSessionId("-")).toBe(false);
+    expect(isValidSessionId("019f1104")).toBe(false);
+    expect(isValidSessionId("../../etc/passwd")).toBe(false);
+    expect(isValidSessionId("")).toBe(false);
   });
 });

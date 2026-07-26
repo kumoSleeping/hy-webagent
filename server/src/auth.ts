@@ -249,12 +249,18 @@ export class AuthSystem {
       return null;
     }
 
-    for (const user of this.users.values()) {
+    // The HMAC index short-circuits only on a *correct* key, so this fallback ran
+    // for every wrong one. bcryptjs is pure JS at cost 12 on the single main
+    // thread, which made each bad key cost O(users) x ~0.5s of blocking CPU —
+    // enough for a handful of unauthenticated requests to wedge the whole server.
+    // Only rows that predate the lookup column can legitimately need a scan, and
+    // backfillApiKeyLookups() (constructor) fills those in, so this set is
+    // normally empty and never grows with user count.
+    const unindexed = Array.from(this.users.values()).filter((user) => !user.apiKeyLookup);
+    for (const user of unindexed) {
       if (await bcrypt.compare(apiKey, user.apiKeyHash)) {
-        if (!user.apiKeyLookup) {
-          user.apiKeyLookup = lookup;
-          this.persistUser(user);
-        }
+        user.apiKeyLookup = lookup;
+        this.persistUser(user);
         return user;
       }
     }

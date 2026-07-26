@@ -13,6 +13,9 @@ export const config = {
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
   rateLimitMaxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 60,
+  /** Credential endpoints are bcrypt-backed — keep the window tight. */
+  loginRateLimitWindowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS) || 60_000,
+  loginRateLimitMaxRequests: Number(process.env.LOGIN_RATE_LIMIT_MAX_REQUESTS) || 10,
   /** Absolute session lifetime (hours). 0 = no limit. */
   sessionMaxHours: Number(process.env.SESSION_MAX_HOURS ?? 0),
   /** Allow WebSocket upgrade without Origin (dev/tools only). */

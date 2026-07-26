@@ -19,7 +19,7 @@ import { BrowserMessageRenderer } from "./render/browser-message-renderer.js";
 import { createMessageRenderHandler } from "./routes/message-render.js";
 import { createPlatformAdminRouter } from "./routes/platform-admin.js";
 import path from "node:path";
-import { findSessionFilePath } from "./pi/session-files.js";
+import { findSessionFilePath, isValidSessionId } from "./pi/session-files.js";
 import fs from "node:fs/promises";
 import { loadPlatformSystemMd, loadPlatformBotSystemMd } from "./pi/platform-system.js";
 import logger, { createLogger } from "./logger.js";
@@ -29,12 +29,26 @@ import { printFirstAdminKeyNotice } from "./admin-key.js";
 import { resolveModelPolicy } from "./model-policy.js";
 import helmet from "helmet";
 import { attachRequestId, errorHandler } from "./middleware/error-handler.js";
-import { apiRateLimiter } from "./middleware/rate-limit.js";
+import { apiRateLimiter, loginRateLimiter } from "./middleware/rate-limit.js";
 import { isWebSocketOriginAllowed, isOriginAllowed } from "./ws-origin.js";
 import { attachClientStatic } from "./client-static.js";
 import { BotRepository } from "./bot/repository.js";
 import { createBotRouter, createPublicBotRouter, createSavedGroupRouter } from "./routes/bot.js";
 import { loadBotUpload } from "./bot/uploads.js";
+import { Updater } from "./ops/updater.js";
+import { createOpsRouter } from "./routes/ops.js";
+import { SessionShareRepository } from "./db/session-share-repository.js";
+import { createSessionShareRouter } from "./routes/session-share.js";
+import {
+  startEventLoopMonitor,
+  stopEventLoopMonitor,
+  livenessPayload,
+  readiness,
+  isAlive,
+  type HealthDeps,
+} from "./ops/health.js";
+import { installLifecycle } from "./ops/lifecycle.js";
+import { notifyReady, notifyStopping, notifyStatus, startWatchdog, stopWatchdog } from "./ops/sd-notify.js";
 
 const log = createLogger("server");
 const app = express();
@@ -63,7 +77,15 @@ app.use((req, res, next) => {
 });
 app.use(compression());
 app.use("/api", (req, res, next) => {
-  if (req.path === "/auth/login" || req.path === "/auth/me" || req.path === "/auth/logout") {
+  // /auth/login verifies a bcrypt hash, so it is a CPU amplification target as
+  // much as a credential-guessing one and gets the tighter limiter rather than
+  // the exemption it used to have. /auth/me and /auth/logout stay exempt: the
+  // UI polls them on every route change and they do no expensive work.
+  if (req.path === "/auth/login") {
+    loginRateLimiter(req, res, next);
+    return;
+  }
+  if (req.path === "/auth/me" || req.path === "/auth/logout") {
     next();
     return;
   }
@@ -94,6 +116,7 @@ authSystem.onUserModelTemplateChanged(async (userId) => {
 const tokenTracker = new TokenTracker();
 const usageRecorder = new UsageRecorder();
 const botRepository = new BotRepository(config.databasePath);
+const sessionShares = new SessionShareRepository(config.databasePath);
 const messageRenderer = new BrowserMessageRenderer(`http://127.0.0.1:${config.port}`);
 
 // --- Auth Routes ---
@@ -196,6 +219,18 @@ app.delete("/api/sessions/:id", authMiddleware(authSystem), async (req: any, res
   try {
     const userId = req.userSession.userId;
     const piSessionId = req.params.id;
+    if (!isValidSessionId(piSessionId)) {
+      res.status(400).json({ error: "Invalid session id" });
+      return;
+    }
+    // removeSession() below is a bare map lookup with no owner filter, so the
+    // caller's claim to this session has to be established here — otherwise any
+    // authenticated user could tear down another user's live agent mid-turn.
+    const live = sessionManager.getSession(piSessionId);
+    if (live && live.userId !== userId) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
     const ws = isolator.getUserWorkspace(userId);
     const sessionsDir = path.join(ws, ".pi", "sessions");
     const sessionFile = await findSessionFilePath(sessionsDir, piSessionId);
@@ -203,7 +238,7 @@ app.delete("/api/sessions/:id", authMiddleware(authSystem), async (req: any, res
       await fs.unlink(sessionFile);
     }
     // Also kill running session if active
-    sessionManager.removeSession(piSessionId);
+    await sessionManager.removeSession(piSessionId);
     invalidateSessionsCache(userId);
     res.json({ ok: true });
   } catch (err) {
@@ -337,7 +372,15 @@ app.get("/api/slash/commands", authMiddleware(authSystem), (req: any, res) => {
 app.get("/api/sessions/:id/tree", authMiddleware(authSystem), async (req: any, res) => {
   try {
     const userId = req.userSession.userId;
-    const session = sessionManager.getSession(req.params.id) ?? sessionManager.getSessionForUser(userId);
+    // getSession() is an unfiltered global map lookup: without the owner check
+    // any authenticated user could pass someone else's piSessionId and read
+    // their conversation tree, which carries per-entry message previews.
+    const requested = sessionManager.getSession(req.params.id);
+    if (requested && requested.userId !== userId) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    const session = requested ?? sessionManager.getSessionForUser(userId);
     if (!session) {
       res.status(404).json({ error: "Session not found" });
       return;
@@ -436,6 +479,9 @@ app.get("/api/sessions", authMiddleware(authSystem), async (req: any, res) => {
 // --- File Routes ---
 app.use("/api", createFilesRouter(authSystem, isolator));
 
+// --- Owner-controlled read-only share links ---
+app.use("/api", createSessionShareRouter(authSystem, sessionShares, sessionManager, isolator));
+
 // --- Browser-backed render API (same React/CSS tree as the web conversation) ---
 // 认证用户渲染端点
 app.post("/api/render", authMiddleware(authSystem), createMessageRenderHandler(messageRenderer, false));
@@ -483,10 +529,93 @@ app.get("/api/public/uploads/:id/:filename", apiRateLimiter, async (req, res) =>
   }
 });
 
+/**
+ * A pi session is guest-viewable only if it was published through a bot channel
+ * whose account is still enabled. Guest connections carry no credentials, so
+ * membership in `bot_sessions` is the entire authorization decision — never fall
+ * back to searching workspaces for an id the caller merely asserts.
+ */
+function isPubliclyViewableSession(piSessionId: string): boolean {
+  if (!isValidSessionId(piSessionId)) return false;
+  try {
+    const record = botRepository.findSession(piSessionId);
+    if (!record) return false;
+    return botRepository.findAccountByUserId(record.botUserId)?.enabled === true;
+  } catch (err) {
+    log.warn(`public session lookup failed: ${(err as Error).message}`, { piSessionId });
+    return false;
+  }
+}
+
+/**
+ * Authorize an unauthenticated guest view.
+ *
+ * Two — and only two — grounds count, because a guest presents no credentials:
+ *   1. the session was published through an enabled bot channel, or
+ *   2. the caller holds an unrevoked, unexpired share token issued by the owner
+ *      *for this exact session*.
+ *
+ * Returns the owning userId when known, so history can be read from that one
+ * workspace instead of scanning every workspace on disk for a matching id.
+ */
+function authorizeGuestView(
+  piSessionId: string,
+  shareToken: string | null,
+): { allowed: false } | { allowed: true; ownerUserId?: string } {
+  if (!isValidSessionId(piSessionId)) return { allowed: false };
+
+  if (isPubliclyViewableSession(piSessionId)) {
+    const record = botRepository.findSession(piSessionId);
+    return { allowed: true, ownerUserId: record?.botUserId };
+  }
+
+  if (shareToken) {
+    try {
+      const share = sessionShares.resolve(shareToken);
+      // Bind the token to the session it was issued for: a valid token for one
+      // session must not unlock another.
+      if (share && share.piSessionId === piSessionId) {
+        sessionShares.recordView(shareToken);
+        return { allowed: true, ownerUserId: share.ownerUserId };
+      }
+    } catch (err) {
+      log.warn(`share token lookup failed: ${(err as Error).message}`, { piSessionId });
+    }
+  }
+
+  return { allowed: false };
+}
+
+// --- Ops: admin-only update control ---
+const updater = new Updater({ healthUrl: `http://127.0.0.1:${config.port}/health` });
+app.use("/api/ops", createOpsRouter(authSystem, updater));
+
 // --- Health ---
-app.get("/health", (_req, res) =>
-  res.json({ ok: true, time: Date.now(), adminHelp: "/api/admin/help", adminCli: "npm run admin -- help" })
-);
+// Split deliberately (see ops/health.ts): /health is liveness and drives the
+// restart decision, /health/ready is readiness and drives traffic routing.
+startEventLoopMonitor();
+const healthDeps: HealthDeps = {
+  db: () => botRepository.rawDb,
+  sessionCount: () => sessionManager.activeSessionCount(),
+  version: process.env.npm_package_version ?? "1.0.0",
+  commit: process.env.GIT_COMMIT ?? "unknown",
+};
+
+app.get("/health", (_req, res) => {
+  const payload = livenessPayload(healthDeps);
+  res.status(payload.ok ? 200 : 503).json({
+    ...payload,
+    adminHelp: "/api/admin/help",
+    adminCli: "npm run admin -- help",
+  });
+});
+
+app.get("/health/ready", (_req, res) => {
+  const report = readiness(healthDeps);
+  // 503 rather than a restart: a dependency being down is not something
+  // recycling this process repairs, and flapping would widen the outage.
+  res.status(report.ok ? 200 : 503).json(report);
+});
 
 const clientDistDir = attachClientStatic(app);
 if (clientDistDir) {
@@ -505,6 +634,26 @@ const wss = new WebSocketServer({
 
 // WebSocket 升级拦截：Origin + sessionId（view=1 时免验证）
 server.on("upgrade", (request, socket, head) => {
+  // An exception escaping an 'upgrade' listener is an uncaughtException, i.e. a
+  // remotely triggerable, pre-auth process kill. `new URL()` below throws on a
+  // malformed Host header (e.g. "Host: ["), so the whole handler is guarded.
+  try {
+    handleUpgrade(request, socket, head);
+  } catch (err) {
+    log.warn(`ws upgrade failed: ${(err as Error).message}`);
+    try {
+      socket.destroy();
+    } catch {
+      // Socket already gone.
+    }
+  }
+});
+
+function handleUpgrade(
+  request: import("node:http").IncomingMessage,
+  socket: import("node:stream").Duplex,
+  head: Buffer,
+): void {
   const url = new URL(request.url || "", `http://${request.headers.host}`);
 
   if (!isWebSocketOriginAllowed(request)) {
@@ -520,16 +669,28 @@ server.on("upgrade", (request, socket, head) => {
   const piSessionId = url.searchParams.get("piSessionId");
   const isViewOnly = url.searchParams.get("view") === "1";
 
-  // 访客只读模式：无需 sessionId，但不能写入
+  // 访客只读模式：仅限已发布的 bot 会话，不能写入
   if (isViewOnly) {
     if (!piSessionId) {
       log.warn("ws upgrade rejected: view mode requires piSessionId", { path: url.pathname });
       socket.destroy();
       return;
     }
+    // Guest view is unauthenticated, so it must resolve only sessions that were
+    // deliberately published — via a bot channel or an owner-issued share token.
+    // Without this, any piSessionId — including a partial one — reached a
+    // cross-workspace disk scan and streamed another user's full transcript,
+    // tool calls included.
+    const guestAuth = authorizeGuestView(piSessionId, url.searchParams.get("share"));
+    if (!guestAuth.allowed) {
+      log.warn("ws upgrade rejected: session is not publicly viewable", { piSessionId });
+      socket.destroy();
+      return;
+    }
     (request as any).userId = "__guest__";
     (request as any).piSessionId = piSessionId;
     (request as any).isViewOnly = true;
+    (request as any).guestOwnerUserId = guestAuth.ownerUserId;
 
     if (url.pathname === "/ws/chat") {
       log.info("ws view-only upgrade accepted", { piSessionId });
@@ -571,7 +732,7 @@ server.on("upgrade", (request, socket, head) => {
     log.warn("ws upgrade rejected: unknown path", { path: url.pathname });
     socket.destroy();
   }
-});
+}
 
 wss.on("connection", (ws, req) => {
   const url = new URL(req.url || "", `http://${req.headers.host}`);
@@ -579,26 +740,61 @@ wss.on("connection", (ws, req) => {
   const piSessionId = (req as any).piSessionId;
   const isViewOnly = (ws as any).isViewOnly === true;
   if (url.pathname === "/ws/chat") {
-    handleChatWs(ws, sessionManager, tokenTracker, usageRecorder, authSystem, isolator, userId, piSessionId, isViewOnly, botRepository);
+    handleChatWs(ws, sessionManager, tokenTracker, usageRecorder, authSystem, isolator, userId, piSessionId, isViewOnly, botRepository, (req as any).guestOwnerUserId);
   }
+});
+
+// --- Keep-alive: signals, fatal-error handling, graceful drain ---
+// Single owner of SIGTERM/SIGINT for the whole process. Ordering below matters:
+// stop the watchdog before draining (a slow drain must not be read as a hang),
+// persist usage before closing the DB that stores it.
+installLifecycle({
+  server,
+  wss,
+  graceMs: 15_000,
+  onShutdownStart: () => {
+    stopWatchdog();
+    stopEventLoopMonitor();
+    notifyStopping();
+  },
+  tasks: [
+    { name: "usage-recorder-flush", run: () => usageRecorder.flush() },
+    { name: "pi-sessions-dispose", run: () => sessionManager.disposeAll() },
+    { name: "bot-repository-close", run: () => botRepository.close() },
+    { name: "session-shares-close", run: () => sessionShares.close() },
+  ],
 });
 
 // --- 启动 ---
 server.listen(config.port, "0.0.0.0", async () => {
-  await loadPlatformSystemMd();
-  await loadPlatformBotSystemMd();
-  // 确保至少有一个 admin 用户
-  const users = authSystem.getAllUsers();
-  if (!authSystem.hasAdminUser()) {
-    const bootstrapKey = generateApiKey();
-    const { plainKey } = await authSystem.createUser(bootstrapKey, "Admin", {
-      role: "admin",
-      username: "admin",
-      budgetUsd: null,
-    });
-    logger.info("first admin user created (API key printed once to stdout, not stored on disk)");
-    printFirstAdminKeyNotice(plainKey);
+  try {
+    await loadPlatformSystemMd();
+    await loadPlatformBotSystemMd();
+    // 确保至少有一个 admin 用户
+    if (!authSystem.hasAdminUser()) {
+      const bootstrapKey = generateApiKey();
+      const { plainKey } = await authSystem.createUser(bootstrapKey, "Admin", {
+        role: "admin",
+        username: "admin",
+        budgetUsd: null,
+      });
+      logger.info("first admin user created (API key printed once to stdout)");
+      printFirstAdminKeyNotice(plainKey);
+    }
+  } catch (err) {
+    // This callback is async: an unhandled rejection here would crash-loop the
+    // unit under systemd with no usable diagnostic. Fail loudly and explicitly.
+    logger.error(`startup failed: ${(err as Error).stack ?? String(err)}`);
+    process.exit(1);
   }
+
+  // Tell systemd we are serving, then start the liveness ping. Withholding the
+  // ping when isAlive() goes false is what lets systemd recover a process that
+  // is wedged but still holding the port — the case Restart=always cannot see.
+  notifyReady(`listening on ${config.port}`);
+  startWatchdog(isAlive);
+  notifyStatus(`ready on port ${config.port}`);
+
   logger.info(`HY-Webagent listening on http://localhost:${config.port}`);
   console.log(`HY-Webagent → http://localhost:${config.port}`);
   if (clientDistDir) {

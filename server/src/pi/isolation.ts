@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import type { Dirent } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -532,13 +533,58 @@ export class WorkspaceIsolator {
     return agentCwdFromWorkspace(workspacePath);
   }
 
+  /**
+   * Resolve a user-supplied path and prove it stays inside that user's visible root.
+   *
+   * A lexical `path.resolve` prefix check alone is not containment: every fs call
+   * downstream follows symlinks, so a link created inside the workspace (the
+   * user's own agent can run `ln -s`) makes an in-bounds string resolve to an
+   * out-of-bounds file. We therefore also resolve symlinks on the real path.
+   *
+   * The target may legitimately not exist yet (create/write/rename destinations),
+   * so when it is missing we walk up to the nearest existing ancestor, resolve
+   * that, and re-apply the remaining segments — which is enough to catch a
+   * symlinked parent directory.
+   */
   validatePath(userId: string, targetPath: string): string {
     const root = this.getVisibleRoot(userId);
     const resolved = path.resolve(root, targetPath);
     if (!resolved.startsWith(root + path.sep) && resolved !== root) {
       throw new Error("Path traversal denied");
     }
-    return resolved;
+
+    // The root itself may sit behind a symlink (e.g. /var -> /private/var on
+    // macOS); compare like for like.
+    let realRoot: string;
+    try {
+      realRoot = fsSync.realpathSync.native(root);
+    } catch {
+      realRoot = root;
+    }
+
+    const trailing: string[] = [];
+    let probe = resolved;
+    for (;;) {
+      try {
+        const realProbe = fsSync.realpathSync.native(probe);
+        // `trailing` collects basenames deepest-first as we walk up; rebuild the
+        // descent order without mutating it, since this runs inside the loop.
+        const candidate = path.resolve(realProbe, ...[...trailing].reverse());
+        if (candidate !== realRoot && !candidate.startsWith(realRoot + path.sep)) {
+          throw new Error("Path traversal denied");
+        }
+        return resolved;
+      } catch (err) {
+        if ((err as Error).message === "Path traversal denied") throw err;
+        const parent = path.dirname(probe);
+        if (parent === probe) {
+          // Walked past the filesystem root without finding anything real.
+          throw new Error("Path traversal denied");
+        }
+        trailing.push(path.basename(probe));
+        probe = parent;
+      }
+    }
   }
 
   checkSensitive(targetPath: string): void {

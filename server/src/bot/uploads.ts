@@ -166,7 +166,14 @@ export async function loadBotUpload(
   const dir = path.join(uploadsRoot(), id);
   try {
     const meta = JSON.parse(await fs.readFile(path.join(dir, "meta.json"), "utf-8")) as BotUploadMeta;
-    const buffer = await fs.readFile(meta.storedPath);
+    // Derive the path from the id and the sanitised filename rather than reading
+    // back meta.storedPath. This endpoint is served unauthenticated, so anything
+    // able to write a meta.json (an agent with a file-write primitive) could
+    // otherwise point storedPath at any file on the host and have it served out.
+    const resolved = path.resolve(dir, safeFilename(meta.filename));
+    const root = path.resolve(uploadsRoot());
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) return null;
+    const buffer = await fs.readFile(resolved);
     return { meta, buffer };
   } catch {
     return null;

@@ -210,10 +210,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const sessionId = get().sessionId;
     if (sessionId) {
       try {
+        // The server authenticates this and logs out the bearer's own session;
+        // it no longer accepts a session id from the body, which let anyone who
+        // learned an id terminate someone else's session.
         await fetch("/api/auth/logout", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionId}`,
+          },
         });
       } catch {
         // Local logout still proceeds if the server is unreachable.

@@ -32,11 +32,21 @@ interface WSMessage {
 /**
  * Search all user workspace dirs for a session file and extract message history.
  * Used for guest/view-only connections when the session isn't in memory.
+ *
+ * `ownerSessionsDir` narrows the search to the one workspace that is supposed
+ * to hold this session — the upgrade handler knows the owner from whichever
+ * grant authorized the guest. The multi-workspace scan below is the legacy
+ * fallback and runs only when the owner is unknown; it is what allowed a
+ * guessed id to surface a stranger's transcript, so prefer the scoped lookup.
  */
-async function findSessionHistoryOnDisk(piSessionId: string): Promise<{
+async function findSessionHistoryOnDisk(piSessionId: string, ownerSessionsDir?: string): Promise<{
   messages: any[];
   serverToolActivities: ReturnType<typeof parseServerToolActivity>[];
 } | null> {
+  if (ownerSessionsDir) {
+    const filePath = await findSessionFilePath(ownerSessionsDir, piSessionId);
+    return filePath ? readSessionHistoryFile(filePath) : null;
+  }
   try {
     const root = config.workspaceRoot;
     let userDirs: string[] = [];
@@ -50,27 +60,40 @@ async function findSessionHistoryOnDisk(piSessionId: string): Promise<{
       const sessionsDir = join(root, name, ".pi", "sessions");
       try {
         const filePath = await findSessionFilePath(sessionsDir, piSessionId);
-        if (filePath) {
-          const content = await readFile(filePath, "utf-8");
-          const lines = content.trim().split("\n");
-          const messages: any[] = [];
-          const serverToolActivities: NonNullable<ReturnType<typeof parseServerToolActivity>>[] = [];
-          for (let i = 1; i < lines.length; i++) {
-            try {
-              const entry = JSON.parse(lines[i]);
-              if (entry.type === "message" && entry.message) {
-                messages.push(entry.message);
-              } else if (entry.type === "custom" && entry.customType === "pi-web-server-tool:v1") {
-                const activity = parseServerToolActivity(entry.data);
-                if (activity) serverToolActivities.push(activity);
-              }
-            } catch {}
-          }
-          return { messages, serverToolActivities };
-        }
+        if (filePath) return await readSessionHistoryFile(filePath);
       } catch {}
     }
     return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Parse one Pi session .jsonl into the shape the client's history view expects. */
+async function readSessionHistoryFile(filePath: string): Promise<{
+  messages: any[];
+  serverToolActivities: NonNullable<ReturnType<typeof parseServerToolActivity>>[];
+} | null> {
+  try {
+    const content = await readFile(filePath, "utf-8");
+    const lines = content.trim().split("\n");
+    const messages: any[] = [];
+    const serverToolActivities: NonNullable<ReturnType<typeof parseServerToolActivity>>[] = [];
+    // Line 0 is the session header, not an entry.
+    for (let i = 1; i < lines.length; i++) {
+      try {
+        const entry = JSON.parse(lines[i]);
+        if (entry.type === "message" && entry.message) {
+          messages.push(entry.message);
+        } else if (entry.type === "custom" && entry.customType === "pi-web-server-tool:v1") {
+          const activity = parseServerToolActivity(entry.data);
+          if (activity) serverToolActivities.push(activity);
+        }
+      } catch {
+        // Skip malformed lines rather than losing the whole transcript.
+      }
+    }
+    return { messages, serverToolActivities };
   } catch {
     return null;
   }
@@ -109,6 +132,8 @@ export function handleChatWs(
   piSessionId?: string,
   isViewOnly: boolean = false,
   botRepository?: BotRepository,
+  /** Owner of the session a guest was authorized to view, when known. */
+  guestOwnerUserId?: string,
 ) {
   let activeAssistantMessageId: string | undefined;
   let syntheticAssistantSequence = 0;
@@ -331,7 +356,22 @@ export function handleChatWs(
     if (activePiSessionId) {
       // When the client names a session, never fall back to another user session —
       // that would replay the wrong history on refresh while rehydration is pending.
-      return sessionManager.getSession(activePiSessionId);
+      const named = sessionManager.getSession(activePiSessionId);
+      if (!named) return undefined;
+      // piSessionId arrives from the client's query string and getSession() is an
+      // unfiltered global map lookup. Every consumer below (history snapshots,
+      // event subscription, prompt dispatch) funnels through here, so ownership
+      // is enforced once at the accessor rather than at each call site.
+      // Guests are exempt because the upgrade handler already proved the session
+      // is published through an enabled bot channel; they get no write path.
+      if (!isViewOnly && named.userId !== userId) {
+        log.warn("rejected cross-user session access over ws", {
+          userId,
+          piSessionId: activePiSessionId,
+        });
+        return undefined;
+      }
+      return named;
     }
     return sessionManager.getSessionForUser(userId);
   }
@@ -623,7 +663,17 @@ export function handleChatWs(
       try {
         // Guest/view-only mode: search disk for session file across all workspaces
         if (isViewOnly) {
-          const history = await findSessionHistoryOnDisk(piSessionId);
+          // Scope to the owning workspace when the grant identified one, so a
+          // guest read can never wander into another tenant's directory.
+          let ownerSessionsDir: string | undefined;
+          if (guestOwnerUserId) {
+            try {
+              ownerSessionsDir = join(isolator.getUserWorkspace(guestOwnerUserId), ".pi", "sessions");
+            } catch {
+              ownerSessionsDir = undefined;
+            }
+          }
+          const history = await findSessionHistoryOnDisk(piSessionId, ownerSessionsDir);
           if (history) {
             send({ type: "chat:history", payload: { ...history, agentRunning: false } });
             log.info("guest history served from disk", { piSessionId, count: history.messages.length });

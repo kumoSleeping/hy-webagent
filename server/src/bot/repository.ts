@@ -108,6 +108,14 @@ export class BotRepository {
     this.db.close();
   }
 
+  /**
+   * Underlying handle, for the readiness probe's `SELECT 1` round trip.
+   * Not for queries — those belong on this class so they stay parameterised.
+   */
+  get rawDb(): Database.Database {
+    return this.db;
+  }
+
   createAccount(account: BotAccount): void {
     this.db.prepare(`INSERT INTO bot_accounts
       (user_id, slug, display_name, enabled, created_at, updated_at)

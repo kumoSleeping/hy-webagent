@@ -1,0 +1,32 @@
+# Scheduled self-update.
+#
+# Disabled by default in the sense that nothing installs it automatically —
+# enable it only if you want unattended deploys. Auto-updating a service that
+# runs user agents is a real trade-off: it closes vulnerability windows fast,
+# but it also means an unreviewed commit on main can restart production. The
+# update itself is health-gated and rolls back, so the failure mode is
+# "brief restart, back to the previous commit", not "extended outage".
+#
+# Prefer a fixed low-traffic window over a short interval: every run rebuilds
+# from source and restarts the service, dropping live WebSocket sessions
+# (clients reconnect — the drain closes them with code 1012 "service restart").
+
+[Unit]
+Description=Scheduled HY-Webagent self-update
+Documentation=file:///opt/hy-webagent/docs/maintenance/04-self-update.md
+
+[Timer]
+# Daily at 04:00 local time.
+OnCalendar=*-*-* 04:00:00
+
+# Spread load and avoid a thundering herd across hosts; also means the exact
+# restart moment is not externally predictable.
+RandomizedDelaySec=1800
+
+# Run on next boot if the machine was off at the scheduled time.
+Persistent=true
+
+Unit=hy-webagent-update.service
+
+[Install]
+WantedBy=timers.target

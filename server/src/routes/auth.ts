@@ -1,6 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import type { AuthSystem } from "../auth.js";
 import { budgetSnapshot } from "../auth.js";
+import { checkLoginAllowed, recordLoginFailure, recordLoginSuccess } from "../login-guard.js";
+import { clientIp } from "../middleware/rate-limit.js";
 
 export function createAuthRouter(authSystem: AuthSystem): Router {
   const router = Router();
@@ -29,13 +31,22 @@ export function createAuthRouter(authSystem: AuthSystem): Router {
   });
 
   router.post("/auth/login", async (req: Request, res: Response) => {
+    const ip = clientIp(req);
     try {
       const { apiKey } = req.body;
       if (!apiKey || typeof apiKey !== "string") {
         res.status(400).json({ error: "apiKey is required" });
         return;
       }
+      // Lockout after repeated failures, on top of the per-IP rate limiter. Both
+      // are needed: the limiter caps request rate, this caps total guesses.
+      const allowed = checkLoginAllowed(ip);
+      if (!allowed.ok) {
+        res.status(429).json({ error: allowed.message });
+        return;
+      }
       const session = await authSystem.login(apiKey);
+      recordLoginSuccess(ip);
       if (session.role === "bot") {
         authSystem.logout(session.sessionId);
         res.status(403).json({ error: "Bot accounts must use /api/bot/login" });
@@ -51,13 +62,15 @@ export function createAuthRouter(authSystem: AuthSystem): Router {
         ...profilePayload(user.userId),
       });
     } catch (err) {
+      recordLoginFailure(ip);
       res.status(401).json({ error: (err as Error).message });
     }
   });
 
-  router.post("/auth/logout", (req: Request, res: Response) => {
-    const { sessionId } = req.body;
-    authSystem.logout(sessionId);
+  // Authenticated, and scoped to the caller's own session: taking the id from the
+  // request body let anyone who learned a session id terminate it.
+  router.post("/auth/logout", authMiddleware(authSystem), (req: Request, res: Response) => {
+    authSystem.logout((req as any).userSession.sessionId);
     res.json({ ok: true });
   });
 

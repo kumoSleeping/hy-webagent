@@ -1,0 +1,41 @@
+# One-shot self-update run, driven by hy-webagent-update.timer.
+#
+# Deliberately a separate unit from hy-webagent.service: the update restarts
+# that service, so it must not run inside its control group or it would be
+# killed halfway through by the very restart it triggered.
+#
+# Install:
+#   cp scripts/systemd/hy-webagent-update.{service,timer} /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now hy-webagent-update.timer
+#
+# Manual run:  systemctl start hy-webagent-update
+# Check first: DRY_RUN=1 bash /opt/hy-webagent/scripts/self-update.sh
+
+[Unit]
+Description=HY-Webagent self-update (build-gated, health-gated, auto-rollback)
+Documentation=file:///opt/hy-webagent/docs/maintenance/04-self-update.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/hy-webagent
+EnvironmentFile=-/etc/hy-webagent.env
+Environment=APP_ROOT=/opt/hy-webagent
+Environment=BRANCH=main
+Environment=SERVICE_NAME=hy-webagent
+Environment=PORT=3001
+ExecStart=/bin/bash /opt/hy-webagent/scripts/self-update.sh
+
+# The script builds the client and server from source; native rebuilds
+# (better-sqlite3, node-pty) are slow on a small VPS.
+TimeoutStartSec=1800
+
+# The script owns its own outcome: it rolls back and reports through
+# data/update-status.json. Restarting it on failure would just repeat a build
+# that already failed.
+Restart=no
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hy-webagent-update

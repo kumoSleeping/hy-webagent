@@ -130,13 +130,15 @@ export class UsageRecorder {
       }
     }, UsageRecorder.WRITE_DEBOUNCE_MS));
 
-    // Register shutdown hook once
+    // Last-resort flush if the loop drains on its own. Deliberately NOT hooked to
+    // SIGTERM/SIGINT: installing a signal listener suppresses Node's default
+    // terminate-on-signal, and this callback never exits, so doing so would leave
+    // the process alive until systemd's TimeoutStopSec expired and SIGKILLed it.
+    // Signals belong to the single shutdown owner in ops/lifecycle.ts, which calls
+    // flush() as part of the drain sequence.
     if (!this.hasShutdownHook) {
       this.hasShutdownHook = true;
-      const flush = () => this.flush();
-      process.on("beforeExit", flush);
-      process.on("SIGTERM", flush);
-      process.on("SIGINT", flush);
+      process.on("beforeExit", () => this.flush());
     }
   }
 

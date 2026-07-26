@@ -6,7 +6,29 @@ interface LoginGuardEntry {
   lockedUntil: number;
 }
 
+/**
+ * Cap on tracked source IPs. The map is keyed by a value an attacker can vary
+ * (a botnet, or a spoofed hop if the trust-proxy depth is ever misconfigured),
+ * so it needs a ceiling or it becomes a slow memory leak. When full we first
+ * drop entries whose lock has expired, and only then the oldest insertion —
+ * Map preserves insertion order, so the first key is the least recent.
+ */
+const MAX_TRACKED_IPS = 10_000;
+
 const byIp = new Map<string, LoginGuardEntry>();
+
+function evictIfFull(): void {
+  if (byIp.size < MAX_TRACKED_IPS) return;
+  const now = Date.now();
+  for (const [ip, entry] of byIp) {
+    if (entry.lockedUntil <= now) byIp.delete(ip);
+  }
+  while (byIp.size >= MAX_TRACKED_IPS) {
+    const oldest = byIp.keys().next();
+    if (oldest.done) break;
+    byIp.delete(oldest.value);
+  }
+}
 
 export function resetLoginGuardForTests(): void {
   byIp.clear();
@@ -24,7 +46,9 @@ export function checkLoginAllowed(ip: string): { ok: true } | { ok: false; messa
 
 export function recordLoginFailure(ip: string): void {
   const now = Date.now();
-  const entry = byIp.get(ip) ?? { failures: 0, lockedUntil: 0 };
+  const existing = byIp.get(ip);
+  if (!existing) evictIfFull();
+  const entry = existing ?? { failures: 0, lockedUntil: 0 };
   if (entry.lockedUntil > 0 && entry.lockedUntil <= now) {
     entry.failures = 0;
     entry.lockedUntil = 0;

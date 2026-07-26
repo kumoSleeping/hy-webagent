@@ -426,6 +426,11 @@ export class PISessionManager {
     });
   }
 
+  /** Live session count, surfaced by the readiness probe. */
+  activeSessionCount(): number {
+    return this.sessions.size;
+  }
+
   /** Count distinct users with active sessions. */
   private distinctUserCount(): number {
     const users = new Set<string>();

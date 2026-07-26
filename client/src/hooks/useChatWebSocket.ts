@@ -400,8 +400,13 @@ export function useChatWebSocket(): ChatWebSocketApi {
 
       setConnectionState('connecting');
       const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+      // Guest links carry an owner-issued share token (?share=…). It is the only
+      // credential an unauthenticated viewer has, so forward it on the upgrade;
+      // without it the server accepts only sessions published via a bot channel.
+      const shareToken = new URLSearchParams(location.search).get("share");
+      const shareSuffix = shareToken ? `&share=${encodeURIComponent(shareToken)}` : "";
       const wsUrl = isGuestView
-        ? `${protocol}//${location.host}/ws/chat?view=1&piSessionId=${boundPiSessionId}`
+        ? `${protocol}//${location.host}/ws/chat?view=1&piSessionId=${boundPiSessionId}${shareSuffix}`
         : `${protocol}//${location.host}/ws/chat?sessionId=${sessionId}&piSessionId=${boundPiSessionId}`;
       const ws = new WebSocket(wsUrl);
       activeWs = ws;

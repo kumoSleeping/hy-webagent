@@ -1,0 +1,88 @@
+# HY-Webagent (pi-web-platform) — hardened service unit
+#
+# Install:
+#   cp scripts/systemd/hy-webagent.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now hy-webagent
+#
+# Local overrides belong in a drop-in, NOT in edits to this file (which the
+# self-updater will overwrite on the next deploy):
+#   systemctl edit hy-webagent
+
+[Unit]
+Description=HY-Webagent (pi-web-platform)
+Documentation=file:///opt/hy-webagent/docs/maintenance/03-keepalive.md
+After=network-online.target
+Wants=network-online.target
+
+# Give up and stay down only after 5 failures in 10 minutes. Without a limit a
+# genuinely broken build restart-loops forever, burning CPU and flooding the
+# journal; with too tight a limit a transient blip takes the service down.
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=notify
+NotifyAccess=all
+WorkingDirectory=/opt/hy-webagent/server
+EnvironmentFile=-/etc/hy-webagent.env
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=WORKSPACE_ROOT=/opt/hy-webagent/workspaces
+Environment=DATABASE_PATH=/opt/hy-webagent/data/platform.db
+Environment=PI_EXTENSIONS_ROOT=/opt/hy-webagent/pi-extensions
+ExecStart=/usr/bin/node dist/index.js
+
+# --- restart policy -------------------------------------------------------
+# `always`, not `on-failure`: the graceful shutdown path exits 0, and
+# `on-failure` would treat that as an intentional stop and leave the service
+# down after any clean exit.
+Restart=always
+RestartSec=3
+
+# Must exceed the 15s graceful drain in ops/lifecycle.ts, so the process gets to
+# finish flushing usage and disposing sessions before systemd escalates to KILL.
+TimeoutStopSec=30
+TimeoutStartSec=120
+KillSignal=SIGTERM
+KillMode=mixed
+
+# --- watchdog -------------------------------------------------------------
+# The process pings at WATCHDOG_USEC/2 (15s here) and deliberately withholds the
+# ping when the event loop is stalled, so systemd recovers a wedged-but-alive
+# process. Requires Type=notify + NotifyAccess=all (the ping is sent via the
+# systemd-notify helper from a child pid — Node cannot open an AF_UNIX datagram
+# socket itself). Raise this if long synchronous work legitimately blocks.
+WatchdogSec=30
+
+# --- resource limits ------------------------------------------------------
+# The agent spawns Chromium and user processes; without a cap one runaway
+# session OOMs the host instead of just this unit.
+MemoryMax=4G
+TasksMax=2048
+LimitNOFILE=65536
+
+# --- hardening ------------------------------------------------------------
+# NOTE: this unit still runs as root, matching the current deployment. The agent
+# executes user-supplied bash, so root is the single largest risk in this system
+# (see docs/maintenance/01-security-fixes.md, remaining item 1). Switching to a
+# dedicated user requires chown-ing data/ and workspaces/ and is a separate,
+# downtime-carrying migration — do it, but do it deliberately:
+#   User=hy-webagent
+#   Group=hy-webagent
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+ReadWritePaths=/opt/hy-webagent
+
+# --- logging --------------------------------------------------------------
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hy-webagent
+
+[Install]
+WantedBy=multi-user.target

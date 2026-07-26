@@ -180,20 +180,45 @@ export function validateBashCommand(
     }
   }
 
+  // Deny the platform data directory as a whole. Naming individual files is not
+  // enough: `plat*.db` sidesteps a literal "platform.db" match, and the same
+  // directory also holds the api-key lookup secret and bot upload tokens.
+  const escapedDataDir = ctx.dataDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp(`${escapedDataDir}(?:[\\\\/]|\\s|["'\`]|$)`, "i").test(command)) {
+    return { block: true, reason: "Platform data directory access denied" };
+  }
+
   if (isProcessManagementCommand(command) && !options?.processOpsConfirmed) {
     return { block: true, reason: processOpsConfirmPrompt() };
   }
 
-  const siblingWorkspace = path.relative(ctx.userWorkspacePath, ctx.workspacesRoot);
-  if (siblingWorkspace && !siblingWorkspace.startsWith("..")) {
-    const escapedRoot = ctx.workspacesRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const otherWorkspace = new RegExp(
-      `${escapedRoot}[\\\\/][^\\\\/\\s"'\\\`]+`,
+  // The workspaces root is by construction the parent of the user's workspace,
+  // so the `path.relative(...)` guard that used to wrap this check always
+  // evaluated to ".." and the body never ran — every sibling workspace was
+  // reachable from bash. The check is unconditional now.
+  const escapedRoot = ctx.workspacesRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const otherWorkspace = new RegExp(`${escapedRoot}[\\\\/][^\\\\/\\s"'\`]+`, "i");
+  for (const match of command.matchAll(new RegExp(otherWorkspace, "gi"))) {
+    const referenced = match[0];
+    if (
+      referenced !== ctx.userWorkspacePath &&
+      !referenced.startsWith(ctx.userWorkspacePath + path.sep)
+    ) {
+      return { block: true, reason: "Access to other user workspaces is denied" };
+    }
+  }
+
+  // A bare reference to the workspaces root (`ls /opt/hy-webagent/workspaces`,
+  // or a glob such as `workspaces/*/.pi/agent/auth.json`) never matches the
+  // pattern above because it has no concrete child segment, yet it enumerates
+  // or reads across every tenant.
+  if (new RegExp(`${escapedRoot}(?:[\\\\/]|\\s|["'\`]|$)`, "i").test(command)) {
+    const scoped = new RegExp(
+      `${ctx.userWorkspacePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[\\\\/]|\\s|["'\`]|$)`,
       "i"
     );
-    const match = command.match(otherWorkspace);
-    if (match && !match[0].startsWith(ctx.userWorkspacePath)) {
-      return { block: true, reason: "Access to other user workspaces is denied" };
+    if (!scoped.test(command)) {
+      return { block: true, reason: "Access to the workspaces root is denied" };
     }
   }
 
