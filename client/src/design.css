@@ -2475,11 +2475,25 @@ button.pi-panel-row.pi-panel-row--selected {
   height: var(--pi-composer-toolbar-btn-h); padding: 0;
   cursor: pointer;
   color: var(--pi-muted);
+  /* 新建按钮支持长按(进/出小窗模式)—— 禁掉移动端长按呼出/选中。 */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   border: none;
   background: transparent;
   outline: none;
   transition: background 120ms, color 120ms;
 }
+/* 长按新建按钮触发进/出小窗模式的瞬间:图标缩-弹一下作确认反馈。 */
+@keyframes pi-longpress-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.72); }
+  100% { transform: scale(1); }
+}
+.pi-composer-toolbar-btn--pop svg {
+  animation: pi-longpress-pop 320ms ease-out;
+}
+
 .pi-composer-toolbar-btn svg {
   flex-shrink: 0;
   display: block;

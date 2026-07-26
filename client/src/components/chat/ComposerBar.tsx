@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
-import { AppWindow, Command, GitBranch, History, FolderOpen, Cpu, PictureInPicture2, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
+import { AppWindow, Command, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useConnectionState } from "../../context/useChatConnection";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
@@ -142,8 +142,6 @@ function toolbarIcon(item: ToolbarItemDef) {
       return <FolderOpen strokeWidth={2} aria-hidden="true" />;
     case "account":
       return <UserRound strokeWidth={2} aria-hidden="true" />;
-    case "open-window":
-      return <PictureInPicture2 strokeWidth={2} aria-hidden="true" />;
     case "new-chat":
       return <AppWindow strokeWidth={2} aria-hidden="true" />;
     case "return-chat":
@@ -166,10 +164,8 @@ function toolbarTitle(item: ToolbarItemDef, hasWindows: boolean): string {
       return "Files";
     case "account":
       return "Account & budget";
-    case "open-window":
-      return hasWindows ? "当前会话开小窗 (Enter)" : "开小窗:进入多任务 (Enter)";
     case "new-chat":
-      return hasWindows ? "新会话小窗 (Enter)" : "新建会话 (Enter)";
+      return hasWindows ? "新会话小窗 (Enter)·长按退出小窗模式" : "新建会话 (Enter)·长按进入小窗模式";
     case "return-chat":
       return "返回正常聊天";
   }
@@ -207,10 +203,8 @@ function toolbarAriaLabel(item: ToolbarItemDef, hasWindows: boolean): string {
       return "Toggle files";
     case "account":
       return "Toggle account panel";
-    case "open-window":
-      return "把当前会话开成小窗";
     case "new-chat":
-      return hasWindows ? "新建会话并开小窗" : "新建会话";
+      return hasWindows ? "新建会话并开小窗;长按退出小窗模式" : "新建会话;长按进入小窗模式";
     case "return-chat":
       return "返回正常聊天";
   }
@@ -435,9 +429,9 @@ export function ComposerBar({
     await activateSession(piSessionId);
   }
 
-  /** 「开小窗」= 小窗模式的显式入口:把当前主区会话弹成直播小窗
+  /** 长按新建按钮(无窗时)= 进入小窗模式:当前主区会话弹成直播小窗
    * (已有窗则置顶);空态没有会话就新建一路直接以小窗开场。 */
-  function handleOpenWindowClick() {
+  function enterWindowMode() {
     closePanel();
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
@@ -457,6 +451,35 @@ export function ComposerBar({
       void useSessionStore.getState().fetchSessions();
     })();
   }
+
+  // 新建按钮一钮双义:点击=新建(随模式),长按 500ms = 进/出小窗模式。
+  // 触发过长按的那次按压,随后的 click 必须作废(longPressFiredRef)。
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressFiredRef = useRef(false);
+  const [newChatPop, setNewChatPop] = useState(false);
+
+  function clearNewChatLongPress() {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
+  function handleNewChatPointerDown() {
+    longPressFiredRef.current = false;
+    clearNewChatLongPress();
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressFiredRef.current = true;
+      setNewChatPop(true);
+      window.setTimeout(() => setNewChatPop(false), 320);
+      const ws = useSessionWindowsStore.getState();
+      if (ws.windows.length > 0) ws.exitWindowMode();
+      else enterWindowMode();
+    }, 500);
+  }
+
+  useEffect(() => clearNewChatLongPress, []);
 
   /** 新建按钮随模式换义:无小窗 = 纯新建会话(主区直接切过去);
    * 有小窗 = 新建会话并开直播小窗(多任务再加一路)。 */
@@ -509,11 +532,12 @@ export function ComposerBar({
       groupPreview?.onReturnToChat();
       return;
     }
-    if (item.id === "open-window") {
-      handleOpenWindowClick();
-      return;
-    }
     if (item.id === "new-chat") {
+      // 长按已消费本次按压:进/出小窗模式,不再叠加新建。
+      if (longPressFiredRef.current) {
+        longPressFiredRef.current = false;
+        return;
+      }
       handleNewWindowChatClick();
       return;
     }
@@ -1463,10 +1487,14 @@ export function ComposerBar({
               style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
               key={item.id}
               type="button"
-              className={`pi-composer-toolbar-btn${item.id === "new-chat" && !hasDraft && !isStreaming ? " pi-composer-toolbar-btn--accent" : ""}`}
+              className={`pi-composer-toolbar-btn${item.id === "new-chat" && !hasDraft && !isStreaming ? " pi-composer-toolbar-btn--accent" : ""}${item.id === "new-chat" && newChatPop ? " pi-composer-toolbar-btn--pop" : ""}`}
               data-active={item.panel ? panel === item.panel : false}
               data-keyboard-focus={toolbarKeyboardFocus && toolbarIndex === index}
-              onPointerDown={item.id === "new-chat" || item.id === "open-window" ? undefined : handleToolbarPointerDown}
+              onPointerDown={item.id === "new-chat" ? handleNewChatPointerDown : handleToolbarPointerDown}
+              onPointerUp={item.id === "new-chat" ? clearNewChatLongPress : undefined}
+              onPointerLeave={item.id === "new-chat" ? clearNewChatLongPress : undefined}
+              onPointerCancel={item.id === "new-chat" ? clearNewChatLongPress : undefined}
+              onContextMenu={item.id === "new-chat" ? (e) => e.preventDefault() : undefined}
               onClick={() => handleToolbarItemClick(item)}
               title={toolbarTitle(item, sessionWindows.length > 0)}
               aria-label={toolbarAriaLabel(item, sessionWindows.length > 0)}

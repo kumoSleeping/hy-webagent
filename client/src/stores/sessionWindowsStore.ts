@@ -32,6 +32,9 @@ interface SessionWindowsState {
   open: (sessionId: string) => void;
   close: (sessionId: string) => void;
   closeAll: () => void;
+  /** 长按退出小窗模式:关全部窗且清空持久化(closeAll 是切目录换域用的,
+   *  故意不动持久化 —— 两者不可混用)。 */
+  exitWindowMode: () => void;
   bringToFront: (sessionId: string) => void;
   zoom: (sessionId: string) => void;
   unzoom: () => void;
@@ -100,6 +103,17 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set) => ({
       // 不动持久化:目录切换走 setSessionWindowsPersistScope 换域,
       // 旧项目的窗列表留给下次回来恢复。
       for (const w of s.windows) dropChatStore(w.sessionId);
+      return {
+        windows: [],
+        stack: s.stack.filter((k) => k === "panel" || k === "preview"),
+        zoomedSessionId: null,
+      };
+    }),
+
+  exitWindowMode: () =>
+    set((s) => {
+      for (const w of s.windows) dropChatStore(w.sessionId);
+      persist([]);
       return {
         windows: [],
         stack: s.stack.filter((k) => k === "panel" || k === "preview"),
