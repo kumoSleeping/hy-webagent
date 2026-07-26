@@ -31,7 +31,7 @@ import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
 import { flashStatus } from "../../stores/statusBarStore";
-import { floatZ, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
+import { floatZ, seedSpawnRect, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
 import { useAuthStore } from "../../stores/authStore";
 import type { FileEntry } from "../../types";
 import {
@@ -478,7 +478,10 @@ export function ComposerBar({
       const id = await useSessionStore.getState().createSession();
       if (!id) return; // 失败原因由 sessionStore 直接闪到状态行
       useSessionStore.getState().setActiveSession(id);
-      if (asWindow) useSessionWindowsStore.getState().open(id);
+      if (asWindow) {
+        seedSpawnRect(id); // 出生位:参照栈顶窗,朝空隙最大方向留距同尺寸
+        useSessionWindowsStore.getState().open(id);
+      }
       void useSessionStore.getState().fetchSessions();
     })();
   }
@@ -1308,6 +1311,7 @@ export function ComposerBar({
               // 从这里找回;⌘/Ctrl 点任何时候都强制开窗。
               const inWindowMode = useSessionWindowsStore.getState().windows.length > 0;
               if (!groupPreview && (e?.metaKey || e?.ctrlKey || inWindowMode)) {
+                seedSpawnRect(s.id); // 出生位:参照栈顶窗,朝空隙最大方向
                 useSessionWindowsStore.getState().open(s.id);
                 useSessionStore.getState().setActiveSession(s.id);
                 closePanel();
@@ -1452,6 +1456,31 @@ export function ComposerBar({
       >
         {/* 设计稿 D:面板不再长在工具栏上 —— 独立悬浮卡见下方 pi-float-panel。 */}
         <div className="pi-composer-toolbar-bar">
+          {/* bar 左端:小窗编号瓦片 = 窗口切换入口(点击置顶+激活,右键关窗)。 */}
+          {sessionWindows.length > 0 && (
+            <div className="pi-swin-bar-tiles" onClick={(e) => e.stopPropagation()}>
+              {sessionWindows.map((w, i) => (
+                <button
+                  key={w.sessionId}
+                  type="button"
+                  className={`pi-swin-bar-tile${w.sessionId === activePiSessionId ? " pi-swin-bar-tile--active" : ""}`}
+                  onPointerDown={handleToolbarPointerDown}
+                  onClick={() => {
+                    useSessionWindowsStore.getState().bringToFront(w.sessionId);
+                    useSessionStore.getState().setActiveSession(w.sessionId);
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    useSessionWindowsStore.getState().close(w.sessionId);
+                  }}
+                  title={`小窗 ${i + 1}（点击置顶，右键关闭）`}
+                  aria-label={`切换到小窗 ${i + 1}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+          )}
           {isMobileLayout && <div className="pi-composer-toolbar-bar-fill" aria-hidden="true" />}
           <div className="pi-composer-toolbar-bar-tail">
             {toolbarItems.map((item, index) => (

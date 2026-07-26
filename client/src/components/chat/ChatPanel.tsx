@@ -29,7 +29,7 @@ import {
   useSessionWindowsStore,
 } from "../../stores/sessionWindowsStore";
 import { SessionWindowsHost } from "./SessionWindow";
-import { SessionWindowStrings } from "./SessionWindowStrings";
+import { SessionTimeline } from "./SessionTimeline";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { flashStatus } from "../../stores/statusBarStore";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
@@ -584,8 +584,9 @@ export function ChatPanel({
             否则它以 500 层压住一切,预览/会话窗永远到不了它上面。 */}
         <div id="pi-float-layer" />
         <SessionWindowsHost />
-        {/* 「琴弦」:手机小窗模式左缘滑动切窗(台前调度式)。 */}
-        {isMobileLayout && <SessionWindowStrings />}
+        {/* 时间线:主区左缘的当前会话轮次导航(Codex 式)。窗口切换
+            入口在 bar 左侧编号瓦片(ComposerBar)。 */}
+        {!activeSessionWindowed && !groupPreview && <SessionTimeline />}
         {/* 渐隐幕:浮层拖进输入区时向下溶入背景(见 design.css)。 */}
         <div className="pi-float-fade" aria-hidden="true" />
         {/* 第二扇悬浮小窗:文件/图片预览 —— 与面板小窗同一套 chrome,

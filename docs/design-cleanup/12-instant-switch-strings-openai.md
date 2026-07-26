@@ -46,6 +46,24 @@ openai 上从未被启用。本轮:
    放开就改 server/config/model-templates.json 的 core-3 模板。
    用户本人的号是 **admin**(工作区 admin-zsx0vltj)。
 
+## 试用返工(同日批四:定位大改)
+
+- **左缘条重新定位**:不再管窗口切换,改为 **Codex 式当前会话时间线**
+  (SessionTimeline,SessionWindowStrings 退役):每个用户轮次一格灰
+  刻度,常态半透明;按住后手指附近刻度按高斯衰减隆起成波形 + 浮出
+  该轮消息摘要,滑动实时换轮,松手平滑滚到那一轮(DOM 取主区第 n 个
+  `.pi-message-dialog-user`,排除小窗内的)。长会话间距自动压缩到半屏。
+  仅主区 feed 可见时渲染;扩展位:节点换 session-tree 可带 PI tree 分叉。
+- **窗口切换入口 = bar 左端编号瓦片**(用户定的方向):点击置顶+激活,
+  右键关窗,激活瓦主题红。bar 左侧本就是留白带,零挤占。
+- **「连接中」全面清除**:窗身加载不再有文字/加载条 —— 正文留白,
+  左上角红杠位变成输入框同款呼吸块(chrome 新增 loading prop,无框),
+  连上即变回红杠;主输入框的连接指示此前已 900ms 去抖。
+- **账号勘误**:用户日常登录的是 **default**(Default Admin,工作区
+  default-admin-n9fk8sc9,当日活跃),不是 admin —— GPT 三模型白名单
+  已补到 default(admin/dreamprism 也保留)。default 工作区 models.json
+  当日已同步,含 gpt-5.6 三模型。
+
 ## 试用返工(同日批三)
 
 - **关闭钮定稿**:红矩形+白 ✕ → 标题栏左端**一根小红杠**(最小化观感,

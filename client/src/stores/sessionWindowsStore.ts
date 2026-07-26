@@ -157,6 +157,37 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
   raisePreview: () => set((s) => ({ stack: raised(s.stack, "preview") })),
 }));
 
+/** 新窗出生位:以当前栈顶窗为参照,朝上/下/左/右中空隙最大的方向
+ * 留 16px 间距生成**同尺寸**板块(预写 pi-swin-rect,chrome 挂载即读;
+ * 越界由 clampRect 兜底)。该窗已有历史位置则不动(肌肉记忆优先);
+ * 没有参照窗(第一扇)也不动 —— 走 CSS 默认锚。 */
+export function seedSpawnRect(newSessionId: string): void {
+  const key = `pi-swin-rect:${newSessionId}`;
+  try {
+    if (localStorage.getItem(key)) return;
+  } catch {
+    return;
+  }
+  const s = useSessionWindowsStore.getState();
+  const refKey = [...s.stack].reverse().find((k) => s.windows.some((w) => w.sessionId === k));
+  if (!refKey) return;
+  const refEl = document.querySelector(`[data-swin-id="${CSS.escape(refKey)}"]`);
+  if (!refEl) return;
+  const r = refEl.getBoundingClientRect();
+  const GAP = 16;
+  const best = [
+    { size: window.innerWidth - r.right, x: r.right + GAP, y: r.top },
+    { size: r.left, x: r.left - GAP - r.width, y: r.top },
+    { size: window.innerHeight - r.bottom, x: r.left, y: r.bottom + GAP },
+    { size: r.top, x: r.left, y: r.top - GAP - r.height },
+  ].sort((a, b) => b.size - a.size)[0];
+  try {
+    localStorage.setItem(key, JSON.stringify({ x: best.x, y: best.y, w: r.width, h: r.height }));
+  } catch {
+    // 存储不可用:退回默认锚。
+  }
+}
+
 /** 换持久化域,返回该 scope 上次的 {open, stash}(供恢复)。兼容旧格式:
  * 纯 id 数组 / 带 minimized 的旧条目(一律按开着恢复,stash 空)。 */
 export function setSessionWindowsPersistScope(cwd: string | null): PersistedWindowsState {

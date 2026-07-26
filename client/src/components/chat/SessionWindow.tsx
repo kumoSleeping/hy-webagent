@@ -72,6 +72,7 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
       className={`pi-float-panel pi-float-panel--session${isActive ? " pi-float-panel--active" : ""}`}
       ref={panelRef}
       data-open="true"
+      data-swin-id={sessionId}
       style={{
         zIndex: z,
         right: `calc(var(--pi-float-right, 1.25rem) + ${cascade * 24}px)`,
@@ -84,6 +85,7 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
           点历史行重新弹窗);拖标题栏移动、拖边缘/角改大小。 */}
       <ComposerPanelChrome
         panelRef={panelRef}
+        loading={!attached && !mirrorMain}
         storageKey={`pi-swin-rect:${sessionId}`}
         onClose={() => {
           // 关的是激活窗且还有别的窗:焦点交给栈顶剩余窗 —— 否则
@@ -104,12 +106,11 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
         closeLabel="关闭小窗（会话保留在列表）"
       />
       <div className="pi-swin-body">
-        {attached || mirrorMain ? (
+        {(attached || mirrorMain) && (
           // 激活且主链路已就位 = 镜像单例 store(与主区逐字节一致);
           // 其余时刻走本窗独立 store + 对账 —— 含激活换绑的过渡期。
+          // 加载中正文留白,左上角红杠位变呼吸块(chrome loading)。
           <MessageFeed chatStore={mirrorMain ? useChatStore : chatStore} reserveComposer={false} />
-        ) : (
-          <div className="pi-swin-loading">连接中…</div>
         )}
       </div>
     </div>

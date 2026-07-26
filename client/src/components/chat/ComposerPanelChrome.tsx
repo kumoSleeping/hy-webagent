@@ -11,6 +11,9 @@ interface ComposerPanelChromeProps {
   onClose?: () => void;
   /** 红杠的 title/aria 文案(默认「关闭」)。 */
   closeLabel?: string;
+  /** 连接/加载中:红杠位变成输入框左上角同款呼吸块(无框),
+   *  页面上不再出现任何「连接中」字样。按钮仍可点(可中途关窗)。 */
+  loading?: boolean;
 }
 
 /** 统一浮窗套件:隐形顶栏(按住拖动,无标题无分割线 —— 内容一直
@@ -93,6 +96,7 @@ export function ComposerPanelChrome({
   leading,
   onClose,
   closeLabel = "关闭",
+  loading = false,
 }: ComposerPanelChromeProps) {
   const interactRef = useRef<
     | { mode: "drag"; grabX: number; grabY: number }
@@ -205,7 +209,11 @@ export function ComposerPanelChrome({
             title={closeLabel}
             aria-label={closeLabel}
           >
-            <span className="pi-swin-ctl-dash" aria-hidden="true" />
+            {loading ? (
+              <span className="pi-composer-connecting-block" aria-hidden="true" />
+            ) : (
+              <span className="pi-swin-ctl-dash" aria-hidden="true" />
+            )}
           </button>
         )}
         {leading}
