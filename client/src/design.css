@@ -457,7 +457,13 @@ body {
  * ========================================================== */
 .pi-composer-dock--elevated {
   background: var(--pi-panel);
-  box-shadow: 0 0 0 1px var(--pi-line), var(--pi-shadow-float);
+  /* Ring + UPWARD-only blur: the dock sits above the status rail, and a
+     downward drop shadow paints over it (positioned dock > in-flow
+     sibling background), leaking a smudge past the card's bottom edge. */
+  box-shadow:
+    0 0 0 1px var(--pi-line),
+    0 -4px 6px -1px rgba(0, 0, 0, 0.06),
+    0 -2px 4px -1px rgba(0, 0, 0, 0.04);
 }
 .pi-composer-dock--elevated .pi-preview-stack {
   position: absolute;
