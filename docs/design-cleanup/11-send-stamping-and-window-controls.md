@@ -62,7 +62,11 @@
   两 flank 缝隙里原样可见、切边生硬。全视口宽的 fixed 装饰层
   (z=400,浮层之上、坞之下,pointer-events:none),从
   `--pi-float-bottom` 线起向下渐变到 `--pi-bg` —— 浮窗坠入即溶解;
-  静止浮层停在线上方,零影响。页脚 `.pi-web-chrome-bar` 提到 450。
+  静止浮层停在线上方,零影响。页脚 `.pi-web-chrome-bar` 提到 450;
+  状态行 `.pi-status-bar-stack` 提到 500(它是输入框整体的一部分,
+  首发时被幕的不透明段盖掉 —— 手机端「底下几行字消失」即此)。
+- **new-chat 永不裁剪**:加入 TOOLBAR_PROTECTED(手机再窄也得能新建
+  会话),窄屏兜底集为 commands + new-chat。
 
 ## 排查
 

@@ -1629,6 +1629,10 @@ button.pi-panel-row.pi-panel-row--selected {
   margin-bottom: -0.875rem;
   padding-top: 0.725rem;
   padding-bottom: 0.875rem;
+  /* 状态行是输入框整体的一部分 —— 与输入坞同层(500),
+     否则会被浮层渐隐幕(400)的不透明段盖掉(手机端首发现场)。 */
+  position: relative;
+  z-index: 500;
   background: var(--pi-bg);
   /* Reserve native pi footer height so New Chat / session switch never jumps the composer. */
   min-height: 4.75rem;

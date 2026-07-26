@@ -31,8 +31,8 @@ export const DESKTOP_TOOLBAR_ITEMS: ToolbarItemDef[] = [
 ];
 
 /** Mobile toolbar — same pool as desktop; trimmed one item at a time
- *  in the order tree → account → model → files → history → new-chat,
- *  always keeping commands. */
+ *  in the order tree → open-window → account → model → files → history,
+ *  always keeping commands + new-chat. */
 export const MOBILE_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "commands", panel: "commands", enterToActivate: false },
   { id: "model", panel: "model", enterToActivate: false },
@@ -65,11 +65,11 @@ export const TOOLBAR_TRIM_ORDER: ToolbarItemId[] = [
   "model",
   "files",
   "history",
-  "new-chat",
 ];
 
-/** Never dropped — commands stays; send lives in the input row below. */
-export const TOOLBAR_PROTECTED: ToolbarItemId[] = ["commands", "return-chat"];
+/** Never dropped — commands + new-chat stay(手机再窄也得能新建会话);
+ *  send lives in the input row below. */
+export const TOOLBAR_PROTECTED: ToolbarItemId[] = ["commands", "new-chat", "return-chat"];
 
 export function getRootFontPx(): number {
   if (typeof document === "undefined") return 16;

@@ -116,11 +116,11 @@ describe("composerLayout", () => {
     expect(trimmed.some((i) => i.id === "account")).toBe(true);
   });
 
-  it("trimOne never removes commands", () => {
+  it("trimOne never removes commands or new-chat", () => {
     const btn = 50;
     let kept = toolbarItemsForLayout(true);
     const rounds = kept.length;
     for (let i = 0; i < rounds; i++) kept = trimOneToolbarItem(kept, 40, btn);
-    expect(kept.map((i) => i.id)).toEqual(["commands"]);
+    expect(kept.map((i) => i.id)).toEqual(["commands", "new-chat"]);
   });
 });
