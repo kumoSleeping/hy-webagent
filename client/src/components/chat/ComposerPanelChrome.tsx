@@ -1,84 +1,155 @@
-import { useEffect, useState, type RefObject } from "react";
-import { Maximize2, Minimize2, X } from "lucide-react";
-import { useComposerPanelStore } from "../../stores/composerPanelStore";
+import { useEffect, useRef, type RefObject } from "react";
 
 interface ComposerPanelChromeProps {
   /** Label in the header row — same string as the toolbar button title. */
   title: string;
-  /** The .pi-float-panel element — measured to decide whether content is clipped. */
+  /** The .pi-float-panel element — dragged / resized / persisted as one unified card. */
   panelRef: RefObject<HTMLDivElement | null>;
 }
 
-/** 独立悬浮面板的头部行:标题 / ⤢⤡ / ✕(设计稿 D,无拖拽)。
- * ⤢ 只在贴身内容被截断时出现 —— 看到它就代表「下面还有」。 */
+/** 悬浮小窗的头部(按住拖动)+ 右下角握把(改大小),设计稿 E。
+ * 统一一种尺寸,无大小两态;无 ✕ / ⤢(点卡外或 Escape 关闭)。
+ * 几何存 localStorage;默认(没拖过)由 CSS 右贴 composer 右缘。 */
+
+const RECT_KEY = "pi-float-panel-rect-v1";
+const MIN_W = 240;
+const MIN_H = 160;
+/** 允许出界,但四周始终留这么多像素可抓(顶部完全不许出,否则抓不回来)。 */
+const GRAB = 56;
+
+interface PanelRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function readSavedRect(): PanelRect | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECT_KEY) ?? "null") as PanelRect | null;
+    if (!raw) return null;
+    if ([raw.x, raw.y, raw.w, raw.h].some((n) => typeof n !== "number" || !Number.isFinite(n))) {
+      return null;
+    }
+    return { x: raw.x, y: raw.y, w: raw.w, h: raw.h };
+  } catch {
+    return null;
+  }
+}
+
+function clampRect(r: PanelRect): PanelRect {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const w = Math.min(Math.max(r.w, MIN_W), vw);
+  const h = Math.min(Math.max(r.h, MIN_H), vh);
+  return {
+    x: Math.min(Math.max(r.x, GRAB - w), vw - GRAB),
+    y: Math.min(Math.max(r.y, 0), vh - 40),
+    w,
+    h,
+  };
+}
+
+function applyRect(el: HTMLElement, r: PanelRect) {
+  el.dataset.free = "true";
+  el.style.left = `${r.x}px`;
+  el.style.top = `${r.y}px`;
+  el.style.width = `${r.w}px`;
+  el.style.height = `${r.h}px`;
+}
+
+function currentRect(el: HTMLElement): PanelRect {
+  const rect = el.getBoundingClientRect();
+  return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+}
+
 export function ComposerPanelChrome({ title, panelRef }: ComposerPanelChromeProps) {
-  const stance = useComposerPanelStore((s) => s.stance);
-  const setStance = useComposerPanelStore((s) => s.setStance);
-  const closePanel = useComposerPanelStore((s) => s.closePanel);
-  const [clipped, setClipped] = useState(false);
-  const staged = stance === "stage";
+  const interactRef = useRef<{ mode: "drag"; grabX: number; grabY: number } | { mode: "resize" } | null>(null);
 
+  // 打开即恢复上次几何(钳到当前窗口);窗口缩放时把出界的卡拉回可抓范围。
   useEffect(() => {
-    const panelEl = panelRef.current;
-    if (!panelEl) return;
-    let observedScroll: Element | null = null;
-    let raf = 0;
-
-    const measure = () => {
-      raf = 0;
-      const scrollEl = panelEl.querySelector(".pi-panel-body-scroll");
-      if (scrollEl !== observedScroll) {
-        if (observedScroll) ro?.unobserve(observedScroll);
-        observedScroll = scrollEl;
-        if (scrollEl) ro?.observe(scrollEl);
-      }
-      setClipped(scrollEl ? scrollEl.scrollHeight > scrollEl.clientHeight + 1 : false);
+    const el = panelRef.current;
+    if (!el) return;
+    const saved = readSavedRect();
+    if (saved) applyRect(el, clampRect(saved));
+    const onWindowResize = () => {
+      if (el.dataset.free === "true") applyRect(el, clampRect(currentRect(el)));
     };
-    const schedule = () => {
-      if (raf === 0) raf = requestAnimationFrame(measure);
-    };
-
-    // jsdom(测试)没有 ResizeObserver;MutationObserver 始终可用。
-    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
-    ro?.observe(panelEl);
-    // Box observers miss content growing behind an already-capped viewport
-    // (async history/project loads) — watch the subtree for those.
-    const mo = new MutationObserver(schedule);
-    mo.observe(panelEl, { childList: true, subtree: true });
-    schedule();
-    return () => {
-      ro?.disconnect();
-      mo.disconnect();
-      if (raf !== 0) cancelAnimationFrame(raf);
-    };
+    window.addEventListener("resize", onWindowResize);
+    return () => window.removeEventListener("resize", onWindowResize);
   }, [panelRef]);
 
-  const stanceHidden = !staged && !clipped;
+  function persist() {
+    const el = panelRef.current;
+    if (!el) return;
+    try {
+      localStorage.setItem(RECT_KEY, JSON.stringify(currentRect(el)));
+    } catch {
+      // 存储不可用(隐私模式等):本次会话内仍生效,只是不记忆。
+    }
+  }
+
+  /** 任何拖动/改大小都先把当前视觉位置冻结成自由坐标(脱离默认右贴锚)。 */
+  function freeze(el: HTMLElement): PanelRect {
+    const r = currentRect(el);
+    applyRect(el, r);
+    return r;
+  }
+
+  function beginDrag(e: React.PointerEvent<HTMLDivElement>) {
+    const el = panelRef.current;
+    if (!el) return;
+    const r = freeze(el);
+    interactRef.current = { mode: "drag", grabX: e.clientX - r.x, grabY: e.clientY - r.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function beginResize(e: React.PointerEvent<HTMLDivElement>) {
+    const el = panelRef.current;
+    if (!el) return;
+    freeze(el);
+    interactRef.current = { mode: "resize" };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const el = panelRef.current;
+    const act = interactRef.current;
+    if (!el || !act) return;
+    const rect = el.getBoundingClientRect();
+    if (act.mode === "drag") {
+      applyRect(el, clampRect({ x: e.clientX - act.grabX, y: e.clientY - act.grabY, w: rect.width, h: rect.height }));
+    } else {
+      applyRect(el, clampRect({ x: rect.left, y: rect.top, w: e.clientX - rect.left, h: e.clientY - rect.top }));
+    }
+  }
+
+  function endInteract() {
+    if (interactRef.current) persist();
+    interactRef.current = null;
+  }
+
   return (
-    <div className="pi-composer-panel-handle">
-      <span className="pi-composer-panel-handle-title">{title}</span>
-      <button
-        type="button"
-        className="pi-composer-panel-handle-btn pi-composer-panel-handle-btn--stance"
-        data-hidden={stanceHidden ? "true" : undefined}
-        tabIndex={stanceHidden ? -1 : 0}
-        onClick={() => setStance(staged ? "hug" : "stage")}
-        title={staged ? "回贴身" : "满台"}
-        aria-label={staged ? "面板回贴身高度" : "面板铺满聊天区"}
+    <>
+      <div
+        className="pi-composer-panel-handle"
+        onPointerDown={beginDrag}
+        onPointerMove={onPointerMove}
+        onPointerUp={endInteract}
+        onPointerCancel={endInteract}
       >
-        {staged
-          ? <Minimize2 strokeWidth={2} aria-hidden="true" />
-          : <Maximize2 strokeWidth={2} aria-hidden="true" />}
-      </button>
-      <button
-        type="button"
-        className="pi-composer-panel-handle-btn"
-        onClick={() => closePanel()}
-        title="关闭"
-        aria-label="关闭面板"
-      >
-        <X strokeWidth={2} aria-hidden="true" />
-      </button>
-    </div>
+        <span className="pi-composer-panel-handle-title">{title}</span>
+      </div>
+      <div
+        className="pi-float-panel-grip"
+        aria-hidden="true"
+        onPointerDown={beginResize}
+        onPointerMove={onPointerMove}
+        onPointerUp={endInteract}
+        onPointerCancel={endInteract}
+      />
+    </>
   );
 }

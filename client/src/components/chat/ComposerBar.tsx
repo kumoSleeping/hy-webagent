@@ -78,8 +78,8 @@ interface ComposerBarProps {
   commandsContent?: ReactNode;
   /** Model picker — direct toolbar toggle, same popup as history/files. */
   modelContent?: ReactNode;
-  /** Session tree — since 设计稿 D it lives in the floating panel like
-   * every other kind (was a CenterStage mode), default stance = stage. */
+  /** Session tree — lives in the floating panel like every other kind
+   * (was a CenterStage mode before 设计稿 D). */
   treeContent?: ReactNode;
   /** Read-only group mode keeps the normal composer layout but limits it to
    * history and informational panels. */
@@ -169,7 +169,7 @@ function toolbarTitle(item: ToolbarItemDef): string {
   }
 }
 
-/** Handle-row label for the floating panel chrome — mirrors toolbarTitle. */
+/** Header label for the floating panel — mirrors toolbarTitle. */
 function panelChromeTitle(kind: Exclude<ComposerPanelKind, null>): string {
   switch (kind) {
     case "commands":
@@ -1235,7 +1235,6 @@ export function ComposerBar({
   );
 
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
-  const panelStance = useComposerPanelStore((s) => s.stance);
   const panelRef = useRef<HTMLDivElement>(null);
   const toolbarActive = panel !== null && !(previewOpen && panel === "files" && !isMobileLayout);
   const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
@@ -1254,6 +1253,11 @@ export function ComposerBar({
       panelEl.style.setProperty(
         "--pi-float-bottom",
         `${Math.max(0, window.innerHeight - rect.top) + 12}px`,
+      );
+      // 默认右贴:卡片右缘与 composer 右缘同一条线(设计稿 E)。
+      panelEl.style.setProperty(
+        "--pi-float-right",
+        `${Math.max(0, window.innerWidth - rect.right)}px`,
       );
     };
     update();
@@ -1389,7 +1393,6 @@ export function ComposerBar({
         className="pi-float-panel"
         ref={panelRef}
         data-open={toolbarActive ? "true" : "false"}
-        data-stance={toolbarActive && panel ? panelStance : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         {toolbarActive && panel && (
