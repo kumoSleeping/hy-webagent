@@ -36,6 +36,11 @@ export interface LifecycleOptions {
   graceMs?: number;
   /** Per-task budget, so one wedged task cannot consume the whole grace window. */
   taskTimeoutMs?: number;
+  /**
+   * How long to wait for connections to drain after clients are asked to close,
+   * before forcibly destroying whatever is left.
+   */
+  connectionDrainMs?: number;
   onShutdownStart?: () => void;
 }
 
@@ -55,6 +60,13 @@ export function isShuttingDown(): boolean {
 /** Reset module state. Tests only — the real process shuts down exactly once. */
 export function resetLifecycleForTests(): void {
   shuttingDown = false;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    timer.unref?.();
+  });
 }
 
 function withTimeout(task: ShutdownTask, ms: number): Promise<void> {
@@ -89,6 +101,7 @@ export function installLifecycle(options: LifecycleOptions): {
   const { server, wss, tasks } = options;
   const graceMs = options.graceMs ?? 15_000;
   const taskTimeoutMs = options.taskTimeoutMs ?? 5_000;
+  const connectionDrainMs = options.connectionDrainMs ?? 3_000;
 
   async function shutdown(reason: ShutdownReason, exitCode = 0): Promise<void> {
     if (shuttingDown) {
@@ -96,6 +109,7 @@ export function installLifecycle(options: LifecycleOptions): {
       return;
     }
     shuttingDown = true;
+    const deadline = Date.now() + graceMs;
     log.info(`shutdown started (${reason}), grace ${graceMs}ms`);
     options.onShutdownStart?.();
 
@@ -108,12 +122,17 @@ export function installLifecycle(options: LifecycleOptions): {
     hardExit.unref?.();
 
     try {
-      // 1. Stop accepting new work first, so the drain below converges.
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-      log.info("http listener closed");
+      // 1. Stop accepting new connections. Deliberately NOT awaited yet:
+      //    server.close() resolves only once every *existing* connection has
+      //    ended, and an upgraded WebSocket never ends on its own. Awaiting
+      //    here before closing them deadlocks until the hard deadline — which
+      //    is exactly what turned a 1ms shutdown (no clients) into a 15s one
+      //    (clients connected) in production.
+      const listenerClosed = new Promise<void>((resolve) => server.close(() => resolve()));
 
       // 2. Tell WS clients to reconnect (1012 triggers the client's retry path)
-      //    rather than dropping them into an ambiguous transport error.
+      //    rather than dropping them into an ambiguous transport error. This is
+      //    what lets step 1 converge.
       let closed = 0;
       for (const client of wss.clients) {
         try {
@@ -125,10 +144,32 @@ export function installLifecycle(options: LifecycleOptions): {
       }
       if (closed) log.info(`signalled ${closed} websocket client(s) to reconnect`);
 
-      // 3. Flush and release state. Sequential: ordering matters (persist usage
-      //    before closing the DB), and these are short.
+      // 3. Idle keep-alive HTTP sockets hold the listener open too.
+      server.closeIdleConnections?.();
+
+      // 4. Wait a bounded time for a clean drain, then force the rest. A client
+      //    that ignores the close frame must not hold up the restart.
+      await Promise.race([listenerClosed, sleep(connectionDrainMs)]);
+      for (const client of wss.clients) {
+        try {
+          client.terminate();
+        } catch {
+          // Nothing more we can do for this socket.
+        }
+      }
+      server.closeAllConnections?.();
+      log.info("http listener closed");
+
+      // 5. Flush and release state. Sequential: ordering matters (persist usage
+      //    before closing the DB). Each task is capped by whatever remains of
+      //    the grace window, so the sum can never overrun it.
       for (const task of tasks) {
-        await withTimeout(task, taskTimeoutMs);
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          log.warn(`out of grace before shutdown task "${task.name}" — skipping remainder`);
+          break;
+        }
+        await withTimeout(task, Math.min(taskTimeoutMs, remaining));
       }
 
       log.info("shutdown complete");

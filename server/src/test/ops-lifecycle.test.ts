@@ -73,6 +73,49 @@ describe("ops/lifecycle", () => {
     }
   });
 
+  it("drains promptly with a live WebSocket connected", async () => {
+    // Regression guard: server.close() resolves only once every existing
+    // connection has ended, and an upgraded WebSocket never ends on its own.
+    // Awaiting it before closing clients deadlocked until the hard deadline —
+    // in production that turned a 1ms shutdown into a 15s one on every restart.
+    const server = createServer();
+    const wss = new WebSocketServer({ server });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const port = (server.address() as { port: number }).port;
+
+    const client = new (await import("ws")).WebSocket(`ws://127.0.0.1:${port}`);
+    await new Promise<void>((resolve, reject) => {
+      client.on("open", () => resolve());
+      client.on("error", reject);
+    });
+
+    const exits: number[] = [];
+    const realExit = process.exit;
+    // @ts-expect-error — stubbed for the test
+    process.exit = (code?: number) => { exits.push(code ?? 0); };
+
+    try {
+      const { shutdown } = installLifecycle({
+        server,
+        wss,
+        graceMs: 10_000,
+        connectionDrainMs: 1_000,
+        tasks: [],
+      });
+      const started = Date.now();
+      await shutdown("SIGTERM", 0);
+      const elapsed = Date.now() - started;
+
+      // Must finish via the drain path, nowhere near the 10s hard deadline.
+      expect(elapsed).toBeLessThan(3_000);
+      expect(exits).toEqual([0]);
+    } finally {
+      process.exit = realExit;
+      try { client.terminate(); } catch { /* already gone */ }
+      wss.close();
+    }
+  }, 20_000);
+
   it("does not run the drain twice when signalled repeatedly", async () => {
     const server = createServer();
     const wss = new WebSocketServer({ noServer: true });

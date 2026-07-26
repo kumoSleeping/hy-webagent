@@ -507,14 +507,16 @@ body {
 }
 
 /* Rendered only inside an elevated dock — sides align with the dock's
-   ring (stack sits at ±1px); the bottom hairline is the SAME seam the
-   small toolbar popups draw between list and button row. */
+   ring (stack sits at ±1px). No bottom border: the panel's white body
+   flows straight into the toolbar strip and the input, one seamless
+   card (the opaque panel also paints over the ring's top line). */
 .pi-center-stage {
   display: flex;
   flex-direction: column;
   min-height: 0;
   max-height: min(34rem, calc(100dvh - 11rem));
   border: 1px solid var(--pi-line);
+  border-bottom: none;
   background: var(--pi-panel);
   animation: pi-pop-in-fade 160ms ease-out;
   z-index: 1;
