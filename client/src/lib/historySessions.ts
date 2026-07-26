@@ -17,7 +17,7 @@ export function filterVisibleSessions(
   activePiSessionId: string | null
 ): SessionSummary[] {
   return sessions.filter(
-    (s) => s.title !== "(empty)" || isActiveSessionSummary(s, activePiSessionId)
+    (s) => s.title !== "New Session" || isActiveSessionSummary(s, activePiSessionId)
   );
 }
 

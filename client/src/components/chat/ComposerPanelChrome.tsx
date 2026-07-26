@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 
 interface ComposerPanelChromeProps {
   /** Label in the header row — same string as the toolbar button title. */
@@ -7,6 +7,8 @@ interface ComposerPanelChromeProps {
   panelRef: RefObject<HTMLDivElement | null>;
   /** localStorage slot — 第二扇小窗(预览)传自己的 key,几何互不串。 */
   storageKey?: string;
+  /** 标题前的插槽(会话窗的 macOS 三色灯);按钮不触发拖动(closest 守卫)。 */
+  leading?: ReactNode;
 }
 
 /** 悬浮小窗的头部(按住拖动)+ 右下角握把(改大小),设计稿 E。
@@ -65,7 +67,7 @@ function currentRect(el: HTMLElement): PanelRect {
   return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
 }
 
-export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT_KEY }: ComposerPanelChromeProps) {
+export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT_KEY, leading }: ComposerPanelChromeProps) {
   const interactRef = useRef<{ mode: "drag"; grabX: number; grabY: number } | { mode: "resize" } | null>(null);
 
   // 打开即恢复上次几何(钳到当前窗口);窗口缩放时把出界的卡拉回可抓范围。
@@ -142,6 +144,7 @@ export function ComposerPanelChrome({ title, panelRef, storageKey = DEFAULT_RECT
         onPointerUp={endInteract}
         onPointerCancel={endInteract}
       >
+        {leading}
         <span className="pi-composer-panel-handle-title">{title}</span>
       </div>
       <div

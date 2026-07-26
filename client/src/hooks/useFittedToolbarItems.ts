@@ -53,6 +53,8 @@ export function useFittedToolbarItems(
   isMobileLayout: boolean,
   shellRef: RefObject<HTMLElement | null>,
   itemOverride?: ToolbarItemDef[],
+  /** 额外占用的像素(收折的会话窗编号方块)—— 从带宽里先扣,静态项先让位。 */
+  reservedPx = 0,
 ): ToolbarItemDef[] {
   const baseItems = useMemo(
     () => itemOverride ?? toolbarItemsForLayout(isMobileLayout),
@@ -64,7 +66,7 @@ export function useFittedToolbarItems(
   // the shell measurement is available.
   const [items, setItems] = useState<ToolbarItemDef[]>(() => {
     if (!isMobileLayout) return baseItems;
-    return convergeItemsForBand(baseItems, baseItems, computeBandPx(), mobileBtnWidthPx());
+    return convergeItemsForBand(baseItems, baseItems, Math.max(0, computeBandPx() - reservedPx), mobileBtnWidthPx());
   });
 
   // Sync the fitted set when the layout changes (mobile <-> desktop) or when
@@ -75,8 +77,8 @@ export function useFittedToolbarItems(
       setItems(baseItems);
       return;
     }
-    setItems(convergeItemsForBand(baseItems, baseItems, computeBandPx(), mobileBtnWidthPx()));
-  }, [baseItems, isMobileLayout]);
+    setItems(convergeItemsForBand(baseItems, baseItems, Math.max(0, computeBandPx() - reservedPx), mobileBtnWidthPx()));
+  }, [baseItems, isMobileLayout, reservedPx]);
 
   // Measure the composer shell immediately before paint and keep it in sync on
   // resize. The shell measurement is the source of truth, but if it reports a
@@ -100,15 +102,20 @@ export function useFittedToolbarItems(
       const measuredBand = measured * TOOLBAR_BAND_RATIO;
       const bandPx = measured > 0 && measuredBand > estimated * 0.5 ? measuredBand : estimated;
       setItems((prev) =>
-        convergeItemsForBand(prev.length ? prev : baseItems, baseItems, bandPx, mobileBtnWidthPx()),
+        convergeItemsForBand(
+          prev.length ? prev : baseItems,
+          baseItems,
+          Math.max(0, bandPx - reservedPx),
+          mobileBtnWidthPx(),
+        ),
       );
     };
 
     update();
-    const ro = new ResizeObserver(update);
-    ro.observe(shell);
-    return () => ro.disconnect();
-  }, [isMobileLayout, shellRef, baseItems]);
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    ro?.observe(shell);
+    return () => ro?.disconnect();
+  }, [isMobileLayout, shellRef, baseItems, reservedPx]);
 
   return isMobileLayout ? items : baseItems;
 }

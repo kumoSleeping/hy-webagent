@@ -11,7 +11,7 @@ interface PanelListRowProps {
   leadingKind?: PanelListLeading;
   selected?: boolean;
   disabled?: boolean;
-  onClick?: () => void;
+  onClick?: (e?: MouseEvent<HTMLButtonElement>) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   onMouseDown?: (e: MouseEvent) => void;

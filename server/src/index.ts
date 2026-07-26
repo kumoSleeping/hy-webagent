@@ -463,7 +463,7 @@ app.get("/api/sessions", authMiddleware(authSystem), async (req: any, res) => {
         }
         sessions.push({
           id: header.id,
-          title: title ? title.slice(0, 60) : "(empty)",
+          title: title ? title.slice(0, 60) : "New Session",
           timestamp: header.timestamp,
           messageCount: lines.length - 1,
         });
@@ -674,6 +674,25 @@ function handleUpgrade(
     if (!piSessionId) {
       log.warn("ws upgrade rejected: view mode requires piSessionId", { path: url.pathname });
       socket.destroy();
+      return;
+    }
+    // 多会话直播:登录用户带 view=1 = 自己会话的只读小窗 socket
+    // (不抢主 socket 的事件槽;写入仍被 writableTypes 拦截)。
+    const ownerAuth = sessionId ? authSystem.validateSession(sessionId) : null;
+    if (ownerAuth) {
+      (request as any).userId = ownerAuth.userId;
+      (request as any).piSessionId = piSessionId;
+      (request as any).isViewOnly = true;
+      if (url.pathname === "/ws/chat") {
+        log.info("ws owner feed-view upgrade accepted", { userId: ownerAuth.userId, piSessionId });
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          (ws as any).userId = ownerAuth.userId;
+          (ws as any).isViewOnly = true;
+          wss.emit("connection", ws, request);
+        });
+      } else {
+        socket.destroy();
+      }
       return;
     }
     // Guest view is unauthenticated, so it must resolve only sessions that were

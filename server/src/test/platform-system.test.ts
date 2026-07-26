@@ -5,6 +5,7 @@ import {
   assertBotRulesLoaded,
   assertPlatformRulesLoaded,
   buildPlatformAppendSections,
+  buildResourceLoaderOptionsForSession,
   loadPlatformBotSystemMd,
   loadPlatformSystemMd,
   resetPlatformSystemCacheForTests,
@@ -36,6 +37,34 @@ describe("platform-system", () => {
     expect(text).toContain("upload.json");
     expect(text).toContain("X-Bot-Upload-Token");
     expect(text).toContain("```summary");
+  });
+
+  it("SYSTEM_BOT.md states the send_message contract", async () => {
+    resetPlatformSystemCacheForTests();
+    const text = await loadPlatformBotSystemMd();
+    expect(text).toContain("send_message");
+    expect(text).toContain("这一条通道");
+    expect(text).toContain("wait_for_reply");
+    expect(text).toContain('kind="brief"');
+    expect(text).toContain('kind="final"');
+  });
+
+  it("hands the send_message channel to bot sessions only", () => {
+    const web = buildResourceLoaderOptionsForSession("/tmp/ws", "/tmp/ws/projects", true, false);
+    const bot = buildResourceLoaderOptionsForSession("/tmp/ws", "/tmp/ws/projects", true, true);
+    // Both keep the sandbox; only the bot session gets the extra channel.
+    expect(web.extensionFactories).toHaveLength(1);
+    expect(bot.extensionFactories).toHaveLength(2);
+  });
+
+  it("still gives a bot session the channel with the sandbox disabled", () => {
+    const admin = buildResourceLoaderOptionsForSession("/tmp/ws", "/tmp/ws/projects", false, true);
+    expect(admin.extensionFactories).toHaveLength(1);
+  });
+
+  it("adds no extensions for a sandbox-free web session", () => {
+    const plain = buildResourceLoaderOptionsForSession("/tmp/ws", "/tmp/ws/projects", false, false);
+    expect(plain.extensionFactories).toBeUndefined();
   });
 
   it("append sections include platform rules and security layer", async () => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
-import { Command, SquarePen, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
+import { AppWindow, Command, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useConnectionState } from "../../context/useChatConnection";
 import { useSlashStore, selectFilteredCommands } from "../../stores/slashStore";
@@ -30,6 +30,7 @@ import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
 import { flashStatus } from "../../stores/statusBarStore";
+import { useSessionWindowsStore } from "../../stores/sessionWindowsStore";
 import { useAuthStore } from "../../stores/authStore";
 import type { FileEntry } from "../../types";
 import {
@@ -142,7 +143,7 @@ function toolbarIcon(item: ToolbarItemDef) {
     case "account":
       return <UserRound strokeWidth={2} aria-hidden="true" />;
     case "new-chat":
-      return <SquarePen strokeWidth={2} aria-hidden="true" />;
+      return <AppWindow strokeWidth={2} aria-hidden="true" />;
     case "return-chat":
       return <MessagesSquare strokeWidth={2} aria-hidden="true" />;
   }
@@ -163,7 +164,7 @@ function toolbarTitle(item: ToolbarItemDef): string {
     case "account":
       return "Account & budget";
     case "new-chat":
-      return "New chat (Enter)";
+      return "新会话小窗 (Enter)";
     case "return-chat":
       return "返回正常聊天";
   }
@@ -202,7 +203,7 @@ function toolbarAriaLabel(item: ToolbarItemDef): string {
     case "account":
       return "Toggle account panel";
     case "new-chat":
-      return "New chat";
+      return "新建会话并开小窗";
     case "return-chat":
       return "返回正常聊天";
   }
@@ -235,7 +236,6 @@ export function ComposerBar({
   queuedFollowUp = [],
   onEditQueued,
   onSlash,
-  onNewChat,
   onFileClick,
   commandsContent,
   modelContent,
@@ -249,16 +249,26 @@ export function ComposerBar({
   const isSendUnavailable = connectionState !== 'connected';
   const draftCacheKey = `${DRAFT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
   const pastedTextCacheKey = `${PASTED_TEXT_CACHE_PREFIX}${useAuthStore((state) => state.userId) ?? "anonymous"}`;
-  const toolbarItems = useFittedToolbarItems(
-    isMobileLayout,
-    shellRef,
-    groupPreview ? GROUP_PREVIEW_TOOLBAR_ITEMS : undefined,
+  // 收折的会话窗编号方块:优先级最高(仅次 commands)——先从带宽里扣它们的宽度。
+  const sessionWindows = useSessionWindowsStore((s) => s.windows);
+  const restoreSessionWindow = useSessionWindowsStore((s) => s.restore);
+  const minimizedBadges = useMemo(
+    () =>
+      sessionWindows
+        .map((w, index) => ({ sessionId: w.sessionId, minimized: w.minimized, num: index + 1 }))
+        .filter((w) => w.minimized),
+    [sessionWindows],
   );
   const btnWidthPx = useMemo(() => {
     const raw = toolbarBtnWidthPx();
     return Math.min(raw, MOBILE_TOOLBAR_BTN_MAX_PX);
   }, []);
-  const newChatToolbarIndex = toolbarItems.findIndex((item) => item.id === "new-chat");
+  const toolbarItems = useFittedToolbarItems(
+    isMobileLayout,
+    shellRef,
+    groupPreview ? GROUP_PREVIEW_TOOLBAR_ITEMS : undefined,
+    minimizedBadges.length * btnWidthPx,
+  );
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
     panelToolbarIndex(kind, toolbarItems);
   const [text, setTextState] = useState(() => readCachedDraft(draftCacheKey));
@@ -363,7 +373,6 @@ export function ComposerBar({
   const argsLockRef = useRef<string | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
   const focusTick = useComposerFocusStore((s) => s.focusTick);
-  const requestFocus = useComposerFocusStore((s) => s.requestFocus);
   const pendingText = useComposerFocusStore((s) => s.pendingText);
   const composerDraft = useExtensionUiStore((s) => s.composerDraft);
 
@@ -417,13 +426,21 @@ export function ComposerBar({
     await activateSession(piSessionId);
   }
 
-  function handleNewChatClick() {
+  /** 设计稿 F:新建按钮 = 新建会话即开直播小窗并激活。 */
+  function handleNewWindowChatClick() {
     closePanel();
-    setToolbarIndex(newChatToolbarIndex);
     setToolbarKeyboardFocus(false);
     setCommandListFocus(false);
-    onNewChat();
-    requestFocus();
+    void (async () => {
+      const id = await useSessionStore.getState().createSession();
+      if (!id) {
+        flashStatus("新建会话失败", "error");
+        return;
+      }
+      useSessionStore.getState().setActiveSession(id);
+      useSessionWindowsStore.getState().open(id);
+      void useSessionStore.getState().fetchSessions();
+    })();
   }
 
   function handleSlashButtonClick() {
@@ -459,7 +476,7 @@ export function ComposerBar({
       return;
     }
     if (item.id === "new-chat") {
-      handleNewChatClick();
+      handleNewWindowChatClick();
       return;
     }
     if (item.id === "commands") {
@@ -1187,8 +1204,25 @@ export function ComposerBar({
   const commandListContent = (
     <PanelBody
       variant="list"
-      empty={filtered.length === 0 ? "No matching commands" : undefined}
+      empty={filtered.length === 0 && minimizedBadges.length === 0 ? "No matching commands" : undefined}
     >
+      {minimizedBadges.length > 0 && (!query || query === "/") && (
+        <>
+          <div className="pi-hist-section">小窗</div>
+          {minimizedBadges.map((b) => (
+            <PanelListRow
+              key={`swin-cmd-${b.sessionId}`}
+              leading={String(b.num)}
+              leadingKind="index"
+              title={sessions.find((entry) => entry.id === b.sessionId)?.title ?? "New Session"}
+              onClick={() => {
+                restoreSessionWindow(b.sessionId);
+                closePanel();
+              }}
+            />
+          ))}
+        </>
+      )}
       {filtered.map((cmd, index) => (
         <SlashCommandListItem
           key={cmd.id}
@@ -1225,8 +1259,15 @@ export function ComposerBar({
             leadingKind="index"
             title={formatUserMessagePreview(s.title)}
             selected={isCursor}
-            titleAttr={formatUserMessagePreview(s.title)}
-            onClick={() => handleSessionClick(s.id)}
+            titleAttr={`${formatUserMessagePreview(s.title)}（⌘点击开小窗）`}
+            onClick={(e) => {
+              if (e?.metaKey || e?.ctrlKey) {
+                useSessionWindowsStore.getState().open(s.id);
+                closePanel();
+                return;
+              }
+              void handleSessionClick(s.id);
+            }}
             onMouseEnter={() => setHistorySelectedIndex(i)}
           />
         );
@@ -1365,6 +1406,20 @@ export function ComposerBar({
         <div className="pi-composer-toolbar-bar">
           {isMobileLayout && <div className="pi-composer-toolbar-bar-fill" aria-hidden="true" />}
           <div className="pi-composer-toolbar-bar-tail">
+            {minimizedBadges.map((b) => (
+              <button
+                key={`swin-${b.sessionId}`}
+                style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
+                type="button"
+                className="pi-composer-toolbar-btn pi-swin-badge"
+                onPointerDown={handleToolbarPointerDown}
+                onClick={() => restoreSessionWindow(b.sessionId)}
+                title={`还原会话小窗 ${b.num}`}
+                aria-label={`还原会话小窗 ${b.num}`}
+              >
+                <span className="pi-swin-badge-frame">{b.num}</span>
+              </button>
+            ))}
             {toolbarItems.map((item, index) => (
             <button
               style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}

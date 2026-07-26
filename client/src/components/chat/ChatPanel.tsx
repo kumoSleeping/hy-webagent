@@ -23,6 +23,11 @@ import { isSilentCommand } from "../../lib/silentCommands";
 import { openToolbarSlashPanel, resolveToolbarSlash } from "../../lib/toolbarSlashCommands";
 import { stripFileAttachmentTags } from "../../lib/prepareAttachments";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
+import {
+  setSessionWindowsPersistScope,
+  useSessionWindowsStore,
+} from "../../stores/sessionWindowsStore";
+import { SessionWindowsHost } from "./SessionWindow";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { flashStatus } from "../../stores/statusBarStore";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
@@ -79,6 +84,12 @@ export function ChatPanel({
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const previewPanelRef = useRef<HTMLDivElement>(null);
   const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
+  // 设计稿 F:激活会话在(未收折、未接管的)小窗里直播时,背景主区让位。
+  const activeSessionWindowed = useSessionWindowsStore(
+    (s) =>
+      s.zoomedSessionId !== activePiSessionId &&
+      s.windows.some((w) => w.sessionId === activePiSessionId && !w.minimized),
+  );
   // Only pick welcome vs conversation layout once the session is hydrated —
   // avoids the composer jumping from center to bottom while history loads.
   const isHydrating = Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId);
@@ -111,6 +122,19 @@ export function ChatPanel({
   const setDynamicCommands = useSlashStore((s) => s.setDynamicCommands);
 
   useStatusBarSync();
+
+  // 会话小窗布局按用户持久化;进入工作区恢复上次的窗(含收折态)。
+  const authUserId = useAuthStore((s) => s.userId);
+  useEffect(() => {
+    if (!authUserId || groupPreview) return;
+    const windowsStore = useSessionWindowsStore.getState();
+    windowsStore.closeAll();
+    for (const entry of setSessionWindowsPersistScope(authUserId)) {
+      windowsStore.open(entry.sessionId);
+      if (entry.minimized) windowsStore.minimize(entry.sessionId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
 
   useEffect(() => {
     if (!activePiSessionId || groupPreview) return;
@@ -484,7 +508,7 @@ export function ChatPanel({
     <div
       className={`pi-app-shell pi-app-shell--revealed${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
     >
-      {!isHydrating && (
+      {!isHydrating && !activeSessionWindowed && (
         <Suspense fallback={null}>
           <MessageFeed />
         </Suspense>
@@ -543,6 +567,7 @@ export function ChatPanel({
           />
           )}
         </div>
+        <SessionWindowsHost />
         {/* 第二扇悬浮小窗:文件/图片预览 —— 与面板小窗同一套 chrome,
             独立记忆槽,标题=当前文件名。 */}
         <div

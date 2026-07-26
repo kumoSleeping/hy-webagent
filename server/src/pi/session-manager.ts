@@ -471,12 +471,32 @@ export class PISessionManager {
     }
   }
 
+  /** 每用户直播会话软上限;超限先淘汰 无连接+空闲 的旧壳,无可淘汰则明确报错。 */
+  private async ensureUserSessionCapacity(userId: string, keepSessionId?: string): Promise<void> {
+    const MAX_LIVE_SESSIONS_PER_USER = 8;
+    const mine = [...this.sessions.values()].filter((s) => s.userId === userId);
+    if (mine.length < MAX_LIVE_SESSIONS_PER_USER) return;
+    const victim = mine
+      .filter(
+        (s) =>
+          s.sessionId !== keepSessionId &&
+          !s.isStreaming &&
+          !this.connectedSessions.has(s.sessionId),
+      )
+      .sort((a, b) => a.lastActivity - b.lastActivity)[0];
+    if (!victim) {
+      throw new Error("直播会话已达上限（8），请先关闭一些会话小窗");
+    }
+    await this.removeSession(victim.sessionId);
+  }
+
   async createSession(
     userId: string,
     workspacePath: string,
     onEvent: PiEventCallback,
     piSessionId?: string
   ): Promise<UserPISession> {
+    await this.ensureUserSessionCapacity(userId, piSessionId);
     if (piSessionId) {
       return this.activateSessionById(userId, workspacePath, piSessionId, onEvent);
     }
@@ -579,7 +599,12 @@ export class PISessionManager {
     }
 
     const current = this.getSessionForUser(userId);
-    if (current) {
+    // 多会话直播(docs/design-cleanup/10):只回收「无连接且空闲」的旧壳;
+    // 被小窗占着(connected)或正在跑 agent 的绝不 morph —— 那是劫持,
+    // 会中断别的窗口的直播。不可回收 → 走下方冷启新壳。
+    const recyclable =
+      current && !current.isStreaming && !this.connectedSessions.has(current.sessionId);
+    if (current && recyclable) {
       // switchSession rebinds and binds extensions — skip the ensureRuntime bind to avoid double init notify.
       const runtime = await this.ensureRuntime(current, { skipExtensionBind: true });
       const result = await runtime.switchSession(sessionPath, { cwdOverride: agentCwdFromWorkspace(workspacePath) });
@@ -807,10 +832,26 @@ export class PISessionManager {
     }
   }
 
+  /**
+   * Route steers through prompt() so extensions can see them.
+   *
+   * session.steer() queues straight into the agent and never emits the `input`
+   * event — the only hook an extension has for intercepting a reply. prompt()
+   * with streamingBehavior "steer" lands in that same queue, but emits `input`
+   * first, which lets a tool parked on `wait_for_reply` claim the text
+   * (InputEventResult "handled") instead of having it replayed as a steer.
+   *
+   * Idle sessions keep the old path: prompt() without a streamingBehavior
+   * would start a whole turn rather than queue.
+   */
   async sendSteer(sessionId: string, text: string) {
     const ps = this.sessions.get(sessionId);
     if (!ps) throw new Error("No active PI session");
-    await ps.session.steer(text);
+    if (!ps.session.isStreaming) {
+      await ps.session.steer(text);
+      return;
+    }
+    await ps.session.prompt(text, { streamingBehavior: "steer" });
   }
 
   async sendFollowUp(sessionId: string, text: string) {

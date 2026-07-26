@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create, type StateCreator } from "zustand";
 import type { ChatMessage, ChatImageAttachment, ContentBlock, ToolCallRecord } from "../types";
 import { formatToolContent, isGarbageToolOutput } from "../lib/toolDisplay";
 import { summarizeProviderError } from "../lib/providerError";
@@ -112,7 +112,8 @@ interface PersistedServerToolActivity {
   recordedAt: number;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
+/** v2 多会话:状态体参数化 —— 单例与小窗实例共用同一份逻辑。 */
+const createChatState: StateCreator<ChatState> = (set, get) => ({
   messages: [],
   isStreaming: false,
   currentAssistantId: null,
@@ -608,7 +609,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       const newMsg: ChatMessage = {
-        id: m.id || `h-${Date.now()}`, role, content,
+        // 无 id 消息按位置发稳定 id —— Date.now() 在同一毫秒批量转换会撞 key。
+        id: m.id || `h-${converted.length}`, role, content,
         timestamp: m.timestamp || Date.now(),
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         blocks: blocks.length > 0 ? blocks : undefined,
@@ -679,4 +681,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       get().resumeAgentRun();
     }
   },
-}));
+});
+
+export const useChatStore = create<ChatState>(createChatState);
+
+/** v2 多会话:每个会话小窗一个独立 store 实例。 */
+export const createChatStore = () => create<ChatState>(createChatState);
+export type ChatStoreApi = ReturnType<typeof createChatStore>;

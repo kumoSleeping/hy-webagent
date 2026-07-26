@@ -2744,6 +2744,86 @@ button.pi-panel-row.pi-panel-row--selected {
   width: calc(100vw - 1.5rem);
 }
 
+/* ============================================================
+ * 会话直播小窗(设计稿 F,docs/10)— 常驻窗:有 ✕、点外不关;
+ * 点窗任意处 = 置顶 + 激活;激活窗主题红描边 + 红标题。
+ * 级联出生/z 序走 inline style(SessionWindow)。
+ * ========================================================== */
+.pi-float-panel--session {
+  /* 窗内 feed 的间距变量整体收紧(MessageFeed 直接读它们)。 */
+  --pi-feed-edge: 0.6rem;
+  --pi-top-strip: 0.4rem;
+}
+/* 激活标(macOS 母语):激活窗灯彩色 + 标题墨色;非激活窗灯变灰、标题保持弱灰。
+   无框、无红标、不淡化任何背景。 */
+.pi-float-panel--active .pi-composer-panel-handle-title {
+  color: var(--pi-text);
+}
+.pi-float-panel--session:not(.pi-float-panel--active) .pi-swin-light {
+  background: #d4d2cd;
+}
+/* macOS 三色灯(用户点名要圆点 —— 全局零圆角规则在此处刻意豁免)。 */
+.pi-swin-lights {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  margin-right: 0.4rem;
+  flex-shrink: 0;
+}
+.pi-swin-light {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.pi-swin-light--close { background: #ff5f57; }
+.pi-swin-light--min { background: #febc2e; }
+.pi-swin-light--zoom { background: #28c840; }
+.pi-swin-light:hover { filter: brightness(0.82); }
+/* 接管态:灯簇钉在页面左上角,和窗内那组一模一样。 */
+.pi-swin-lights--page {
+  position: fixed;
+  top: 12px;
+  left: 14px;
+  z-index: 90;
+  margin-right: 0;
+}
+/* 工具栏上的收折编号方块(1234 = 第几扇窗)。 */
+.pi-swin-badge-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 0.95rem;
+  border: 1.5px solid currentColor;
+  font-family: var(--pi-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pi-swin-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.pi-swin-loading {
+  padding: 0.75rem;
+  font-size: var(--pi-panel-font);
+  color: var(--pi-muted);
+}
+/* 小窗滚动条不可见(滚动照常)。 */
+.pi-float-panel--session .pi-scrollbar {
+  scrollbar-width: none;
+}
+.pi-float-panel--session .pi-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* 手机:头部与握把命中区加大(拇指操作)。 */
 .pi-app-shell--mobile .pi-composer-panel-handle {
   padding-top: 0.5rem;

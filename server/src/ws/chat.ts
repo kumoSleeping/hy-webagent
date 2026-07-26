@@ -393,6 +393,9 @@ export function handleChatWs(
 
   const existing = getActiveSession();
   let eventUnsubscribe: (() => void) | undefined;
+  /** 小窗只读 socket 的直连订阅(不占 onEvent 槽);主 socket 不用它。 */
+  let feedUnsub: (() => void) | undefined;
+  const ownerFeedView = isViewOnly && userId !== "__guest__";
 
   /**
    * Route Pi agent events to this websocket. Uses UserPISession.onEvent so fork /
@@ -540,7 +543,14 @@ export function handleChatWs(
   }
 
   if (existing) {
-    if (isViewOnly) {
+    if (ownerFeedView) {
+      // 登录用户的小窗 socket:直连订阅(连接局部的 onPiEvent 格式化管线),
+      // 绝不 subscribeToSession —— 不抢主 socket 的事件槽。
+      sessionManager.markConnected(existing.sessionId);
+      feedUnsub = existing.session.subscribe((evt) => onPiEvent(userId, evt));
+      sendHistorySnapshot();
+      sendUiSnapshot();
+    } else if (isViewOnly) {
       // Guest/view-only: send snapshot but DO NOT steal event subscription
       // (the owner WS still needs to receive agent events)
       sendHistorySnapshot();
@@ -661,6 +671,19 @@ export function handleChatWs(
     // Server restarted or session evicted — rehydrate from client's piSessionId.
     rehydratePromise = (async () => {
       try {
+        if (ownerFeedView) {
+          // 小窗 socket 的会话不在内存 —— 以本人身份冷启入池(attach 语义),
+          // 基座 onEvent 传空(不占槽),再挂本连接的直连订阅。
+          const workspacePath = isolator.getUserWorkspace(userId);
+          const ps = await sessionManager.createSession(userId, workspacePath, () => {}, piSessionId);
+          activePiSessionId = ps.sessionId;
+          sessionManager.markConnected(ps.sessionId);
+          feedUnsub = ps.session.subscribe((evt) => onPiEvent(userId, evt));
+          sendHistorySnapshot();
+          sendUiSnapshot();
+          log.info("owner feed-view session attached", { userId, piSessionId });
+          return;
+        }
         // Guest/view-only mode: search disk for session file across all workspaces
         if (isViewOnly) {
           // Scope to the owning workspace when the grant identified one, so a
@@ -733,6 +756,8 @@ export function handleChatWs(
       switch (msg.type) {
         case "ui:request_snapshot": {
           sendUiSnapshot();
+          // 小窗对账(回合结束/切走时重拉全量)与主链路水合共用这一发。
+          sendHistorySnapshot();
           sendHistorySnapshot();
           break;
         }
@@ -923,6 +948,7 @@ export function handleChatWs(
     stopHeartbeat();
     stopLiveUiPush();
     eventUnsubscribe?.();
+    feedUnsub?.();
     const sid = getActiveSessionId();
     if (sid) {
       sessionManager.markDisconnected(sid);

@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DefaultResourceLoader } from "@earendil-works/pi-coding-agent";
+import { DefaultResourceLoader, type ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { buildSecuritySystemPrompt } from "../security.js";
 import { createAgentSandboxContext, type AgentSandboxContext } from "./agent-sandbox.js";
+import { createBotChannelFactory } from "./extensions/bot-channel.js";
 import { createPlatformSandboxFactory } from "./extensions/platform-sandbox.js";
 
 export const PLATFORM_RULES_MARKER = "[pi-web-platform-rules:v1]";
@@ -100,21 +101,34 @@ export function getPlatformResourceLoaderOptions(includeBotRules = false): {
   };
 }
 
+/**
+ * Session-scoped extensions. The bot channel rides on `includeBotRules` so the
+ * `send_message` tool exists only where a chat bridge is listening for it —
+ * web sessions must not see it.
+ */
+function sessionExtensionFactories(
+  sandbox: AgentSandboxContext | undefined,
+  includeBotRules: boolean
+): ExtensionFactory[] {
+  const factories: ExtensionFactory[] = [];
+  if (sandbox) factories.push(createPlatformSandboxFactory(sandbox));
+  if (includeBotRules) factories.push(createBotChannelFactory());
+  return factories;
+}
+
 export function buildResourceLoaderOptionsForSession(
   workspacePath: string,
   agentCwd: string,
   enableSandbox: boolean,
   includeBotRules = false,
 ): ReturnType<typeof getPlatformResourceLoaderOptions> & {
-  extensionFactories?: ReturnType<typeof createPlatformSandboxFactory>[];
+  extensionFactories?: ExtensionFactory[];
 } {
   const base = getPlatformResourceLoaderOptions(includeBotRules);
-  if (!enableSandbox) return base;
-  const sandbox = createAgentSandboxContext(workspacePath, agentCwd);
-  return {
-    ...base,
-    extensionFactories: [createPlatformSandboxFactory(sandbox)],
-  };
+  const sandbox = enableSandbox ? createAgentSandboxContext(workspacePath, agentCwd) : undefined;
+  const extensionFactories = sessionExtensionFactories(sandbox, includeBotRules);
+  if (!extensionFactories.length) return base;
+  return { ...base, extensionFactories };
 }
 
 export async function createPlatformResourceLoader(
@@ -133,11 +147,16 @@ export async function createPlatformResourceLoader(
     sandbox = createAgentSandboxContext(options.workspacePath, agentCwd);
   }
 
+  const extensionFactories = sessionExtensionFactories(
+    sandbox,
+    Boolean(options?.includeBotRules)
+  );
+
   const loader = new DefaultResourceLoader({
     cwd: agentCwd,
     agentDir,
     ...(options?.includeAdminSkills ? { additionalSkillPaths: [ADMIN_SKILLS_DIR] } : {}),
-    ...(sandbox ? { extensionFactories: [createPlatformSandboxFactory(sandbox)] } : {}),
+    ...(extensionFactories.length ? { extensionFactories } : {}),
     ...getPlatformResourceLoaderOptions(Boolean(options?.includeBotRules)),
   });
   await loader.reload();

@@ -40,8 +40,8 @@ describe("filterVisibleSessions", () => {
   it("hides empty sessions except the active one", () => {
     const sessions = [
       session("a", "hello"),
-      session("b", "(empty)"),
-      session("c", "(empty)"),
+      session("b", "New Session"),
+      session("c", "New Session"),
     ];
     expect(filterVisibleSessions(sessions, "c").map((s) => s.id)).toEqual(["a", "c"]);
   });
