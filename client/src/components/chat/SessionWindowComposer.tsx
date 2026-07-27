@@ -159,7 +159,6 @@ export function SessionWindowComposer({
     } else {
       store.setPanel(store.panel === kind ? null : kind);
     }
-    useSessionWindowsStore.getState().raisePanel();
   }
 
   function handleToolbarClick(id: WindowToolbarId, panelKind: Exclude<ComposerPanelKind, null> | null) {
@@ -176,10 +175,9 @@ export function SessionWindowComposer({
         slash.setActivePanel(null);
         composer.closePanel();
       } else {
-        // 底栏详情已去掉 —— 会话 tokens/cost/context 走 /session 浮层。
+        // 底栏详情已去掉 —— 会话 tokens/cost/context 贴底栏工具条弹出。
         slash.setActivePanel("session");
         composer.setPanel("commands");
-        useSessionWindowsStore.getState().raisePanel();
       }
       return;
     }

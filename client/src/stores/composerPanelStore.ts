@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { useSessionWindowsStore } from "./sessionWindowsStore";
 
 export type ComposerPanelKind = "commands" | "model" | "tree" | "history" | "files" | "account" | null;
 export type TreePanelMode = "tree" | "fork";
@@ -48,16 +47,27 @@ export const useComposerPanelStore = create<ComposerPanelState>((set) => ({
       previewOpen: panel && panel !== "files" ? false : s.previewOpen,
     })),
   closePanel: () => set({ panel: null }),
-  openPreview: () => {
-    // 每次打开(含重复点开同一文件)都升到浮层栈顶 —— ChatPanel 的
-    // effect 只盯 previewOpen/activeTabId 变化,同文件重开不会触发。
-    useSessionWindowsStore.getState().raisePreview();
-    set({ previewOpen: true });
-  },
+  openPreview: () =>
+    set((s) => ({
+      previewOpen: true,
+      panel: s.panel === "tree" ? null : s.panel,
+    })),
   closePreview: () => set({ previewOpen: false }),
-  // 预览已是独立小窗,files 面板与它互不抢台面 — 纯开关即可。
   toggleFilesPanel: () =>
-    set((s) => ({ panel: s.panel === "files" ? null : "files" })),
+    set((s) => {
+      // File preview pad is open — two-step close:
+      //   1st click: close files sidebar, keep file preview
+      //   2nd click: close file preview
+      if (s.previewOpen) {
+        if (s.panel === "files") {
+          return { panel: null };
+        }
+        return { previewOpen: false };
+      }
+      // No preview open — simple toggle of files sidebar
+      const closing = s.panel === "files";
+      return { panel: closing ? null : "files" };
+    }),
   closeAll: () => set({ panel: null, previewOpen: false }),
   openModelPanel: () => set({ panel: "model", previewOpen: false }),
   openTreePanel: (mode = "tree") =>

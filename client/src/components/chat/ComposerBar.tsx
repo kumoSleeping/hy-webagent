@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { AppWindow, Command, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useConnectionState } from "../../context/useChatConnection";
@@ -24,18 +23,18 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { FileTree } from "../files/FileTree";
 import { PanelFilterBar } from "../common/PanelFilterBar";
 import { PanelBody, PanelListRow } from "../common/panel";
-import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { AccountPanel } from "../platform/AccountPanel";
 import { useImeComposition } from "../../hooks/useImeComposition";
 import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
 import { flashStatus } from "../../stores/statusBarStore";
-import { floatZ, seedSpawnRect, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
+import { seedSpawnRect, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
 import { useAuthStore } from "../../stores/authStore";
 import type { FileEntry } from "../../types";
 import {
   MOBILE_TOOLBAR_BTN_MAX_PX,
+  isElevatedPanel,
   panelToolbarIndex,
   toolbarBtnWidthPx,
   type ToolbarItemDef,
@@ -80,9 +79,6 @@ interface ComposerBarProps {
   commandsContent?: ReactNode;
   /** Model picker — direct toolbar toggle, same popup as history/files. */
   modelContent?: ReactNode;
-  /** Session tree — lives in the floating panel like every other kind
-   * (was a CenterStage mode before 设计稿 D). */
-  treeContent?: ReactNode;
   /** Read-only group mode keeps the normal composer layout but limits it to
    * history and informational panels. */
   groupPreview?: {
@@ -223,7 +219,6 @@ export function ComposerBar({
   onFileClick,
   commandsContent,
   modelContent,
-  treeContent,
   groupPreview,
   isMobileLayout = false,
 }: ComposerBarProps) {
@@ -625,21 +620,6 @@ export function ComposerBar({
       setToolbarIndex(Math.max(0, toolbarItems.length - 1));
     }
   }, [toolbarIndex, toolbarItems.length, setToolbarIndex]);
-
-  // 浮层最新召的在上:面板每次打开/被点到都升到共用 z 序栈的顶
-  // (否则固定 z=60 会被会话窗永久压底);点面板本体见 div 的 pointerdown。
-  const floatPanelZ = useSessionWindowsStore((s) => floatZ(s.stack, "panel"));
-  // 面板的 portal 宿主(ChatPanel 的 #pi-float-layer,在 shell 层):
-  // 面板留在输入坞里会被坞的 z=500 stacking context 困住,以 500 层
-  // 压死会话窗和预览 —— raise 无效。首帧宿主还没挂上时先原位渲染
-  // (data-open 关着,不可见)。
-  const [floatLayer, setFloatLayer] = useState<HTMLElement | null>(null);
-  useEffect(() => {
-    setFloatLayer(document.getElementById("pi-float-layer"));
-  }, []);
-  useEffect(() => {
-    if (panel !== null) useSessionWindowsStore.getState().raisePanel();
-  }, [panel]);
 
   // Mouse-opened panels: keep toolbarIndex aligned with the active tab.
   useEffect(() => {
@@ -1329,34 +1309,34 @@ export function ComposerBar({
     </PanelBody>
   );
 
-  const panelRef = useRef<HTMLDivElement>(null);
-  const toolbarActive = panel !== null;
+  const previewOpen = useComposerPanelStore((s) => s.previewOpen);
+  const elevatedPanel = isElevatedPanel(panel, isMobileLayout);
+  // Small panels grow from the toolbar seam; tree/preview use elevated CenterStage.
+  // When preview is open and files is toggled on desktop, files rides a side overlay.
+  const toolbarActive = panel !== null && !elevatedPanel && !(previewOpen && panel === "files" && !isMobileLayout);
+  const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
+  const showInlinePanel = panel !== null && !elevatedPanel;
   const liveComposerText = taRef.current?.value ?? text;
   const hasDraft = liveComposerText.trim().length > 0 || pendingAttachments.length > 0;
 
-  // 悬浮面板与输入区的留缝:量 dock 顶(含工具条行)实时写 CSS 变量,
-  // 输入框长高时卡片跟着上移,永不粘连(设计稿 D:独立板块)。
+  // Session windows still anchor above the dock via --pi-float-bottom.
   useLayoutEffect(() => {
     const shell = shellRef.current;
-    const panelEl = panelRef.current;
-    if (!shell || !panelEl) return;
+    if (!shell) return;
     const dock = shell.closest(".pi-composer-dock") ?? shell;
-    // 变量写在 app-shell 根上 —— 面板小窗与预览小窗两扇一起继承。
-    const host = (dock.closest(".pi-app-shell") as HTMLElement | null) ?? panelEl;
+    const host = (dock.closest(".pi-app-shell") as HTMLElement | null) ?? shell;
     const update = () => {
       const rect = dock.getBoundingClientRect();
       host.style.setProperty(
         "--pi-float-bottom",
         `${Math.max(0, window.innerHeight - rect.top) + 12}px`,
       );
-      // 默认右贴:卡片右缘与 composer 右缘同一条线(设计稿 E)。
       host.style.setProperty(
         "--pi-float-right",
         `${Math.max(0, window.innerWidth - rect.right)}px`,
       );
     };
     update();
-    // jsdom(测试)与极老内核没有 ResizeObserver —— 缺席时留 resize 监听兜底。
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
     ro?.observe(dock);
     window.addEventListener("resize", update);
@@ -1377,13 +1357,12 @@ export function ComposerBar({
         return historyContent;
       case "files":
         if (groupPreview) return groupPreview.filesContent;
+        if (!isMobileLayout && previewOpen) return null;
         return (
           <PanelBody variant="list">
             <FileTree onFileClick={onFileClick} />
           </PanelBody>
         );
-      case "tree":
-        return <PanelBody variant="list">{treeContent}</PanelBody>;
       case "account":
         return groupPreview ? groupPreview.accountContent : <AccountPanel />;
       default:
@@ -1450,9 +1429,12 @@ export function ComposerBar({
         className="pi-composer-toolbar"
         data-open={toolbarActive ? "true" : "false"}
         data-panel={toolbarActive && panel ? panel : undefined}
+        data-files-overlay={filesOverlay ? "true" : "false"}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 设计稿 D:面板不再长在工具栏上 —— 独立悬浮卡见下方 pi-float-panel。 */}
+        <div className="pi-composer-panel">
+          {showInlinePanel && renderPanelBody()}
+        </div>
         <div className="pi-composer-toolbar-bar">
           {/* bar 左端:小窗编号瓦片 = 窗口切换入口(点击置顶+激活,右键关窗)。 */}
           {sessionWindows.length > 0 && (
@@ -1506,29 +1488,11 @@ export function ComposerBar({
         </div>
       </div>
 
-      {/* 独立悬浮面板(设计稿 D)— fixed 定位,与输入框零几何关联;
-          位置由 design.css + --pi-float-bottom 决定,内容多高卡多高。
-          portal 到 shell 层的 #pi-float-layer,与会话窗/预览同域比 z。 */}
-      {(() => {
-        const panelNode = (
-          <div
-            className="pi-float-panel"
-            ref={panelRef}
-            data-open={toolbarActive ? "true" : "false"}
-            style={{ zIndex: floatPanelZ }}
-            onPointerDownCapture={() => useSessionWindowsStore.getState().raisePanel()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {toolbarActive && panel && (
-              <>
-                <ComposerPanelChrome panelRef={panelRef} onClose={closePanel} closeLabel="关闭面板" />
-                {renderPanelBody()}
-              </>
-            )}
-          </div>
-        );
-        return floatLayer ? createPortal(panelNode, floatLayer) : panelNode;
-      })()}
+      {filesOverlay && !groupPreview && (
+        <div className="pi-composer-files-overlay" onClick={(e) => e.stopPropagation()}>
+          <FileTree onFileClick={onFileClick} />
+        </div>
+      )}
 
       {!windowMode && <div className="pi-composer-body">
         {pendingAttachments.length > 0 && (

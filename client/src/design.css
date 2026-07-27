@@ -552,6 +552,13 @@ body {
   animation: pi-pop-in-fade 160ms ease-out;
   z-index: 1;
 }
+/* File preview — fixed height so Monaco gets a real layout box (flex:1
+   alone collapses when the parent has only max-height, not height). */
+.pi-center-stage--preview {
+  height: min(34rem, calc(100dvh - 9rem));
+  max-height: min(34rem, calc(100dvh - 9rem));
+  overflow: hidden;
+}
 .pi-center-stage-header {
   display: flex;
   align-items: center;
@@ -579,6 +586,18 @@ body {
   cursor: pointer;
 }
 .pi-center-stage-close:hover { color: var(--pi-theme); }
+.pi-center-stage--headless {
+  position: relative;
+}
+.pi-center-stage-close--overlay {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  z-index: 2;
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line-soft);
+  border-radius: 0;
+}
 .pi-editor-floating-tools {
   position: absolute;
   top: 0.35rem;
@@ -2436,13 +2455,32 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 
 /* ============================================================
- * Composer toolbar — four plain actions (commands / new / history /
- * files) attached flush to the composer's own top-right corner. No
- * dark chrome — just the app's normal panel/line/muted palette. The
- * button row stays a fixed-height strip; the popup is absolutely
- * positioned above it so opening a panel never reflows the message feed
- * or shifts the welcome/centered composer.
+ * Composer toolbar — actions attached flush to the composer's
+ * top-right corner. The button row stays a fixed-height strip; the
+ * popup (`.pi-composer-panel`) is absolutely positioned above it so
+ * opening a panel never reflows the message feed.
  * ========================================================== */
+/* Files list beside an open preview pad (same width as the small popup). */
+.pi-composer-files-overlay {
+  position: absolute;
+  right: calc(-1 * var(--pi-composer-border));
+  bottom: calc(100% + var(--pi-composer-toolbar-btn-h));
+  z-index: 45;
+  width: var(--pi-composer-toolbar-w);
+  max-height: min(20rem, calc(100dvh - 12rem));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.125rem 0.25rem 0.25rem;
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow-float);
+  overflow: hidden;
+}
+.pi-composer-toolbar[data-files-overlay="true"] .pi-composer-panel {
+  transition: none;
+}
 .pi-composer-toolbar {
   /* Sit flush on the composer's outer top-right corner — offset by border
      width so our right edge lines up with the shell's visible right edge. */
@@ -2586,6 +2624,40 @@ button.pi-panel-row.pi-panel-row--selected {
   pointer-events: none;
   z-index: 1;
 }
+/* Popup — floats above the button row without changing toolbar layout.
+   Same visual seam as before: panel bottom edge meets the bar top edge. */
+.pi-composer-panel {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: 100%;
+  display: flex; flex-direction: column; min-height: 0;
+  max-height: 0; opacity: 0;
+  overflow: hidden;
+  font-size: var(--pi-panel-font);
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  box-shadow: var(--pi-shadow-float);
+  transition: max-height 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms ease;
+}
+.pi-composer-toolbar[data-open="true"] .pi-composer-panel {
+  height: min(20rem, calc(100dvh - 9rem));
+  max-height: min(20rem, calc(100dvh - 9rem));
+  opacity: 1;
+  overflow: hidden;
+  min-width: 0;
+  border-bottom: none;
+  box-shadow: none;
+  margin-bottom: -1px;
+}
+/* Short panels — hug content, sit flush above the toolbar (no empty band). */
+.pi-composer-toolbar[data-open="true"][data-panel="account"] .pi-composer-panel,
+.pi-composer-toolbar[data-open="true"][data-panel="model"] .pi-composer-panel {
+  height: auto;
+  max-height: min(20rem, calc(100dvh - 9rem));
+  overflow: hidden auto;
+}
 .pi-composer-panel-stack {
   display: flex;
   flex-direction: column;
@@ -2725,9 +2797,21 @@ button.pi-panel-row.pi-panel-row--selected {
   border: none;
   background: transparent;
 }
-.pi-app-shell--mobile .pi-float-panel .pi-panel-row,
-.pi-app-shell--mobile .pi-float-panel .pi-composer-cmd-list,
-.pi-app-shell--mobile .pi-float-panel .pi-panel-filter {
+.pi-app-shell--mobile .pi-composer-toolbar[data-open="true"] .pi-composer-panel {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: auto;
+  bottom: 100%;
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  background: var(--pi-panel);
+  box-shadow: none;
+  margin-bottom: -1px;
+}
+.pi-app-shell--mobile .pi-composer-panel .pi-panel-row,
+.pi-app-shell--mobile .pi-composer-panel .pi-composer-cmd-list,
+.pi-app-shell--mobile .pi-composer-panel .pi-panel-filter {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -2742,11 +2826,8 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 
 /* ============================================================
- * 独立悬浮小窗(设计稿 E)— 统一一种尺寸,可拖动可改大小可记忆。
- * 默认:右缘与 composer 右缘同线(--pi-float-right 实测)、低位悬浮
- * (--pi-float-bottom 实测),不居中。用户拖过/改过 → data-free,
- * 几何走 inline left/top/width/height(localStorage 记忆,可部分出界,
- * ComposerPanelChrome 负责钳制与恢复)。入场 160ms 上浮。
+ * 会话直播小窗壳(设计稿 F)— 可拖可改大小;命令/预览已改回贴栏生长,
+ * 这套 float 几何只服务 SessionWindow。默认锚在 --pi-float-*。
  * ========================================================== */
 @keyframes pi-float-in {
   0%   { opacity: 0; transform: translateY(12px); }
@@ -3124,19 +3205,6 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-app-shell--mobile .pi-float-panel-edge--l,
 .pi-app-shell--mobile .pi-float-panel-edge--r { width: 14px; }
 .pi-app-shell--mobile .pi-float-panel-edge--b { height: 14px; }
-
-/* 第二扇小窗:文件/图片预览体 — EditorPanel 填满窗身。 */
-.pi-float-preview-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-.pi-float-preview-body > * {
-  flex: 1 1 auto;
-  min-height: 0;
-}
 
 /* ============================================================
  * Connection status — inline indicator inside composer shell

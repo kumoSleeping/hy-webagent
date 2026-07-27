@@ -170,3 +170,9 @@ export function panelToolbarIndex(
   return idx >= 0 ? idx : 0;
 }
 
+/** Tree opens as a full-width elevated CenterStage pad, not the small
+ *  toolbar-attached popup used by commands/model/history/files/account. */
+export function isElevatedPanel(panel: ComposerPanelKind | null, _isMobile = false): boolean {
+  return panel === "tree";
+}
+
