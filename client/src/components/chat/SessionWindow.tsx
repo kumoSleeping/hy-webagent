@@ -127,7 +127,7 @@ export function SessionWindow({
             <MessageFeed chatStore={mirrorMain ? useChatStore : chatStore} reserveComposer={false} />
           )}
         </div>
-        <div className="pi-swin-fade-top" aria-hidden="true" />
+        {/* 底幕:短淡化 + 不透明遮挡(对齐主区 .pi-float-fade);顶缘硬切无空隙。 */}
         <div className="pi-swin-fade" aria-hidden="true" />
         <SessionWindowComposer
           sessionId={sessionId}
