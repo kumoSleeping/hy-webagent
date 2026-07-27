@@ -119,8 +119,7 @@ export function SessionWindow({
         storageKey={`pi-swin-rect:${sessionId}`}
       />
       <div className="pi-swin-body">
-        {/* 消息区永远占满上方:进页一瞬间 socket 未附着时也不能让
-            输入壳顶到板块上沿。 */}
+        {/* feed 铺满窗体;输入坞叠底;渐隐幕夹在中间(对齐主区 .pi-float-fade)。 */}
         <div className="pi-swin-feed">
           {(attached || mirrorMain) && (
             // 激活且主链路已就位 = 镜像单例 store(与主区逐字节一致);
@@ -128,6 +127,7 @@ export function SessionWindow({
             <MessageFeed chatStore={mirrorMain ? useChatStore : chatStore} reserveComposer={false} />
           )}
         </div>
+        <div className="pi-swin-fade" aria-hidden="true" />
         <SessionWindowComposer
           sessionId={sessionId}
           disabled={disabled}
