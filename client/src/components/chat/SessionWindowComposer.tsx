@@ -1,17 +1,25 @@
 /**
- * 多会话小窗内嵌对话框 —— 外形与主输入壳一致(白卡 + 描边 + 阴影),
- * 顶栏精简为「命令 / 新建」,输入行在下方。点进即激活该会话。
+ * 多会话小窗内嵌对话框 —— 版式对齐主输入壳(.pi-composer-shell):
+ * 留白 / 行高 / 顶栏贴合 / 输入行 gap 同一套刻度;顶栏功能精简但齐全。
+ * 「新建」= 本窗换成新会话(不另开窗)。
  */
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useStore } from "zustand";
-import { AppWindow, Command, Send } from "lucide-react";
+import {
+  Command,
+  Cpu,
+  FolderOpen,
+  History,
+  MessageSquarePlus,
+  Send,
+} from "lucide-react";
 import { StableComposerEditor, type ComposerEditorHandle } from "./StableComposerEditor";
 import { useImeComposition } from "../../hooks/useImeComposition";
 import { useChatStore } from "../../stores/chatStore";
 import { ensureChatStore } from "../../stores/chatStores";
 import { useSessionStore } from "../../stores/sessionStore";
-import { seedSpawnRect, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
-import { useComposerPanelStore } from "../../stores/composerPanelStore";
+import { useSessionWindowsStore } from "../../stores/sessionWindowsStore";
+import { useComposerPanelStore, type ComposerPanelKind } from "../../stores/composerPanelStore";
 import { useSlashStore } from "../../stores/slashStore";
 import { useConnectionState } from "../../context/useChatConnection";
 import { toolbarBtnWidthPx, MOBILE_TOOLBAR_BTN_MAX_PX } from "../../lib/composerLayout";
@@ -22,6 +30,31 @@ interface SessionWindowComposerProps {
   onSend: (text: string) => boolean | void;
   onSteer?: (text: string) => void;
   onAbort?: () => void;
+}
+
+type WindowToolbarId = "commands" | "model" | "history" | "files" | "new-session";
+
+const WINDOW_TOOLBAR: { id: WindowToolbarId; panel: Exclude<ComposerPanelKind, null> | null; title: string; aria: string }[] = [
+  { id: "commands", panel: "commands", title: "Commands", aria: "Toggle commands" },
+  { id: "model", panel: "model", title: "Model", aria: "Toggle model selector" },
+  { id: "history", panel: "history", title: "History", aria: "Toggle history" },
+  { id: "files", panel: "files", title: "Files", aria: "Toggle files" },
+  { id: "new-session", panel: null, title: "新建会话（替换本窗）", aria: "新建会话并替换本窗" },
+];
+
+function toolbarIcon(id: WindowToolbarId) {
+  switch (id) {
+    case "commands":
+      return <Command strokeWidth={2} aria-hidden="true" />;
+    case "model":
+      return <Cpu strokeWidth={2} aria-hidden="true" />;
+    case "history":
+      return <History strokeWidth={2} aria-hidden="true" />;
+    case "files":
+      return <FolderOpen strokeWidth={2} aria-hidden="true" />;
+    case "new-session":
+      return <MessageSquarePlus strokeWidth={2} aria-hidden="true" />;
+  }
 }
 
 export function SessionWindowComposer({
@@ -69,7 +102,6 @@ export function SessionWindowComposer({
   useEffect(() => {
     if (focusSessionId !== sessionId || focusTick === 0) return;
     activate();
-    // 新窗刚挂载时 editor 可能晚一帧就绪 —— 双 rAF 更稳。
     requestAnimationFrame(() => requestAnimationFrame(() => taRef.current?.focus()));
   }, [focusTick, focusSessionId, sessionId, activate]);
 
@@ -93,27 +125,32 @@ export function SessionWindowComposer({
     submit();
   }
 
-  function handleCommandsClick(e: React.MouseEvent) {
-    e.stopPropagation();
+  function openPanel(kind: Exclude<ComposerPanelKind, null>) {
     activate();
     useSlashStore.getState().setActivePanel(null);
     const store = useComposerPanelStore.getState();
-    store.setPanel(store.panel === "commands" ? null : "commands");
+    if (kind === "files") {
+      store.toggleFilesPanel();
+    } else {
+      store.setPanel(store.panel === kind ? null : kind);
+    }
     useSessionWindowsStore.getState().raisePanel();
   }
 
-  function handleNewChatClick(e: React.MouseEvent) {
-    e.stopPropagation();
-    void (async () => {
-      const id = await useSessionStore.getState().createSession();
-      if (!id) return;
-      useSessionStore.getState().setActiveSession(id);
-      seedSpawnRect(id);
-      const ws = useSessionWindowsStore.getState();
-      ws.open(id);
-      ws.requestWindowComposerFocus(id);
-      void useSessionStore.getState().fetchSessions();
-    })();
+  function handleToolbarClick(id: WindowToolbarId, panelKind: Exclude<ComposerPanelKind, null> | null) {
+    if (id === "new-session") {
+      void (async () => {
+        const newId = await useSessionStore.getState().createSession();
+        if (!newId) return;
+        const ws = useSessionWindowsStore.getState();
+        ws.replaceSession(sessionId, newId);
+        useSessionStore.getState().setActiveSession(newId);
+        ws.requestWindowComposerFocus(newId);
+        void useSessionStore.getState().fetchSessions();
+      })();
+      return;
+    }
+    if (panelKind) openPanel(panelKind);
   }
 
   const canSend = !disabled && !sendUnavailable && text.trim().length > 0;
@@ -127,78 +164,77 @@ export function SessionWindowComposer({
       <div className="pi-swin-composer-shell">
         <div className="pi-swin-composer-toolbar" onClick={(e) => e.stopPropagation()}>
           <div className="pi-composer-toolbar-bar">
-            <button
-              type="button"
-              style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
-              className="pi-composer-toolbar-btn"
-              data-active={isActive && panel === "commands"}
-              onPointerDown={(e) => e.preventDefault()}
-              onClick={handleCommandsClick}
-              title="Commands"
-              aria-label="Toggle commands"
-            >
-              <Command strokeWidth={2} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
-              className="pi-composer-toolbar-btn pi-composer-toolbar-btn--accent"
-              onPointerDown={(e) => e.preventDefault()}
-              onClick={handleNewChatClick}
-              title="新会话小窗"
-              aria-label="新建会话并开小窗"
-            >
-              <AppWindow strokeWidth={2} aria-hidden="true" />
-            </button>
+            {WINDOW_TOOLBAR.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
+                className={`pi-composer-toolbar-btn${item.id === "new-session" ? " pi-composer-toolbar-btn--accent" : ""}`}
+                data-active={
+                  item.panel != null && isActive && panel === item.panel ? true : false
+                }
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToolbarClick(item.id, item.panel);
+                }}
+                title={item.title}
+                aria-label={item.aria}
+              >
+                {toolbarIcon(item.id)}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="pi-swin-composer-body">
-          {isStreaming && (
+        <div className="pi-composer-body">
+          <div className="pi-composer-input-row">
+            {isStreaming && (
+              <button
+                type="button"
+                className="pi-composer-working pi-swin-composer-working"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  activate();
+                  onAbort?.();
+                }}
+                title="Stop"
+                aria-label="Stop — click to interrupt"
+              >
+                <span className="pi-composer-working-bars" aria-hidden="true">
+                  <span /><span /><span /><span />
+                </span>
+              </button>
+            )}
+            <StableComposerEditor
+              ref={taRef}
+              initialValue={text}
+              onValueChange={setText}
+              autoCapitalize="none"
+              autoComplete="off"
+              autoCorrect="off"
+              disabled={disabled}
+              placeholder=""
+              onKeyDown={handleKeyDown}
+              enterKeyHint="send"
+              spellCheck={false}
+              {...imeProps}
+              className="pi-composer-input min-w-0 flex-1 resize-none border-none bg-transparent px-1.5 py-1.5 text-[var(--pi-text)] outline-none disabled:cursor-not-allowed"
+            />
             <button
               type="button"
-              className="pi-composer-working pi-swin-composer-working"
+              className={`pi-composer-send-btn${canSend ? " pi-composer-send-btn--accent" : ""}`}
               onClick={(e) => {
                 e.stopPropagation();
-                activate();
-                onAbort?.();
+                submit();
               }}
-              title="Stop"
-              aria-label="Stop — click to interrupt"
+              disabled={!canSend}
+              title="Send message"
+              aria-label="Send message"
             >
-              <span className="pi-composer-working-bars" aria-hidden="true">
-                <span /><span /><span /><span />
-              </span>
+              <Send strokeWidth={2} aria-hidden="true" />
             </button>
-          )}
-          <StableComposerEditor
-            ref={taRef}
-            initialValue={text}
-            onValueChange={setText}
-            autoCapitalize="none"
-            autoComplete="off"
-            autoCorrect="off"
-            disabled={disabled}
-            placeholder=""
-            onKeyDown={handleKeyDown}
-            enterKeyHint="send"
-            spellCheck={false}
-            {...imeProps}
-            className="pi-composer-input pi-swin-composer-input min-w-0 flex-1 resize-none border-none bg-transparent px-1.5 py-1 text-[var(--pi-text)] outline-none disabled:cursor-not-allowed"
-          />
-          <button
-            type="button"
-            className={`pi-composer-send-btn${canSend ? " pi-composer-send-btn--accent" : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              submit();
-            }}
-            disabled={!canSend}
-            title="Send message"
-            aria-label="Send message"
-          >
-            <Send strokeWidth={2} aria-hidden="true" />
-          </button>
+          </div>
         </div>
       </div>
     </div>

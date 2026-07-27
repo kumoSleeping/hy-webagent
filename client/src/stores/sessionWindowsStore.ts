@@ -56,6 +56,8 @@ interface SessionWindowsState {
   raisePreview: () => void;
   /** 多会话新建后把光标送进目标窗输入框。 */
   requestWindowComposerFocus: (sessionId: string) => void;
+  /** 本窗换成新会话:占位/几何/栈序保留,不另开窗。 */
+  replaceSession: (oldSessionId: string, newSessionId: string) => void;
 }
 
 /** CSS .pi-float-panel 的兜底 z;栈内浮层从 +1 起按栈序递增,
@@ -171,6 +173,36 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
 
   requestWindowComposerFocus: (sessionId) =>
     set((s) => ({ focusSessionId: sessionId, focusTick: s.focusTick + 1 })),
+
+  replaceSession: (oldSessionId, newSessionId) =>
+    set((s) => {
+      if (oldSessionId === newSessionId) return s;
+      if (!s.windows.some((w) => w.sessionId === oldSessionId)) return s;
+      // 几何跟着走:本窗「刷新」而不是弹到默认出生位。
+      try {
+        const oldKey = `pi-swin-rect:${oldSessionId}`;
+        const nextKey = `pi-swin-rect:${newSessionId}`;
+        const rect = localStorage.getItem(oldKey);
+        if (rect && !localStorage.getItem(nextKey)) {
+          localStorage.setItem(nextKey, rect);
+        }
+      } catch {
+        // ignore
+      }
+      touchKeepAlive(oldSessionId);
+      const windows = s.windows
+        .filter((w) => w.sessionId !== newSessionId)
+        .map((w) => (w.sessionId === oldSessionId ? { sessionId: newSessionId } : w));
+      const stack = s.stack
+        .filter((k) => k !== newSessionId)
+        .map((k) => (k === oldSessionId ? newSessionId : k));
+      persist(windows, s.stashedWindows);
+      return {
+        windows,
+        stack: raised(stack, newSessionId),
+        focusSessionId: s.focusSessionId === oldSessionId ? newSessionId : s.focusSessionId,
+      };
+    }),
 }));
 
 // 保活 LRU 淘汰时要避开正开着窗的会话(它们有自己的生命周期)。

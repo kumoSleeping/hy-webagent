@@ -2809,10 +2809,10 @@ button.pi-panel-row.pi-panel-row--selected {
  * ========================================================== */
 .pi-float-panel--session {
   /* 窗内 feed 的间距变量整体收紧(MessageFeed 直接读它们)。 */
-  --pi-feed-edge: 0.6rem;
-  --pi-top-strip: 0.4rem;
-  /* 与主对话框同族:白卡 + 浮层阴影(不再用发灰底冲掉卡片感)。 */
-  background: var(--pi-panel);
+  --pi-feed-edge: 0.85rem;
+  --pi-top-strip: 0.55rem;
+  /* 灰底 + 浮层阴影 —— 与主区一样,白卡只留给底部输入壳。 */
+  background: var(--pi-bg);
   box-shadow: var(--pi-shadow-float);
 }
 .pi-composer-shell--toolbar-only {
@@ -2823,54 +2823,57 @@ button.pi-panel-row.pi-panel-row--selected {
   background: transparent;
   box-shadow: none;
 }
-/* 窗内迷你对话框:外形对齐 .pi-composer-shell(方卡 + 描边 + 阴影),
-   顶栏绝对贴在壳上沿(命令 / 新建),输入行在壳内。 */
+/* 窗内对话框:刻度对齐 .pi-composer-shell(pad-x / 底垫 / body 顶距 / 行 gap),
+   四周刻意留空,不再贴板块边。 */
 .pi-swin-composer-dock {
   flex: 0 0 auto;
   position: relative;
   z-index: 2;
-  padding: calc(var(--pi-composer-toolbar-btn-h) + 0.2rem) 0.55rem 0.55rem;
+  /* 顶:给贴壳顶栏留位;左右底:与主区 composer 外缘呼吸感一致 */
+  padding:
+    calc(var(--pi-composer-toolbar-btn-h) + 0.55rem)
+    1rem
+    1rem;
   background: transparent;
 }
 .pi-swin-composer-shell {
+  /* 与主壳同名变量,后续改主壳这里跟着走。 */
+  --pi-composer-pad-x: 0.875rem;
   --pi-composer-border: 1px;
   position: relative;
   overflow: visible;
+  border-radius: 0;
   border: var(--pi-composer-border) solid var(--pi-line);
   background: var(--pi-panel);
-  box-shadow: var(--pi-shadow);
-  padding: 0 0.55rem 0.4rem;
+  box-shadow: none;
+  padding: 0 var(--pi-composer-pad-x) 0.7rem;
 }
 .pi-swin-composer-toolbar {
   position: absolute;
   right: calc(-1 * var(--pi-composer-border));
   bottom: 100%;
   height: var(--pi-composer-toolbar-btn-h);
+  max-width: calc(100% + 2 * var(--pi-composer-border));
+  overflow: hidden;
   background: var(--pi-panel);
   border: 1px solid var(--pi-line);
   border-bottom: none;
+  box-shadow: none;
   z-index: 3;
 }
 .pi-swin-composer-toolbar .pi-composer-toolbar-bar {
   height: 100%;
-}
-.pi-swin-composer-body {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.15rem;
-  position: relative;
-  min-height: 0;
-}
-.pi-swin-composer-input {
-  min-height: calc(var(--pi-composer-line) + 0.35rem);
-  max-height: calc(var(--pi-composer-line) * 4 + 0.35rem);
-  font-size: 0.9rem;
+  max-width: 100%;
 }
 .pi-swin-composer-working {
   position: absolute;
   left: 0;
   top: -0.55rem;
   z-index: 2;
+}
+/* 窄窗里压缩输入行高一点,但仍用主壳字号(≥16 防 iOS 缩放)。 */
+.pi-swin-composer-shell .pi-composer-input {
+  max-height: calc(var(--pi-composer-line) * 5 + 0.75rem);
 }
 /* 标题/分割线已删:顶栏是隐形拖动带,激活态不再有标题变色。 */
 /* 统一窗口套件控制钮:每扇浮窗(会话窗/命令面板/预览)标题栏左端一枚
