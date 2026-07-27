@@ -2811,6 +2811,38 @@ button.pi-panel-row.pi-panel-row--selected {
   /* 窗内 feed 的间距变量整体收紧(MessageFeed 直接读它们)。 */
   --pi-feed-edge: 0.6rem;
   --pi-top-strip: 0.4rem;
+  /* 多会话板块略降白度 —— 纯白(#fff)在灰底上过跳。 */
+  background: color-mix(in srgb, var(--pi-bg) 42%, #ffffff);
+}
+.pi-composer-shell--toolbar-only {
+  /* 小窗模式底栏只留工具条:去掉输入区 padding,壳几乎贴平。 */
+  padding-bottom: 0;
+  min-height: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.pi-swin-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 0.35rem 0.45rem 0.45rem;
+  border-top: 1px solid var(--pi-line);
+  background: color-mix(in srgb, var(--pi-bg) 28%, #ffffff);
+  position: relative;
+}
+.pi-swin-composer-input {
+  min-height: calc(var(--pi-composer-line) + 0.35rem);
+  max-height: calc(var(--pi-composer-line) * 4 + 0.35rem);
+  font-size: 0.9rem;
+}
+.pi-swin-composer-working {
+  position: absolute;
+  left: 0.35rem;
+  top: -0.55rem;
+  z-index: 2;
 }
 /* 标题/分割线已删:顶栏是隐形拖动带,激活态不再有标题变色。 */
 /* 统一窗口套件控制钮:每扇浮窗(会话窗/命令面板/预览)标题栏左端一枚

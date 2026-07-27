@@ -48,15 +48,9 @@ describe("ExtensionWidgetPanel", () => {
 });
 
 describe("StatusBar", () => {
-  beforeEach(() => {
-    useStatusBarStore.getState().clear();
-  });
-
-  it("keeps all reserved rows mounted before session data arrives", () => {
+  it("no longer renders the footer stack under the composer", () => {
     const { container } = render(<StatusBar />);
-
-    expect(container.querySelector(".pi-status-bar-stack")).not.toBeNull();
-    // 第四行(extensionLine)按用户决定不渲染 —— 三行:顶行/pwd/stats。
-    expect(container.querySelectorAll(".pi-status-bar")).toHaveLength(3);
+    expect(container.querySelector(".pi-status-bar-stack")).toBeNull();
+    expect(container.firstChild).toBeNull();
   });
 });

@@ -57,7 +57,7 @@ describe("ComposerBar group preview", () => {
     );
 
     const editor = screen.getByRole("textbox");
-    expect(editor).toHaveAttribute("data-placeholder", "Preparing...");
+    expect(editor).toHaveAttribute("data-placeholder", "");
     expect(editor).not.toHaveAttribute("aria-disabled", "true");
     editor.focus();
     expect(editor).toHaveFocus();

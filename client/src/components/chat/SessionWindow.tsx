@@ -1,9 +1,9 @@
 /**
  * 会话直播小窗(设计稿 F,与桌面 PI-HGUI 同源;docs/design-cleanup/10)。
  *
- * 每窗一条只读 WS 直播(useSessionWindowSocket);点窗任意处 = 置顶 + 激活
- * (共用输入框按回车瞬间盖章路由)。控制钮只剩一枚:标题栏左端主题红
- * 矩形 ✕ 直接关窗(会话仍在列表;小窗模式下点历史行重新弹窗)。
+ * 每窗一条只读 WS 直播(useSessionWindowSocket);点窗任意处 = 置顶 + 激活。
+ * 多会话时输入框嵌在每扇窗底部(SessionWindowComposer),底栏只留工具条。
+ * 控制钮只剩一枚:标题栏左端主题红矩形 ✕ 直接关窗。
  * 接管(zoom)概念已删 —— 长按工具栏新建按钮整体进/出小窗模式。
  * 拖标题栏移动、拖侧边/下缘改大小(edgeResizable)。
  * 对账:切走 / 回合结束时 refresh() 重拉全量历史,自愈中途开窗丢的半条。
@@ -12,6 +12,7 @@ import { useEffect, useRef } from "react";
 import { useStore } from "zustand";
 import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { MessageFeed } from "./MessageFeed";
+import { SessionWindowComposer } from "./SessionWindowComposer";
 import { useChatStore } from "../../stores/chatStore";
 import { ensureChatStore } from "../../stores/chatStores";
 import { floatZ, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
@@ -23,9 +24,21 @@ interface SessionWindowProps {
   z: number;
   /** 级联出生位:默认锚基础上每窗偏移 24px,避免全叠在一起。 */
   cascade: number;
+  disabled?: boolean;
+  onSend: (text: string) => boolean | void;
+  onSteer?: (text: string) => void;
+  onAbort?: () => void;
 }
 
-export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
+export function SessionWindow({
+  sessionId,
+  z,
+  cascade,
+  disabled,
+  onSend,
+  onSteer,
+  onAbort,
+}: SessionWindowProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   // 幂等取用:注册表条目由窗口 store 的 close/closeAll 负责注销,
   // 组件卸载绝不 drop(StrictMode 双挂载会误杀开着的窗的直播)。
@@ -114,13 +127,27 @@ export function SessionWindow({ sessionId, z, cascade }: SessionWindowProps) {
           // 加载中正文留白,左上角红杠位变呼吸块(chrome loading)。
           <MessageFeed chatStore={mirrorMain ? useChatStore : chatStore} reserveComposer={false} />
         )}
+        <SessionWindowComposer
+          sessionId={sessionId}
+          disabled={disabled}
+          onSend={onSend}
+          onSteer={onSteer}
+          onAbort={onAbort}
+        />
       </div>
     </div>
   );
 }
 
+interface SessionWindowsHostProps {
+  disabled?: boolean;
+  onSend: (text: string) => boolean | void;
+  onSteer?: (text: string) => void;
+  onAbort?: () => void;
+}
+
 /** 全部会话小窗的宿主 —— 与聊天面板解耦。 */
-export function SessionWindowsHost() {
+export function SessionWindowsHost({ disabled, onSend, onSteer, onAbort }: SessionWindowsHostProps) {
   const windows = useSessionWindowsStore((s) => s.windows);
   const stack = useSessionWindowsStore((s) => s.stack);
   return (
@@ -131,6 +158,10 @@ export function SessionWindowsHost() {
           sessionId={w.sessionId}
           z={floatZ(stack, w.sessionId)}
           cascade={index % 6}
+          disabled={disabled}
+          onSend={onSend}
+          onSteer={onSteer}
+          onAbort={onAbort}
         />
       ))}
     </>

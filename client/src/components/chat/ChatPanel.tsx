@@ -10,7 +10,6 @@ import { useComposerFocusStore } from "../../stores/composerFocusStore";
 import { useMobileLayout } from "../../hooks/useMobileLayout";
 import { apiGet } from "../../lib/api";
 import { ComposerBar } from "./ComposerBar";
-import { StatusBar } from "./StatusBar";
 import { CenterStage, useCenterStageOpen } from "./CenterStage";
 import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { EditorPanel } from "../editor/EditorPanel";
@@ -22,6 +21,7 @@ import { SlashExportDialog } from "../slash/SlashExportDialog";
 import { isSilentCommand } from "../../lib/silentCommands";
 import { openToolbarSlashPanel, resolveToolbarSlash } from "../../lib/toolbarSlashCommands";
 import { stripFileAttachmentTags } from "../../lib/prepareAttachments";
+import { formatSessionStats } from "../../lib/sessionStatsFormat";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import {
   floatZ,
@@ -398,16 +398,16 @@ export function ChatPanel({
   }
 
   function renderStats(data: unknown) {
-    if (!data || typeof data !== "object") {
-      return undefined;
-    }
-    return Object.entries(data).map(([key, value], index) => (
+    const rows = formatSessionStats(data);
+    if (!rows) return undefined;
+    return rows.map((row, index) => (
       <PanelListRow
-        key={key}
+        key={row.key}
         leading={String(index + 1).padStart(2, "0")}
         leadingKind="index"
-        title={key}
-        detail={typeof value === "object" ? JSON.stringify(value) : String(value)}
+        title={row.label}
+        detail={row.detail}
+        titleAttr={row.titleAttr}
       />
     ));
   }
@@ -601,7 +601,12 @@ export function ChatPanel({
             面板绝不能留在输入坞(z=500 的 stacking context)里 ——
             否则它以 500 层压住一切,预览/会话窗永远到不了它上面。 */}
         <div id="pi-float-layer" />
-        <SessionWindowsHost />
+        <SessionWindowsHost
+          disabled={isGuestView || Boolean(groupPreview)}
+          onSend={(text) => handleSend(text)}
+          onSteer={handleSteer}
+          onAbort={sendAbort}
+        />
         {/* 时间线:主区左缘的当前会话轮次导航(Codex 式)。窗口切换
             入口在 bar 左侧编号瓦片(ComposerBar)。 */}
         {!activeSessionWindowed && !groupPreview && <SessionTimeline />}
@@ -640,7 +645,6 @@ export function ChatPanel({
             </>
           )}
         </div>
-        <StatusBar />
       </div>
     </div>
   );

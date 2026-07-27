@@ -1412,15 +1412,19 @@ export function ComposerBar({
       </div>
     ) : null;
 
+  // 多会话小窗模式:输入进每扇窗内部,底栏只留工具条 + 编号瓦片。
+  const windowMode = sessionWindows.length > 0;
+
   return (
     <div
-      className="pi-composer-shell relative"
+      className={`pi-composer-shell relative${windowMode ? " pi-composer-shell--toolbar-only" : ""}`}
       ref={shellRef}
-      onClick={focusInput}
+      onClick={windowMode ? undefined : focusInput}
     >
       {/* Corner badge is positioned on the shell's top-left vertex
-          (translate -50/-50). Working text + queue sit just to its right. */}
-      {isStreaming && !isConnectingRaw && (
+          (translate -50/-50). Working text + queue sit just to its right.
+          小窗模式改由 SessionWindowComposer 承接 working/abort。 */}
+      {!windowMode && isStreaming && !isConnectingRaw && (
         <button
           type="button"
           className="pi-composer-working pi-composer-working--shell"
@@ -1434,7 +1438,7 @@ export function ComposerBar({
           </span>
         </button>
       )}
-      {badgeRow && (
+      {!windowMode && badgeRow && (
         <div className="pi-composer-working-row" onClick={(e) => e.stopPropagation()}>
           {badgeRow}
         </div>
@@ -1523,7 +1527,7 @@ export function ComposerBar({
         return floatLayer ? createPortal(panelNode, floatLayer) : panelNode;
       })()}
 
-      <div className="pi-composer-body">
+      {!windowMode && <div className="pi-composer-body">
         {pendingAttachments.length > 0 && (
           <div className="pi-composer-attachments">
             {pendingAttachments.map((item) => (
@@ -1603,17 +1607,7 @@ export function ComposerBar({
           autoCorrect="off"
           disabled={disabled}
           readOnly={attachmentPickerOpen}
-          placeholder={
-            groupPreview
-              ? groupPreview.notice
-              : sendDisabled || isSendUnavailable
-              ? "Preparing..."
-              : attachmentsProcessing()
-                ? "Uploading..."
-                : isStreaming
-                  ? "Queued..."
-                  : "Type / for commands..."
-          }
+          placeholder=""
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
           enterKeyHint="send"
@@ -1635,7 +1629,7 @@ export function ComposerBar({
           <Send strokeWidth={2} aria-hidden="true" />
         </button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

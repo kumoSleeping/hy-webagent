@@ -1,8 +1,4 @@
-import { useMemo } from "react";
-import { useShallow } from "zustand/react/shallow";
-import { useStatusBarStore, splitWidgetLine } from "../../stores/statusBarStore";
-
-const NBSP = "\u00A0";
+import { useStatusBarStore } from "../../stores/statusBarStore";
 
 /** Drop blank lines at the top/bottom of a widget; returns [] when all blank. */
 function trimBlankEdges(lines: string[]): string[] {
@@ -32,7 +28,7 @@ export function ExtensionWidgetPanel() {
         <div key={key} className="pi-extension-widget" aria-label={`Extension widget ${key}`}>
           {lines.map((line, i) => (
             <div key={i} className="pi-extension-widget-line">
-              {line.length > 0 ? line : NBSP}
+              {line.length > 0 ? line : "\u00A0"}
             </div>
           ))}
         </div>
@@ -41,57 +37,7 @@ export function ExtensionWidgetPanel() {
   );
 }
 
-/** Native pi footer + below-editor widgets — fixed row slots prevent composer jump. */
+/** 底栏三行(widget/pwd/stats)已按产品决定不再展示。 */
 export function StatusBar() {
-  const footer = useStatusBarStore((s) => s.footer);
-  const flash = useStatusBarStore((s) => s.flash);
-  const belowEditor = useStatusBarStore(useShallow((s) => s.widgets.belowEditor ?? {}));
-
-  const widgetRow = useMemo(() => {
-    for (const key of Object.keys(belowEditor).sort()) {
-      const line = belowEditor[key]?.[0];
-      if (line) return splitWidgetLine(line);
-    }
-    return null;
-  }, [belowEditor]);
-
-  // The transient flash (former popup notifications) borrows the topmost
-  // slot; the widget line yields for a few seconds instead of stacking a
-  // floating layer on top of the chat.
-  const topRow = flash
-    ? { left: flash.text, right: "" }
-    : widgetRow;
-
-  return (
-    <div className="pi-status-bar-stack" aria-live="polite">
-      <div
-        className={`pi-status-bar pi-status-bar--widget${
-          flash ? ` pi-status-bar--flash${flash.kind === "error" ? " pi-status-bar--flash-error" : ""}` : ""
-        }${topRow ? "" : " pi-status-bar--slot-empty"}`}
-        role={flash ? "status" : undefined}
-      >
-        {topRow ? (
-          <>
-            <span className="pi-status-bar-item">{topRow.left}</span>
-            {topRow.right && (
-              <span className="pi-status-bar-item pi-status-bar-item--right">{topRow.right}</span>
-            )}
-          </>
-        ) : (
-          <span className="pi-status-bar-item" aria-hidden="true">{NBSP}</span>
-        )}
-      </div>
-
-      <div className={`pi-status-bar pi-status-bar--pwd${footer?.pwdLine ? "" : " pi-status-bar--slot-empty"}`}>
-        <span className="pi-status-bar-item">{footer?.pwdLine || NBSP}</span>
-      </div>
-
-      <div className={`pi-status-bar pi-status-bar--stats${footer?.statsLeft || footer?.modelRight ? "" : " pi-status-bar--slot-empty"}`}>
-        <span className="pi-status-bar-item">{footer?.statsLeft || NBSP}</span>
-        <span className="pi-status-bar-item pi-status-bar-item--right">{footer?.modelRight || NBSP}</span>
-      </div>
-      {/* 第四行(extensionLine,第三方扩展状态)按用户决定不渲染 ——
-          服务端照常下发,想恢复把这行加回来即可。 */}
-    </div>
-  );
+  return null;
 }
