@@ -10,10 +10,10 @@ import { useMemo, useRef, useState } from "react";
 import { useChatStore } from "../../stores/chatStore";
 
 /** 常态刻度长 / 隆起增量 / 波形扩散(px)。 */
-const BASE_W = 10;
-const BULGE_W = 22;
-const SIGMA = 30;
-const PAD_Y = 10;
+const BASE_W = 16;
+const BULGE_W = 26;
+const SIGMA = 32;
+const PAD_Y = 12;
 
 export function SessionTimeline() {
   const messages = useChatStore((s) => s.messages);
@@ -25,8 +25,9 @@ export function SessionTimeline() {
     [messages],
   );
   // 长会话把间距压缩到最多占半屏,滑动比例映射不受影响。
+  // 刻度加粗后最小间距抬到 10,避免挤成一条线。
   const tickGap = useMemo(
-    () => Math.min(14, Math.max(6, Math.floor((window.innerHeight * 0.5) / Math.max(1, turns.length)))),
+    () => Math.min(18, Math.max(10, Math.floor((window.innerHeight * 0.5) / Math.max(1, turns.length)))),
     [turns.length],
   );
   const [pointerY, setPointerY] = useState<number | null>(null);
