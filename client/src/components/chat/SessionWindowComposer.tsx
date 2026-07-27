@@ -41,7 +41,7 @@ export function SessionWindowComposer({
   const taRef = useRef<ComposerEditorHandle>(null);
   const textRef = useRef(text);
   textRef.current = text;
-  const { isComposing, imeProps } = useImeComposition();
+  const { isComposing, imeProps } = useImeComposition<HTMLDivElement>();
 
   const activate = useCallback(() => {
     useSessionWindowsStore.getState().bringToFront(sessionId);
