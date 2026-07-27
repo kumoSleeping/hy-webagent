@@ -2814,17 +2814,11 @@ button.pi-panel-row.pi-panel-row--selected {
   --pi-feed-edge: 0.85rem;
   /* 顶缘零留白:内容顶到窗顶,滚动时硬切消失(无顶渐隐)。 */
   --pi-top-strip: 0;
-  /* 底部短溶入高度 —— 幕整体盖满输入栈,溶入只发生在最上沿一小段。 */
+  /* 溶入尖只叠在工具条顶缘之上(不占 dock padding —— 否则会出现白缝)。 */
   --pi-swin-fade-tip-h: 1.15rem;
-  /* 输入坞占位(溶入尖 + 顶栏 + 输入壳 + 底垫)—— feed 留白 / 幕高对齐。 */
-  --pi-swin-composer-stack:
-    calc(
-      var(--pi-swin-fade-tip-h)
-      + var(--pi-composer-toolbar-btn-h)
-      + 0.55rem
-      + 3.6rem
-      + 1rem
-    );
+  /* 由 SessionWindowComposer 实测写入;兜底约等于 toolbar+shell+底垫。 */
+  --pi-swin-dock-h: calc(var(--pi-composer-toolbar-btn-h) + 4.4rem);
+  --pi-swin-composer-stack: calc(var(--pi-swin-dock-h) + var(--pi-swin-fade-tip-h));
   /* 灰底 + 略加重的浮层阴影,小板块立体感再抬一点。 */
   background: var(--pi-bg);
   box-shadow:
@@ -2877,8 +2871,9 @@ button.pi-panel-row.pi-panel-row--selected {
   padding-bottom: var(--pi-swin-composer-stack) !important;
 }
 /*
- * 同主区 .pi-float-fade:幕盖满整个输入栈高度。
- * 最上沿短渐隐,其余段不透明灰底 = 遮挡(字不会从输入壳两侧/底缝漏出)。
+ * 同主区 .pi-float-fade 精妙遮挡:
+ * 幕 = dock 实测高度 + 顶缘短溶入尖;溶入尖叠在工具条上方(feed 区),
+ * dock 自身 padding-top 只留工具条高 —— 不再多出一截「假空隙」。
  */
 .pi-swin-fade {
   position: absolute;
@@ -2895,6 +2890,7 @@ button.pi-panel-row.pi-panel-row--selected {
     var(--pi-bg) 100%
   );
 }
+/* 几何对齐 .pi-composer-dock:顶只留工具条行,壳贴工具条下沿。 */
 .pi-swin-composer-dock {
   position: absolute;
   left: 0;
@@ -2903,21 +2899,15 @@ button.pi-panel-row.pi-panel-row--selected {
   z-index: 2;
   flex: none;
   margin-top: 0;
-  /* 顶:溶入尖 + 贴壳顶栏;左右底与主区呼吸感一致 */
-  padding:
-    calc(var(--pi-swin-fade-tip-h) + var(--pi-composer-toolbar-btn-h) + 0.55rem)
-    1rem
-    1rem;
+  padding: var(--pi-composer-toolbar-btn-h) 1rem 1rem;
   background: transparent;
+  overflow: visible;
 }
-/* 双保险遮挡:输入壳所在段再刷一层不透明灰底(对齐主区 dock::before)。 */
+/* 整坞不透明遮挡(对齐主区 dock::before),字不可能从壳侧/底漏。 */
 .pi-swin-composer-dock::before {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
-  top: var(--pi-swin-fade-tip-h);
-  bottom: 0;
+  inset: 0;
   z-index: 0;
   background: var(--pi-bg);
   pointer-events: none;

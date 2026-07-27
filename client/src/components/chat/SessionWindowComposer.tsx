@@ -3,7 +3,7 @@
  * 留白 / 行高 / 顶栏贴合 / 输入行 gap 同一套刻度;顶栏功能精简但齐全。
  * 「新建」= 本窗换成新会话(不另开窗)。
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useStore } from "zustand";
 import {
   Command,
@@ -81,10 +81,27 @@ export function SessionWindowComposer({
 
   const [text, setText] = useState("");
   const taRef = useRef<ComposerEditorHandle>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
   const textRef = useRef(text);
   textRef.current = text;
   const { isComposing, imeProps } = useImeComposition<HTMLDivElement>();
   const btnWidthPx = Math.min(toolbarBtnWidthPx(), MOBILE_TOOLBAR_BTN_MAX_PX);
+
+  // 同主区量 --pi-float-bottom:实测 dock 高度写回面板,幕/feed 留白跟手。
+  useLayoutEffect(() => {
+    const dock = dockRef.current;
+    if (!dock) return;
+    const host = dock.closest(".pi-float-panel--session") as HTMLElement | null;
+    if (!host) return;
+    const update = () => {
+      const h = Math.ceil(dock.getBoundingClientRect().height);
+      if (h > 0) host.style.setProperty("--pi-swin-dock-h", `${h}px`);
+    };
+    update();
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    ro?.observe(dock);
+    return () => ro?.disconnect();
+  }, []);
 
   const activate = useCallback(() => {
     useSessionWindowsStore.getState().bringToFront(sessionId);
@@ -164,6 +181,7 @@ export function SessionWindowComposer({
 
   return (
     <div
+      ref={dockRef}
       className="pi-swin-composer-dock"
       onPointerDownCapture={activate}
       onClick={(e) => e.stopPropagation()}
