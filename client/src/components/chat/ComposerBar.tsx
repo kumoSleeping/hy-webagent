@@ -40,7 +40,6 @@ import {
   toolbarBtnWidthPx,
   type ToolbarItemDef,
   GROUP_PREVIEW_TOOLBAR_ITEMS,
-  WINDOW_MODE_TOOLBAR_ITEMS,
 } from "../../lib/composerLayout";
 import {
   insertCompressedMarker,
@@ -242,14 +241,12 @@ export function ComposerBar({
     const raw = toolbarBtnWidthPx();
     return Math.min(raw, MOBILE_TOOLBAR_BTN_MAX_PX);
   }, []);
+  // 多会话时底栏仍用完整工具条(命令/模型/历史/文件…)+左端 1/2 瓦片;
+  // 窗内自带精简对话框(命令+新建),不再把底栏裁成只剩两钮。
   const toolbarItems = useFittedToolbarItems(
     isMobileLayout,
     shellRef,
-    groupPreview
-      ? GROUP_PREVIEW_TOOLBAR_ITEMS
-      : sessionWindows.length > 0
-        ? WINDOW_MODE_TOOLBAR_ITEMS
-        : undefined,
+    groupPreview ? GROUP_PREVIEW_TOOLBAR_ITEMS : undefined,
     sessionWindows.length * btnWidthPx,
   );
   const panelToolbarIdx = (kind: Exclude<ComposerPanelKind, null>) =>
@@ -419,7 +416,9 @@ export function ComposerBar({
     const active = useSessionStore.getState().activePiSessionId;
     if (active) {
       seedSpawnRect(active); // 首扇默认板块 = 视口 50%×50%
-      useSessionWindowsStore.getState().open(active);
+      const ws = useSessionWindowsStore.getState();
+      ws.open(active);
+      ws.requestWindowComposerFocus(active);
       return;
     }
     void (async () => {
@@ -427,7 +426,9 @@ export function ComposerBar({
       if (!id) return; // 失败原因由 sessionStore 直接闪到状态行
       useSessionStore.getState().setActiveSession(id);
       seedSpawnRect(id); // 首扇默认板块 = 视口各维 50%(方向随视口)
-      useSessionWindowsStore.getState().open(id);
+      const ws = useSessionWindowsStore.getState();
+      ws.open(id);
+      ws.requestWindowComposerFocus(id);
       void useSessionStore.getState().fetchSessions();
     })();
   }
@@ -467,7 +468,7 @@ export function ComposerBar({
   useEffect(() => clearNewChatLongPress, []);
 
   /** 新建按钮随模式换义:无小窗 = 纯新建会话(主区直接切过去);
-   * 有小窗 = 新建会话并开直播小窗(多任务再加一路)。 */
+   * 有小窗 = 新建会话并开直播小窗(多任务再加一路),光标进新窗输入。 */
   function handleNewWindowChatClick() {
     closePanel();
     setToolbarKeyboardFocus(false);
@@ -479,7 +480,9 @@ export function ComposerBar({
       useSessionStore.getState().setActiveSession(id);
       if (asWindow) {
         seedSpawnRect(id); // 出生位:参照栈顶窗,朝空隙最大方向留距同尺寸
-        useSessionWindowsStore.getState().open(id);
+        const ws = useSessionWindowsStore.getState();
+        ws.open(id);
+        ws.requestWindowComposerFocus(id);
       }
       void useSessionStore.getState().fetchSessions();
     })();

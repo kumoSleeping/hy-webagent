@@ -2811,8 +2811,9 @@ button.pi-panel-row.pi-panel-row--selected {
   /* 窗内 feed 的间距变量整体收紧(MessageFeed 直接读它们)。 */
   --pi-feed-edge: 0.6rem;
   --pi-top-strip: 0.4rem;
-  /* 多会话板块略降白度 —— 纯白(#fff)在灰底上过跳。 */
-  background: color-mix(in srgb, var(--pi-bg) 42%, #ffffff);
+  /* 与主对话框同族:白卡 + 浮层阴影(不再用发灰底冲掉卡片感)。 */
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow-float);
 }
 .pi-composer-shell--toolbar-only {
   /* 小窗模式底栏只留工具条:去掉输入区 padding,壳几乎贴平。 */
@@ -2822,16 +2823,43 @@ button.pi-panel-row.pi-panel-row--selected {
   background: transparent;
   box-shadow: none;
 }
-.pi-swin-composer {
+/* 窗内迷你对话框:外形对齐 .pi-composer-shell(方卡 + 描边 + 阴影),
+   顶栏绝对贴在壳上沿(命令 / 新建),输入行在壳内。 */
+.pi-swin-composer-dock {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+  padding: calc(var(--pi-composer-toolbar-btn-h) + 0.2rem) 0.55rem 0.55rem;
+  background: transparent;
+}
+.pi-swin-composer-shell {
+  --pi-composer-border: 1px;
+  position: relative;
+  overflow: visible;
+  border: var(--pi-composer-border) solid var(--pi-line);
+  background: var(--pi-panel);
+  box-shadow: var(--pi-shadow);
+  padding: 0 0.55rem 0.4rem;
+}
+.pi-swin-composer-toolbar {
+  position: absolute;
+  right: calc(-1 * var(--pi-composer-border));
+  bottom: 100%;
+  height: var(--pi-composer-toolbar-btn-h);
+  background: var(--pi-panel);
+  border: 1px solid var(--pi-line);
+  border-bottom: none;
+  z-index: 3;
+}
+.pi-swin-composer-toolbar .pi-composer-toolbar-bar {
+  height: 100%;
+}
+.pi-swin-composer-body {
   display: flex;
   align-items: flex-end;
-  gap: 0.25rem;
-  flex: 0 0 auto;
-  min-height: 0;
-  padding: 0.35rem 0.45rem 0.45rem;
-  border-top: 1px solid var(--pi-line);
-  background: color-mix(in srgb, var(--pi-bg) 28%, #ffffff);
+  gap: 0.15rem;
   position: relative;
+  min-height: 0;
 }
 .pi-swin-composer-input {
   min-height: calc(var(--pi-composer-line) + 0.35rem);
@@ -2840,7 +2868,7 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 .pi-swin-composer-working {
   position: absolute;
-  left: 0.35rem;
+  left: 0;
   top: -0.55rem;
   z-index: 2;
 }

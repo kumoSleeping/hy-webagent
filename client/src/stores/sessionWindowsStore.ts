@@ -39,6 +39,9 @@ interface SessionWindowsState {
   stack: string[];
   /** 长按退出小窗模式时暂存的窗口集合 —— 再次长按原样弹回。 */
   stashedWindows: string[];
+  /** 新建/切窗后请求聚焦到该会话窗内输入;递增 tick 触发副作用。 */
+  focusSessionId: string | null;
+  focusTick: number;
   open: (sessionId: string) => void;
   close: (sessionId: string) => void;
   closeAll: () => void;
@@ -51,6 +54,8 @@ interface SessionWindowsState {
   bringToFront: (sessionId: string) => void;
   raisePanel: () => void;
   raisePreview: () => void;
+  /** 多会话新建后把光标送进目标窗输入框。 */
+  requestWindowComposerFocus: (sessionId: string) => void;
 }
 
 /** CSS .pi-float-panel 的兜底 z;栈内浮层从 +1 起按栈序递增,
@@ -88,6 +93,8 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
   windows: [],
   stack: ["panel", "preview"],
   stashedWindows: [],
+  focusSessionId: null,
+  focusTick: 0,
 
   open: (sessionId) =>
     set((s) => {
@@ -109,6 +116,7 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
       return {
         windows,
         stack: s.stack.filter((k) => k !== sessionId),
+        focusSessionId: s.focusSessionId === sessionId ? null : s.focusSessionId,
       };
     }),
 
@@ -121,6 +129,7 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
         windows: [],
         stack: s.stack.filter((k) => k === "panel" || k === "preview"),
         stashedWindows: [],
+        focusSessionId: null,
       };
     }),
 
@@ -134,6 +143,7 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
         windows: [],
         stack: s.stack.filter((k) => k === "panel" || k === "preview"),
         stashedWindows: stash,
+        focusSessionId: null,
       };
     }),
 
@@ -158,6 +168,9 @@ export const useSessionWindowsStore = create<SessionWindowsState>((set, get) => 
 
   raisePanel: () => set((s) => ({ stack: raised(s.stack, "panel") })),
   raisePreview: () => set((s) => ({ stack: raised(s.stack, "preview") })),
+
+  requestWindowComposerFocus: (sessionId) =>
+    set((s) => ({ focusSessionId: sessionId, focusTick: s.focusTick + 1 })),
 }));
 
 // 保活 LRU 淘汰时要避开正开着窗的会话(它们有自己的生命周期)。

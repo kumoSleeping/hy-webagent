@@ -41,10 +41,14 @@ export const MOBILE_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "new-chat", panel: null, enterToActivate: true },
 ];
 
-/** 多窗口模式:工具栏只留命令 + 新建,其余槽位让给 bar 左端的
- *  小窗编号瓦片(瓦片与按钮同尺寸,不缩小不挤占)。 */
+/** @deprecated 多会话时底栏改回完整工具条;窗内自带精简命令/新建。保留导出以免旧引用炸。 */
 export const WINDOW_MODE_TOOLBAR_ITEMS: ToolbarItemDef[] = [
   { id: "commands", panel: "commands", enterToActivate: false },
+  { id: "model", panel: "model", enterToActivate: false },
+  { id: "tree", panel: "tree", enterToActivate: false },
+  { id: "history", panel: "history", enterToActivate: false },
+  { id: "files", panel: "files", enterToActivate: false },
+  { id: "account", panel: "account", enterToActivate: false },
   { id: "new-chat", panel: null, enterToActivate: true },
 ];
 
