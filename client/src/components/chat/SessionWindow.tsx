@@ -3,9 +3,9 @@
  *
  * 每窗一条只读 WS 直播(useSessionWindowSocket);点窗任意处 = 置顶 + 激活。
  * 多会话时输入框嵌在每扇窗底部(SessionWindowComposer),底栏只留工具条。
- * 控制钮只剩一枚:标题栏左端主题红矩形 ✕ 直接关窗。
+ * 顶栏无关闭钮,只留隐形拖动带;关闭在输入框上方工具条(原历史位)。
  * 接管(zoom)概念已删 —— 长按工具栏新建按钮整体进/出小窗模式。
- * 拖标题栏移动、拖侧边/下缘改大小(edgeResizable)。
+ * 拖顶带移动、拖侧边/下缘改大小(edgeResizable)。
  * 对账:切走 / 回合结束时 refresh() 重拉全量历史,自愈中途开窗丢的半条。
  */
 import { useEffect, useRef } from "react";
@@ -75,9 +75,28 @@ export function SessionWindow({
   function handleWindowPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     // 控制钮不参与「点窗置顶/激活」:点背景窗的关闭键不该先激活它;
     // 捕获阶段的状态更新也会打断按钮的 click 合成。
-    if ((e.target as HTMLElement).closest(".pi-swin-ctl")) return;
+    if ((e.target as HTMLElement).closest(".pi-swin-ctl, .pi-composer-toolbar-btn")) return;
     bringToFront(sessionId);
     if (!isActive) setActiveSession(sessionId);
+  }
+
+  function handleClose() {
+    // 关的是激活窗且还有别的窗:焦点交给栈顶剩余窗 —— 否则
+    // 背景主区会突然显示本会话(activeSessionWindowed 翻 false)。
+    // 全关:背景进空白页,不跳进这个会话的整页。
+    const ws = useSessionWindowsStore.getState();
+    const remaining = ws.windows.filter((w) => w.sessionId !== sessionId);
+    const nextId = isActive && remaining.length > 0
+      ? [...ws.stack].reverse().find((k) => remaining.some((w) => w.sessionId === k)) ??
+        remaining[remaining.length - 1].sessionId
+      : null;
+    closeWindow(sessionId);
+    if (nextId) {
+      ws.bringToFront(nextId);
+      setActiveSession(nextId);
+    } else if (isActive && remaining.length === 0) {
+      setActiveSession(null);
+    }
   }
 
   return (
@@ -94,35 +113,14 @@ export function SessionWindow({
       onPointerDownCapture={handleWindowPointerDown}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* 统一窗口套件:标题栏左端红 ✕ 关窗(会话在列表还能找回,小窗模式下
-          点历史行重新弹窗);拖标题栏移动、拖边缘/角改大小。 */}
+      {/* 顶栏只留隐形拖动带 + 边缘改大小;关闭改到输入框上方工具条。 */}
       <ComposerPanelChrome
         panelRef={panelRef}
         storageKey={`pi-swin-rect:${sessionId}`}
-        onClose={() => {
-          // 关的是激活窗且还有别的窗:焦点交给栈顶剩余窗 —— 否则
-          // 背景主区会突然显示本会话(activeSessionWindowed 翻 false),
-          // 多窗模式下背景闪出会话是反逻辑的。
-          // 全关(最后一扇也是激活窗):背景进空白页,不跳进这个会话的整页。
-          const ws = useSessionWindowsStore.getState();
-          const remaining = ws.windows.filter((w) => w.sessionId !== sessionId);
-          const nextId = isActive && remaining.length > 0
-            ? [...ws.stack].reverse().find((k) => remaining.some((w) => w.sessionId === k)) ??
-              remaining[remaining.length - 1].sessionId
-            : null;
-          closeWindow(sessionId);
-          if (nextId) {
-            ws.bringToFront(nextId);
-            setActiveSession(nextId);
-          } else if (isActive && remaining.length === 0) {
-            setActiveSession(null);
-          }
-        }}
-        closeLabel="关闭小窗（会话保留在列表）"
       />
       <div className="pi-swin-body">
         {/* 消息区永远占满上方:进页一瞬间 socket 未附着时也不能让
-            输入壳顶到板块上沿(否则顶栏按钮会和红 ✕ 挤成一行)。 */}
+            输入壳顶到板块上沿。 */}
         <div className="pi-swin-feed">
           {(attached || mirrorMain) && (
             // 激活且主链路已就位 = 镜像单例 store(与主区逐字节一致);
@@ -136,6 +134,7 @@ export function SessionWindow({
           onSend={onSend}
           onSteer={onSteer}
           onAbort={onAbort}
+          onClose={handleClose}
         />
       </div>
     </div>

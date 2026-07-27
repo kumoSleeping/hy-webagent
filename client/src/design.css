@@ -2815,6 +2815,13 @@ button.pi-panel-row.pi-panel-row--selected {
   background: var(--pi-bg);
   box-shadow: var(--pi-shadow-float);
 }
+/* 会话窗顶栏:去掉白条/红点/通道感,只留一条可拖的透明带。 */
+.pi-float-panel--session .pi-composer-panel-handle {
+  background: transparent;
+}
+.pi-float-panel--session .pi-composer-panel-handle::after {
+  display: none;
+}
 .pi-composer-shell--toolbar-only {
   /* 小窗模式底栏只留工具条:去掉输入区 padding,壳几乎贴平。 */
   padding-bottom: 0;

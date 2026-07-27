@@ -9,9 +9,9 @@ import {
   Command,
   Cpu,
   FolderOpen,
-  History,
   MessageSquarePlus,
   Send,
+  X,
 } from "lucide-react";
 import { StableComposerEditor, type ComposerEditorHandle } from "./StableComposerEditor";
 import { useImeComposition } from "../../hooks/useImeComposition";
@@ -30,14 +30,16 @@ interface SessionWindowComposerProps {
   onSend: (text: string) => boolean | void;
   onSteer?: (text: string) => void;
   onAbort?: () => void;
+  /** 关闭本小窗(会话仍在列表)。 */
+  onClose?: () => void;
 }
 
-type WindowToolbarId = "commands" | "model" | "history" | "files" | "new-session";
+type WindowToolbarId = "commands" | "model" | "close" | "files" | "new-session";
 
 const WINDOW_TOOLBAR: { id: WindowToolbarId; panel: Exclude<ComposerPanelKind, null> | null; title: string; aria: string }[] = [
   { id: "commands", panel: "commands", title: "Commands", aria: "Toggle commands" },
   { id: "model", panel: "model", title: "Model", aria: "Toggle model selector" },
-  { id: "history", panel: "history", title: "History", aria: "Toggle history" },
+  { id: "close", panel: null, title: "关闭小窗（会话保留在列表）", aria: "关闭小窗" },
   { id: "files", panel: "files", title: "Files", aria: "Toggle files" },
   { id: "new-session", panel: null, title: "新建会话（替换本窗）", aria: "新建会话并替换本窗" },
 ];
@@ -48,8 +50,8 @@ function toolbarIcon(id: WindowToolbarId) {
       return <Command strokeWidth={2} aria-hidden="true" />;
     case "model":
       return <Cpu strokeWidth={2} aria-hidden="true" />;
-    case "history":
-      return <History strokeWidth={2} aria-hidden="true" />;
+    case "close":
+      return <X strokeWidth={2} aria-hidden="true" />;
     case "files":
       return <FolderOpen strokeWidth={2} aria-hidden="true" />;
     case "new-session":
@@ -63,6 +65,7 @@ export function SessionWindowComposer({
   onSend,
   onSteer,
   onAbort,
+  onClose,
 }: SessionWindowComposerProps) {
   const chatStore = ensureChatStore(sessionId);
   const activeId = useSessionStore((s) => s.activePiSessionId);
@@ -138,6 +141,10 @@ export function SessionWindowComposer({
   }
 
   function handleToolbarClick(id: WindowToolbarId, panelKind: Exclude<ComposerPanelKind, null> | null) {
+    if (id === "close") {
+      onClose?.();
+      return;
+    }
     if (id === "new-session") {
       void (async () => {
         const newId = await useSessionStore.getState().createSession();
