@@ -2832,12 +2832,27 @@ button.pi-panel-row.pi-panel-row--selected {
     0 4px 10px -4px rgba(0, 0, 0, 0.08),
     0 0 0 1px color-mix(in srgb, var(--pi-line) 85%, transparent);
 }
-/* 会话窗顶栏:去掉白条/红点/通道感,只留一条可拖的透明带。 */
+/* 会话窗拖动带浮在内容上,不占文档流 —— 否则顶上永远空出 1.4rem 灰条。 */
 .pi-float-panel--session .pi-composer-panel-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 5;
   background: transparent;
 }
 .pi-float-panel--session .pi-composer-panel-handle::after {
   display: none;
+}
+/* 消息内容区默认 pt-4 也会顶出空隙 —— 小窗顶缘硬切,去掉。 */
+.pi-float-panel--session .pi-swin-feed .pt-4 {
+  padding-top: 0 !important;
+}
+/* handle 出流后 body 吃满整窗高度。 */
+.pi-float-panel--session .pi-swin-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
 }
 .pi-composer-shell--toolbar-only {
   /* 小窗模式底栏只留工具条:去掉输入区 padding,壳几乎贴平。 */
