@@ -27,7 +27,6 @@ import {
 } from "../../stores/sessionWindowsStore";
 import { SessionWindowsHost } from "./SessionWindow";
 import { clearKeepAlive } from "../../stores/sessionKeepAliveStore";
-import { SessionTimeline } from "./SessionTimeline";
 import { useExtensionUiStore } from "../../stores/extensionUiStore";
 import { flashStatus } from "../../stores/statusBarStore";
 import type { FileEntry, EditorTab, EditorViewMode } from "../../types";
@@ -600,9 +599,6 @@ export function ChatPanel({
           onSteer={handleSteer}
           onAbort={sendAbort}
         />
-        {/* 时间线:主区左缘的当前会话轮次导航(Codex 式)。窗口切换
-            入口在 bar 左侧编号瓦片(ComposerBar)。 */}
-        {!activeSessionWindowed && !groupPreview && <SessionTimeline />}
         {/* 渐隐幕:会话窗拖进输入区时向下溶入背景(见 design.css)。 */}
         <div className="pi-float-fade" aria-hidden="true" />
       </div>

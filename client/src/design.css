@@ -3078,58 +3078,6 @@ button.pi-panel-row.pi-panel-row--selected {
   min-height: 0;
   overflow: hidden;
 }
-/* 时间线(Codex 式):主区左缘的当前会话轮次导航。每个用户轮次一格
-   灰刻度;常态半透明,按住后手指附近的刻度按高斯衰减隆起成波形,
-   旁浮该轮消息摘要,松手滚到那一轮。z 在渐隐幕(400)之上、
-   输入坞(500)之下。窗口切换入口已挪到 bar 左侧编号瓦片。
-   刻度略加粗并内缩,避免贴屏缘、细到看不见。 */
-.pi-timeline {
-  position: fixed;
-  left: 12px;
-  top: 38%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  width: 52px;
-  padding-right: 8px;
-  z-index: 460;
-  opacity: 0.55;
-  transition: opacity 140ms ease-out;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-.pi-timeline:hover { opacity: 0.8; }
-.pi-timeline--touching { opacity: 1; }
-.pi-timeline-slot {
-  display: flex;
-  align-items: center;
-}
-.pi-timeline-tick {
-  display: block;
-  height: 4px;
-  background: color-mix(in srgb, var(--pi-text-body) 55%, var(--pi-muted));
-  transition: width 60ms linear, background-color 100ms ease-out;
-}
-.pi-timeline-tick--pick { background: var(--pi-theme); }
-.pi-timeline-preview {
-  position: absolute;
-  left: 58px;
-  transform: translateY(-50%);
-  max-width: 46vw;
-  padding: 0.3rem 0.55rem;
-  background: var(--pi-panel);
-  border: 1px solid var(--pi-line);
-  box-shadow: var(--pi-shadow);
-  font-size: 0.72rem;
-  color: var(--pi-text-body);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
-
 /* bar 左端的小窗编号瓦片:窗口切换入口(点击=置顶+激活,右键=关窗)。 */
 .pi-swin-bar-tiles {
   display: flex;
