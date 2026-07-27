@@ -9,6 +9,7 @@ import {
   Command,
   Cpu,
   FolderOpen,
+  Info,
   MessageSquarePlus,
   Send,
   X,
@@ -34,11 +35,12 @@ interface SessionWindowComposerProps {
   onClose?: () => void;
 }
 
-type WindowToolbarId = "commands" | "model" | "close" | "files" | "new-session";
+type WindowToolbarId = "commands" | "model" | "session" | "close" | "files" | "new-session";
 
 const WINDOW_TOOLBAR: { id: WindowToolbarId; panel: Exclude<ComposerPanelKind, null> | null; title: string; aria: string }[] = [
   { id: "commands", panel: "commands", title: "Commands", aria: "Toggle commands" },
   { id: "model", panel: "model", title: "Model", aria: "Toggle model selector" },
+  { id: "session", panel: null, title: "Session", aria: "Toggle session stats" },
   { id: "close", panel: null, title: "关闭小窗（会话保留在列表）", aria: "关闭小窗" },
   { id: "files", panel: "files", title: "Files", aria: "Toggle files" },
   { id: "new-session", panel: null, title: "新建会话（替换本窗）", aria: "新建会话并替换本窗" },
@@ -50,6 +52,8 @@ function toolbarIcon(id: WindowToolbarId) {
       return <Command strokeWidth={2} aria-hidden="true" />;
     case "model":
       return <Cpu strokeWidth={2} aria-hidden="true" />;
+    case "session":
+      return <Info strokeWidth={2} aria-hidden="true" />;
     case "close":
       return <X strokeWidth={2} aria-hidden="true" />;
     case "files":
@@ -76,6 +80,7 @@ export function SessionWindowComposer({
   const connectionState = useConnectionState();
   const sendUnavailable = connectionState !== "connected";
   const panel = useComposerPanelStore((s) => s.panel);
+  const activeSlashPanel = useSlashStore((s) => s.activePanel);
   const focusTick = useSessionWindowsStore((s) => s.focusTick);
   const focusSessionId = useSessionWindowsStore((s) => s.focusSessionId);
 
@@ -162,6 +167,22 @@ export function SessionWindowComposer({
       onClose?.();
       return;
     }
+    if (id === "session") {
+      activate();
+      const slash = useSlashStore.getState();
+      const composer = useComposerPanelStore.getState();
+      const open = composer.panel === "commands" && slash.activePanel === "session";
+      if (open) {
+        slash.setActivePanel(null);
+        composer.closePanel();
+      } else {
+        // 底栏详情已去掉 —— 会话 tokens/cost/context 走 /session 浮层。
+        slash.setActivePanel("session");
+        composer.setPanel("commands");
+        useSessionWindowsStore.getState().raisePanel();
+      }
+      return;
+    }
     if (id === "new-session") {
       void (async () => {
         const newId = await useSessionStore.getState().createSession();
@@ -196,7 +217,9 @@ export function SessionWindowComposer({
                 style={{ width: `${btnWidthPx}px`, flex: `0 0 ${btnWidthPx}px` }}
                 className={`pi-composer-toolbar-btn${item.id === "new-session" ? " pi-composer-toolbar-btn--accent" : ""}`}
                 data-active={
-                  item.panel != null && isActive && panel === item.panel ? true : false
+                  item.id === "session"
+                    ? isActive && panel === "commands" && activeSlashPanel === "session"
+                    : item.panel != null && isActive && panel === item.panel
                 }
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={(e) => {
