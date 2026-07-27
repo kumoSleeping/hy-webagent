@@ -2761,13 +2761,15 @@ button.pi-panel-row.pi-panel-row--selected {
   left: 0;
   right: 0;
   bottom: 0;
-  height: var(--pi-float-bottom, 8.5rem);
+  /* 淡化带略收:透明段更长,溶入更贴近输入坞,不那么「过早变灰」。 */
+  height: calc(var(--pi-float-bottom, 8.5rem) * 0.88);
   z-index: 400;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--pi-bg) 0%, transparent),
-    var(--pi-bg) 55%
+    color-mix(in srgb, var(--pi-bg) 0%, transparent) 0%,
+    color-mix(in srgb, var(--pi-bg) 0%, transparent) 38%,
+    var(--pi-bg) 78%
   );
 }
 
@@ -2811,10 +2813,13 @@ button.pi-panel-row.pi-panel-row--selected {
   /* 窗内 feed 的间距变量整体收紧(MessageFeed 直接读它们)。 */
   --pi-feed-edge: 0.85rem;
   --pi-top-strip: 0.55rem;
-  /* 输入坞叠层高度(渐隐幕 + 顶栏 + 输入壳 + 底垫)—— feed 留白与幕对齐。 */
+  /* 顶/底渐隐带高度 —— 只做短溶入,别一大片过早变灰。 */
+  --pi-swin-fade-top-h: 1.35rem;
+  --pi-swin-fade-bottom-h: 1.05rem;
+  /* 输入坞占位(短渐隐 + 顶栏 + 输入壳 + 底垫)—— feed 留白对齐。 */
   --pi-swin-composer-stack:
     calc(
-      1.75rem
+      var(--pi-swin-fade-bottom-h)
       + var(--pi-composer-toolbar-btn-h)
       + 0.55rem
       + 3.6rem
@@ -2842,8 +2847,7 @@ button.pi-panel-row.pi-panel-row--selected {
   background: transparent;
   box-shadow: none;
 }
-/* 窗体布局对齐主区:feed 铺满,输入坞叠在底上,中间用渐隐幕溶入灰底
-   (同 .pi-float-fade 的「遮挡 + 淡化」,不用硬切)。 */
+/* 窗体布局对齐主区:feed 铺满,输入坞叠在底上,上下各一条短渐隐幕。 */
 .pi-swin-feed {
   position: absolute;
   inset: 0;
@@ -2855,21 +2859,40 @@ button.pi-panel-row.pi-panel-row--selected {
 }
 /* 给叠层留白,最后几行能滚进渐隐区而不是被裁死。 */
 .pi-swin-feed .pi-scrollbar {
+  padding-top: calc(var(--pi-swin-fade-top-h) + 0.15rem) !important;
   padding-bottom: var(--pi-swin-composer-stack) !important;
 }
-.pi-swin-fade {
+/* 顶缘淡化:拖动带下内容向上溶入灰底,不再硬切。 */
+.pi-swin-fade-top {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: var(--pi-swin-composer-stack);
+  top: 0;
+  height: var(--pi-swin-fade-top-h);
   z-index: 1;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--pi-bg) 0%, transparent),
-    var(--pi-bg) 42%,
-    var(--pi-bg) 72%
+    var(--pi-bg) 0%,
+    var(--pi-bg) 28%,
+    color-mix(in srgb, var(--pi-bg) 0%, transparent) 100%
+  );
+}
+/* 底缘淡化:只盖输入坞正上方一小段,溶入贴近工具条。 */
+.pi-swin-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(
+    var(--pi-swin-composer-stack) - var(--pi-swin-fade-bottom-h)
+  );
+  height: var(--pi-swin-fade-bottom-h);
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--pi-bg) 0%, transparent) 0%,
+    var(--pi-bg) 88%
   );
 }
 .pi-swin-composer-dock {
@@ -2880,9 +2903,9 @@ button.pi-panel-row.pi-panel-row--selected {
   z-index: 2;
   flex: none;
   margin-top: 0;
-  /* 顶:渐隐段 + 贴壳顶栏;左右底:与主区 composer 外缘呼吸感一致 */
+  /* 顶:短渐隐 + 贴壳顶栏;左右底:与主区 composer 外缘呼吸感一致 */
   padding:
-    calc(1.75rem + var(--pi-composer-toolbar-btn-h) + 0.55rem)
+    calc(var(--pi-swin-fade-bottom-h) + var(--pi-composer-toolbar-btn-h) + 0.55rem)
     1rem
     1rem;
   background: transparent;
