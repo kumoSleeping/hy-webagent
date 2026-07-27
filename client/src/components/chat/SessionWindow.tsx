@@ -121,12 +121,15 @@ export function SessionWindow({
         closeLabel="关闭小窗（会话保留在列表）"
       />
       <div className="pi-swin-body">
-        {(attached || mirrorMain) && (
-          // 激活且主链路已就位 = 镜像单例 store(与主区逐字节一致);
-          // 其余时刻走本窗独立 store + 对账 —— 含激活换绑的过渡期。
-          // 加载中正文留白,左上角红杠位变呼吸块(chrome loading)。
-          <MessageFeed chatStore={mirrorMain ? useChatStore : chatStore} reserveComposer={false} />
-        )}
+        {/* 消息区永远占满上方:进页一瞬间 socket 未附着时也不能让
+            输入壳顶到板块上沿(否则顶栏按钮会和红 ✕ 挤成一行)。 */}
+        <div className="pi-swin-feed">
+          {(attached || mirrorMain) && (
+            // 激活且主链路已就位 = 镜像单例 store(与主区逐字节一致);
+            // 其余时刻走本窗独立 store + 对账 —— 含激活换绑的过渡期。
+            <MessageFeed chatStore={mirrorMain ? useChatStore : chatStore} reserveComposer={false} />
+          )}
+        </div>
         <SessionWindowComposer
           sessionId={sessionId}
           disabled={disabled}
