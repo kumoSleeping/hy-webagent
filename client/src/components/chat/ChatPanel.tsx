@@ -525,12 +525,9 @@ export function ChatPanel({
       className={`pi-app-shell pi-app-shell--revealed${isHydrating ? " pi-app-shell--hydrating" : ""}${isMobileLayout ? " pi-app-shell--mobile" : ""}`}
     >
       {!isHydrating && !activeSessionWindowed && (
-        <>
-          <Suspense fallback={null}>
-            <MessageFeed />
-          </Suspense>
-          <div className="pi-feed-fade-top" aria-hidden="true" />
-        </>
+        <Suspense fallback={null}>
+          <MessageFeed />
+        </Suspense>
       )}
       {/* 小窗模式下面板/预览常驻(和会话窗一样只认红 ✕),点外不再关;
           backdrop 只在无窗时(或扩展 CenterStage 打开时)出场。 */}

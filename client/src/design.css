@@ -2893,13 +2893,13 @@ button.pi-panel-row.pi-panel-row--selected {
 .pi-float-panel--session {
   /* 窗内 feed 的间距变量整体收紧(MessageFeed 直接读它们)。 */
   --pi-feed-edge: 0.85rem;
-  /* 顶缘零留白:内容顶到窗顶;淡化靠极薄罩层,不占文档流。 */
+  /* 顶缘零留白:内容顶到窗顶,滚动时硬切(无顶渐隐)。 */
   --pi-top-strip: 0;
-  --pi-swin-fade-top-h: 0.7rem;
-  /* 溶入尖只叠在工具条顶缘之上(不占 dock padding —— 否则会出现白缝)。 */
-  --pi-swin-fade-tip-h: 1.15rem;
+  /* 底溶入尖:只盖在工具条顶缘之上;过长会「过早变灰」。 */
+  --pi-swin-fade-tip-h: 1.25rem;
   /* 由 SessionWindowComposer 实测写入;兜底约等于 toolbar+shell+底垫。 */
   --pi-swin-dock-h: calc(var(--pi-composer-toolbar-btn-h) + 4.4rem);
+  /* feed 留白 = 坞高 + 溶入尖,最后几行能滚进尖再被遮住。 */
   --pi-swin-composer-stack: calc(var(--pi-swin-dock-h) + var(--pi-swin-fade-tip-h));
   /* 灰底 + 略加重的浮层阴影,小板块立体感再抬一点。 */
   background: var(--pi-bg);
@@ -2952,54 +2952,26 @@ button.pi-panel-row.pi-panel-row--selected {
   padding-top: 0 !important;
   padding-bottom: var(--pi-swin-composer-stack) !important;
 }
-/* 顶缘极薄淡化:内容滚到窗顶时软溶入,几乎不占视觉厚度。 */
-.pi-swin-fade-top {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: var(--pi-swin-fade-top-h);
-  z-index: 1;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    var(--pi-bg) 0%,
-    color-mix(in srgb, var(--pi-bg) 0%, transparent) 100%
-  );
-}
 /*
- * 同主区 .pi-float-fade 精妙遮挡:
- * 幕 = dock 实测高度 + 顶缘短溶入尖;溶入尖叠在工具条上方(feed 区),
- * dock 自身 padding-top 只留工具条高 —— 不再多出一截「假空隙」。
+ * 对齐主区「精妙遮挡 + 淡化」两层分工(不要合成一条盖满坞的渐变):
+ *   1) .pi-swin-fade —— 只坐在坞顶之上的短溶入尖(同 .pi-float-fade 的软边)
+ *   2) .pi-swin-composer-dock::before —— 坞身整段不透明灰底遮挡(同 dock::before)
+ * 字滚进尖 → 软溶入;进坞 → 被 ::before / 白壳挡住,侧缝底缝都不漏。
  */
 .pi-swin-fade {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: var(--pi-swin-composer-stack);
+  /* 底边贴齐实测坞顶,整段高度只有溶入尖 —— 不会在工具条上方提前抹灰。 */
+  bottom: var(--pi-swin-dock-h);
+  height: var(--pi-swin-fade-tip-h);
   z-index: 1;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--pi-bg) 0%, transparent) 0%,
-    var(--pi-bg) var(--pi-swin-fade-tip-h),
+    color-mix(in srgb, var(--pi-bg) 0%, transparent) 42%,
     var(--pi-bg) 100%
-  );
-}
-/* 主区顶缘淡化(非小窗):同样极薄,贴视口顶。 */
-.pi-feed-fade-top {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 0.85rem;
-  z-index: 5;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    var(--pi-bg) 0%,
-    color-mix(in srgb, var(--pi-bg) 0%, transparent) 100%
   );
 }
 /* 几何对齐 .pi-composer-dock:顶只留工具条行,壳贴工具条下沿。 */
@@ -3015,7 +2987,7 @@ button.pi-panel-row.pi-panel-row--selected {
   background: transparent;
   overflow: visible;
 }
-/* 整坞不透明遮挡(对齐主区 dock::before),字不可能从壳侧/底漏。 */
+/* 坞身不透明遮挡:字滚进输入区后被这层盖死(含壳两侧留白)。 */
 .pi-swin-composer-dock::before {
   content: "";
   position: absolute;
