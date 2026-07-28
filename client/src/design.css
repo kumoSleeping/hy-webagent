@@ -2931,12 +2931,20 @@ button.pi-panel-row.pi-panel-row--selected {
   height: 100%;
 }
 .pi-composer-shell--toolbar-only {
-  /* 小窗模式底栏只留工具条:去掉输入区 padding,壳几乎贴平。 */
-  padding-bottom: 0;
-  min-height: 0;
+  /* 小窗模式不画输入壳,但保留空对话框同等占位 —— 工具条
+     (absolute; bottom:100%) 高度锚点不变,不会跟着沉底。 */
   border-color: transparent;
   background: transparent;
   box-shadow: none;
+}
+/* 占位 = .pi-composer-body 的 margin-top + 空输入 min-height。 */
+.pi-composer-shell--toolbar-only::after {
+  content: "";
+  display: block;
+  margin-top: 0.7rem;
+  height: calc(var(--pi-composer-line) + 0.75rem);
+  pointer-events: none;
+  visibility: hidden;
 }
 /* 对齐主区:feed 铺满 → 幕(淡化+遮挡) → 输入坞叠最上。字滚进幕下不会漏。 */
 .pi-swin-feed {
