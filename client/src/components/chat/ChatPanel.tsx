@@ -11,6 +11,8 @@ import { useMobileLayout } from "../../hooks/useMobileLayout";
 import { apiGet } from "../../lib/api";
 import { ComposerBar } from "./ComposerBar";
 import { CenterStage, useCenterStageOpen } from "./CenterStage";
+import { ComposerPanelChrome } from "./ComposerPanelChrome";
+import { EditorPanel } from "../editor/EditorPanel";
 import { useStatusBarSync } from "../../hooks/useStatusBarSync";
 import { SlashModelSelector } from "../slash/SlashModelSelector";
 import { SlashSettingsPanel } from "../slash/SlashSettingsPanel";
@@ -22,6 +24,7 @@ import { stripFileAttachmentTags } from "../../lib/prepareAttachments";
 import { formatSessionStats } from "../../lib/sessionStatsFormat";
 import { useComposerPanelStore } from "../../stores/composerPanelStore";
 import {
+  floatZ,
   setSessionWindowsPersistScope,
   useSessionWindowsStore,
 } from "../../stores/sessionWindowsStore";
@@ -76,19 +79,29 @@ export function ChatPanel({
   const composerPanel = useComposerPanelStore((s) => s.panel);
   const treeMode = useComposerPanelStore((s) => s.treeMode);
   const isMobileLayout = useMobileLayout();
-  const centerStageOpen = useCenterStageOpen(isMobileLayout);
   const closeAll = useComposerPanelStore((s) => s.closeAll);
   const closeComposerPanel = useComposerPanelStore((s) => s.closePanel);
   const closePreview = useComposerPanelStore((s) => s.closePreview);
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
+  const previewPanelRef = useRef<HTMLDivElement>(null);
   /** /api/models 按会话缓存(见下方 effect):键=piSessionId。 */
   const modelsCacheRef = useRef<Map<string, ModelsResponse>>(new Map());
+  // 浮层最新召的在上:预览小窗与会话窗/命令面板共用 z 序栈。
+  // activeTabId 也在依赖里:预览开着时再点开新文件,同样要浮到最顶。
+  const previewZ = useSessionWindowsStore((s) => floatZ(s.stack, "preview"));
+  useEffect(() => {
+    if (previewOpen && useSessionWindowsStore.getState().windows.length > 0) {
+      useSessionWindowsStore.getState().raisePreview();
+    }
+  }, [previewOpen, activeTabId]);
   const activePiSessionId = useSessionStore((s) => s.activePiSessionId);
   // 设计稿 F:激活会话在小窗里直播时,背景主区让位。
   const activeSessionWindowed = useSessionWindowsStore((s) =>
     s.windows.some((w) => w.sessionId === activePiSessionId),
   );
   const hasSessionWindows = useSessionWindowsStore((s) => s.windows.length > 0);
+  // 小窗模式:preview/tree 走浮层,CenterStage 只留 dialog/extension。
+  const centerStageOpen = useCenterStageOpen(isMobileLayout, hasSessionWindows);
   // Only pick welcome vs conversation layout once the session is hydrated —
   // avoids the composer jumping from center to bottom while history loads.
   const isHydrating = Boolean(activePiSessionId && hydratedPiSessionId !== activePiSessionId);
@@ -554,6 +567,7 @@ export function ChatPanel({
               onEditorFocus={onEditorFocus}
               treeContent={treeContent}
               treeMode={treeMode}
+              deferWorkbench={hasSessionWindows}
               onClose={() => {
                 closePreview();
                 useExtensionUiStore.getState().setExtensionPanelDismissed(true);
@@ -583,6 +597,7 @@ export function ChatPanel({
             onFileClick={onFileClick}
             commandsContent={commandsContent}
             modelContent={modelContent}
+            treeContent={treeContent}
             groupPreview={groupPreview ? {
               notice: "Group chat only...",
               onReturnToChat: groupPreview.returnToChat,
@@ -593,14 +608,51 @@ export function ChatPanel({
           />
           )}
         </div>
+        {/* 命令/工具面板的浮层宿主:ComposerBar 在小窗模式 portal 到这里。
+            面板绝不能留在输入坞(z=500)里,否则压死会话窗与预览。 */}
+        <div id="pi-float-layer" />
         <SessionWindowsHost
           disabled={isGuestView || Boolean(groupPreview)}
           onSend={(text) => handleSend(text)}
           onSteer={handleSteer}
           onAbort={sendAbort}
         />
-        {/* 渐隐幕:会话窗拖进输入区时向下溶入背景(见 design.css)。 */}
+        {/* 渐隐幕:浮层拖进输入区时向下溶入背景(见 design.css)。 */}
         <div className="pi-float-fade" aria-hidden="true" />
+        {/* 小窗模式第二扇悬浮小窗:文件/图片预览(与面板同套 chrome)。 */}
+        {hasSessionWindows && (
+          <div
+            className="pi-float-panel pi-float-panel--preview"
+            ref={previewPanelRef}
+            data-open={previewOpen ? "true" : "false"}
+            style={{ zIndex: previewZ }}
+            onPointerDownCapture={() => useSessionWindowsStore.getState().raisePreview()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {previewOpen && (
+              <>
+                <ComposerPanelChrome
+                  panelRef={previewPanelRef}
+                  storageKey="pi-float-preview-rect-v1"
+                  onClose={closePreview}
+                  closeLabel="关闭预览"
+                />
+                <div className="pi-float-preview-body">
+                  <EditorPanel
+                    tabs={editorTabs}
+                    activeTabId={activeTabId}
+                    onTabClick={onTabClick}
+                    onTabClose={onTabClose}
+                    onContentChange={onContentChange}
+                    onViewModeChange={onViewModeChange}
+                    onEditorFocus={onEditorFocus}
+                    showTabBar={false}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

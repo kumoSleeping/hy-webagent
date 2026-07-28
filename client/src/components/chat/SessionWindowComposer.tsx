@@ -159,6 +159,8 @@ export function SessionWindowComposer({
     } else {
       store.setPanel(store.panel === kind ? null : kind);
     }
+    // 小窗模式面板走浮层 z 栈,打开即置顶(盖住会话窗)。
+    useSessionWindowsStore.getState().raisePanel();
   }
 
   function handleToolbarClick(id: WindowToolbarId, panelKind: Exclude<ComposerPanelKind, null> | null) {
@@ -175,9 +177,10 @@ export function SessionWindowComposer({
         slash.setActivePanel(null);
         composer.closePanel();
       } else {
-        // 底栏详情已去掉 —— 会话 tokens/cost/context 贴底栏工具条弹出。
+        // 底栏详情已去掉 —— 会话 tokens/cost/context 走浮层。
         slash.setActivePanel("session");
         composer.setPanel("commands");
+        useSessionWindowsStore.getState().raisePanel();
       }
       return;
     }

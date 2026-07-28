@@ -24,6 +24,8 @@ interface CenterStageProps {
   onClose: () => void;
   treeContent?: ReactNode;
   treeMode?: TreePanelMode;
+  /** 小窗模式:preview/tree 走独立浮层,CenterStage 只留 dialog/extension。 */
+  deferWorkbench?: boolean;
 }
 
 /** Large workbench shell above composer — tree / preview / dialog / extension.
@@ -40,6 +42,7 @@ export function CenterStage({
   onClose,
   treeContent,
   treeMode = "tree",
+  deferWorkbench = false,
 }: CenterStageProps) {
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const composerPanel = useComposerPanelStore((s) => s.panel);
@@ -50,11 +53,11 @@ export function CenterStage({
 
   const mode: CenterStageMode | null = useMemo(() => {
     if (activeDialog) return "dialog";
-    if (previewOpen) return "preview";
-    if (composerPanel === "tree") return "tree";
+    if (!deferWorkbench && previewOpen) return "preview";
+    if (!deferWorkbench && composerPanel === "tree") return "tree";
     if (hasExtension && !dismissed) return "extension";
     return null;
-  }, [activeDialog, previewOpen, composerPanel, hasExtension, dismissed]);
+  }, [activeDialog, deferWorkbench, previewOpen, composerPanel, hasExtension, dismissed]);
 
   if (!mode) return null;
 
@@ -127,7 +130,7 @@ export function CenterStage({
   );
 }
 
-export function useCenterStageOpen(isMobileLayout = false): boolean {
+export function useCenterStageOpen(isMobileLayout = false, deferWorkbench = false): boolean {
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const composerPanel = useComposerPanelStore((s) => s.panel);
   const activeDialog = useExtensionUiStore((s) => s.activeDialog);
@@ -136,8 +139,8 @@ export function useCenterStageOpen(isMobileLayout = false): boolean {
   const hasExtension = hasVisibleWidgets(aboveEditor);
   return Boolean(
     activeDialog ||
-      previewOpen ||
-      isElevatedPanel(composerPanel, isMobileLayout) ||
+      (!deferWorkbench && previewOpen) ||
+      (!deferWorkbench && isElevatedPanel(composerPanel, isMobileLayout)) ||
       (hasExtension && !dismissed),
   );
 }

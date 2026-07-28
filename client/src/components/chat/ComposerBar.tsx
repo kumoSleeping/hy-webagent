@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AppWindow, Command, GitBranch, History, FolderOpen, Cpu, Plus, Send, X, UserRound, MessagesSquare, Loader2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useConnectionState } from "../../context/useChatConnection";
@@ -23,13 +24,14 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { FileTree } from "../files/FileTree";
 import { PanelFilterBar } from "../common/PanelFilterBar";
 import { PanelBody, PanelListRow } from "../common/panel";
+import { ComposerPanelChrome } from "./ComposerPanelChrome";
 import { AccountPanel } from "../platform/AccountPanel";
 import { useImeComposition } from "../../hooks/useImeComposition";
 import { useFittedToolbarItems } from "../../hooks/useFittedToolbarItems";
 import { prepareSingleAttachment, mergePreparedAttachments, filesFromClipboard, isSupportedAttachmentFile, normalizePastedFile, formatUserMessagePreview } from "../../lib/prepareAttachments";
 import type { PreparedAttachmentItem, PromptImage } from "../../lib/prepareAttachments";
 import { flashStatus } from "../../stores/statusBarStore";
-import { seedSpawnRect, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
+import { floatZ, seedSpawnRect, useSessionWindowsStore } from "../../stores/sessionWindowsStore";
 import { useAuthStore } from "../../stores/authStore";
 import type { FileEntry } from "../../types";
 import {
@@ -79,6 +81,8 @@ interface ComposerBarProps {
   commandsContent?: ReactNode;
   /** Model picker — direct toolbar toggle, same popup as history/files. */
   modelContent?: ReactNode;
+  /** Session tree — float panel body in window mode (elevated CenterStage otherwise). */
+  treeContent?: ReactNode;
   /** Read-only group mode keeps the normal composer layout but limits it to
    * history and informational panels. */
   groupPreview?: {
@@ -219,6 +223,7 @@ export function ComposerBar({
   onFileClick,
   commandsContent,
   modelContent,
+  treeContent,
   groupPreview,
   isMobileLayout = false,
 }: ComposerBarProps) {
@@ -620,6 +625,17 @@ export function ComposerBar({
       setToolbarIndex(Math.max(0, toolbarItems.length - 1));
     }
   }, [toolbarIndex, toolbarItems.length, setToolbarIndex]);
+
+  // 小窗模式:面板走独立浮层(与会话窗同 z 栈),打开即置顶。
+  const windowMode = sessionWindows.length > 0;
+  const floatPanelZ = useSessionWindowsStore((s) => floatZ(s.stack, "panel"));
+  const [floatLayer, setFloatLayer] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setFloatLayer(document.getElementById("pi-float-layer"));
+  }, []);
+  useEffect(() => {
+    if (windowMode && panel !== null) useSessionWindowsStore.getState().raisePanel();
+  }, [panel, windowMode]);
 
   // Mouse-opened panels: keep toolbarIndex aligned with the active tab.
   useEffect(() => {
@@ -1311,20 +1327,27 @@ export function ComposerBar({
 
   const previewOpen = useComposerPanelStore((s) => s.previewOpen);
   const elevatedPanel = isElevatedPanel(panel, isMobileLayout);
-  // Small panels grow from the toolbar seam; tree/preview use elevated CenterStage.
-  // When preview is open and files is toggled on desktop, files rides a side overlay.
-  const toolbarActive = panel !== null && !elevatedPanel && !(previewOpen && panel === "files" && !isMobileLayout);
-  const filesOverlay = !isMobileLayout && previewOpen && panel === "files";
-  const showInlinePanel = panel !== null && !elevatedPanel;
+  // 无窗:小面板贴工具条缝生长,tree/preview 走 elevated CenterStage。
+  // 有窗:全部面板/预览进独立浮层(会话空间),不进底栏全局坞。
+  const toolbarActive =
+    !windowMode &&
+    panel !== null &&
+    !elevatedPanel &&
+    !(previewOpen && panel === "files" && !isMobileLayout);
+  const filesOverlay = !windowMode && !isMobileLayout && previewOpen && panel === "files";
+  const showInlinePanel = !windowMode && panel !== null && !elevatedPanel;
+  const floatPanelOpen = windowMode && panel !== null;
+  const panelRef = useRef<HTMLDivElement>(null);
   const liveComposerText = taRef.current?.value ?? text;
   const hasDraft = liveComposerText.trim().length > 0 || pendingAttachments.length > 0;
 
-  // Session windows still anchor above the dock via --pi-float-bottom.
+  // 浮层/会话窗锚在输入坞上方:量 dock 顶写入 --pi-float-bottom。
   useLayoutEffect(() => {
     const shell = shellRef.current;
+    const panelEl = panelRef.current;
     if (!shell) return;
     const dock = shell.closest(".pi-composer-dock") ?? shell;
-    const host = (dock.closest(".pi-app-shell") as HTMLElement | null) ?? shell;
+    const host = (dock.closest(".pi-app-shell") as HTMLElement | null) ?? panelEl ?? shell;
     const update = () => {
       const rect = dock.getBoundingClientRect();
       host.style.setProperty(
@@ -1357,12 +1380,14 @@ export function ComposerBar({
         return historyContent;
       case "files":
         if (groupPreview) return groupPreview.filesContent;
-        if (!isMobileLayout && previewOpen) return null;
+        if (!windowMode && !isMobileLayout && previewOpen) return null;
         return (
           <PanelBody variant="list">
             <FileTree onFileClick={onFileClick} />
           </PanelBody>
         );
+      case "tree":
+        return <PanelBody variant="list">{treeContent}</PanelBody>;
       case "account":
         return groupPreview ? groupPreview.accountContent : <AccountPanel />;
       default:
@@ -1395,7 +1420,6 @@ export function ComposerBar({
     ) : null;
 
   // 多会话小窗模式:输入进每扇窗内部,底栏只留工具条 + 编号瓦片。
-  const windowMode = sessionWindows.length > 0;
 
   return (
     <div
@@ -1493,6 +1517,28 @@ export function ComposerBar({
           <FileTree onFileClick={onFileClick} />
         </div>
       )}
+
+      {/* 小窗模式:独立悬浮面板 portal 到 #pi-float-layer,与会话窗同域比 z。 */}
+      {windowMode && (() => {
+        const panelNode = (
+          <div
+            className="pi-float-panel"
+            ref={panelRef}
+            data-open={floatPanelOpen ? "true" : "false"}
+            style={{ zIndex: floatPanelZ }}
+            onPointerDownCapture={() => useSessionWindowsStore.getState().raisePanel()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {floatPanelOpen && panel && (
+              <>
+                <ComposerPanelChrome panelRef={panelRef} onClose={closePanel} closeLabel="关闭面板" />
+                {renderPanelBody()}
+              </>
+            )}
+          </div>
+        );
+        return floatLayer ? createPortal(panelNode, floatLayer) : panelNode;
+      })()}
 
       {!windowMode && <div className="pi-composer-body">
         {pendingAttachments.length > 0 && (

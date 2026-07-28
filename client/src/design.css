@@ -3140,6 +3140,19 @@ button.pi-panel-row.pi-panel-row--selected {
   display: none;
 }
 
+/* 小窗模式文件预览浮层身体:吃满卡片剩余高度(Monaco 需要实高)。 */
+.pi-float-preview-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.pi-float-preview-body > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 /* 手机:拖动带加高(拇指操作)。 */
 .pi-app-shell--mobile .pi-composer-panel-handle {
   height: 1.9rem;
