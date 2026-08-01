@@ -219,9 +219,6 @@ export class PISessionManager {
     ps: UserPISession,
     policy: ResolvedModelPolicy
   ): Promise<void> {
-    const current = ps.session.model;
-    if (current && isModelAllowed(policy, current.provider, current.id)) return;
-
     const allowed = filterModels(
       policy,
       ps.session.modelRuntime.getAvailableSnapshot().map((m) => ({
@@ -230,6 +227,19 @@ export class PISessionManager {
         name: m.name,
       }))
     );
+
+    // Pin cycling to the policy-allowed set: AgentSession.cycleModel switches
+    // the model before the platform wrapper can veto, so an unrestricted cycle
+    // list would leak non-policy models (e.g. deepseek-v4-pro next to flash).
+    const scoped = allowed
+      .map((ref) => ps.session.modelRuntime.getModel(ref.provider, ref.id))
+      .filter((m): m is NonNullable<typeof m> => m != null)
+      .map((model) => ({ model }));
+    ps.session.setScopedModels(scoped);
+
+    const current = ps.session.model;
+    if (current && isModelAllowed(policy, current.provider, current.id)) return;
+
     const fallback = allowed[0];
     if (!fallback) {
       throw new Error(

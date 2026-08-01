@@ -68,7 +68,7 @@ export function assertValidModelTemplateId(templateId: string): void {
 }
 
 /** Platform default when a user has no template / custom allowlist. */
-export const DEFAULT_MODEL_TEMPLATE_ID = "core-3";
+export const DEFAULT_MODEL_TEMPLATE_ID = "deepseek-flash";
 
 export function normalizeModelTemplateId(value?: string | null): string | null {
   const trimmed = value?.trim();
