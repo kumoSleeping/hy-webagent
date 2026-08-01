@@ -141,6 +141,64 @@ async function readUrlDirect(
   return parts.join("\n");
 }
 
+// ─── 直调 s.jina.ai（MCP search 故障时的兜底）─────────────
+// MCP 服务端故障时会把错误塞进结果文本（"Error: Search failed …"），
+// 这里识别后改走 Search Foundation 直连。注意 tbs/location 为 MCP 专有参数，
+// 兜底路径只转发 q/num/gl/hl。
+interface DirectSearchItem {
+  title?: string;
+  url?: string;
+  description?: string;
+  source?: string;
+  publishedTime?: string;
+  content?: string;
+}
+
+const DIRECT_SNIPPET_LIMIT = 2000;
+
+async function searchUrlDirect(
+  search: { query: string; num?: number; gl?: string; hl?: string },
+  apiKey: string,
+  timeoutMs: number
+): Promise<string> {
+  const response = await fetch("https://s.jina.ai/", {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      q: search.query,
+      ...(search.num ? { num: search.num } : {}),
+      ...(search.gl ? { gl: search.gl } : {}),
+      ...(search.hl ? { hl: search.hl } : {}),
+    }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(`s.jina.ai 返回 HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as { data?: DirectSearchItem[] };
+  const items = data.data ?? [];
+  if (items.length === 0) return `## ${search.query}\n（无搜索结果）`;
+
+  const blocks = items.map((r, i) => {
+    const lines = [`### ${i + 1}. ${r.title || r.url || "（无标题）"}`];
+    if (r.url) lines.push(`url: ${r.url}`);
+    if (r.description) lines.push(`description: ${r.description}`);
+    if (r.publishedTime) lines.push(`published: ${r.publishedTime}`);
+    const snippet = (r.content || "").trim();
+    if (snippet) {
+      lines.push("", snippet.length > DIRECT_SNIPPET_LIMIT ? `${snippet.slice(0, DIRECT_SNIPPET_LIMIT)}…` : snippet);
+    }
+    return lines.join("\n");
+  });
+  return `## ${search.query}\n\n${blocks.join("\n\n")}`;
+}
+
 async function requireJinaApiKey(registry?: ModelRegistry): Promise<string> {
   const key = await resolveJinaApiKey(registry);
   if (!key) {
@@ -208,22 +266,42 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const apiKey = await requireJinaApiKey(ctx?.modelRegistry);
-      const result = await callJinaMCP("parallel_search_web", {
-        searches: params.searches,
-        timeout: params.timeout ?? 30000,
-      }, apiKey);
-      const textContent = result.content
-        .filter((c) => c.type === "text")
-        .map((c) => c.text)
-        .join("\n\n");
-
       // Jina 搜索固定消耗 10,000 tokens / 次（官方文档明确）
       const tokens = 10000;
+
+      let textContent: string;
+      let usedDirectFallback = false;
+      try {
+        const result = await callJinaMCP("parallel_search_web", {
+          searches: params.searches,
+          timeout: params.timeout ?? 30000,
+        }, apiKey);
+        textContent = result.content
+          .filter((c) => c.type === "text")
+          .map((c) => c.text)
+          .join("\n\n");
+        // MCP 服务端故障时错误以文本形式返回（"Error: Search failed …"）
+        if (/Error:\s*Search failed/i.test(textContent)) {
+          throw new Error(textContent.slice(0, 200));
+        }
+      } catch {
+        // 兜底：s.jina.ai 直连（MCP search 目前服务端 Internal Server Error）
+        usedDirectFallback = true;
+        const sections = await Promise.all(
+          params.searches.map((s) =>
+            searchUrlDirect(s, apiKey, params.timeout ?? 30000).catch(
+              (err) => `## ${s.query}\n（搜索失败: ${err instanceof Error ? err.message : String(err)}）`
+            )
+          )
+        );
+        textContent = sections.join("\n\n");
+      }
+
       addJinaCost(tokens);
 
       return {
         content: [{ type: "text", text: textContent || "（无搜索结果）" }],
-        details: { isError: result.isError, jinaTokens: tokens },
+        details: { isError: false, jinaTokens: tokens, directFallback: usedDirectFallback || undefined },
       };
     },
   });
