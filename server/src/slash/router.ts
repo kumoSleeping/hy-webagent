@@ -6,6 +6,7 @@
 
 import type { AuthSystem } from "../auth.js";
 import type { PISessionManager } from "../pi/session-manager.js";
+import type { PublicSessionAccessRepository } from "../db/public-session-access-repository.js";
 import type {
   SlashCommand,
   SlashContext,
@@ -35,6 +36,7 @@ const handlers: Record<SlashCommand, SlashHandler> = {
   "session.exportHtml": session.exportHtml,
   "session.exportJsonl": session.exportJsonl,
   "session.importJsonl": session.importJsonl,
+  "session.enablePublicAccess": session.enablePublicAccess,
   "session.reload": async (ctx, _args) => {
     const ps = ctx.sessionManager.getSession(ctx.activeSessionId!);
     if (!ps) return { ok: false, message: "No active session" };
@@ -101,7 +103,8 @@ export async function executeSlashCommand(
   activeSessionId: string,
   sessionManager: PISessionManager,
   userId: string,
-  _authSystem: AuthSystem
+  _authSystem: AuthSystem,
+  publicSessionAccess?: PublicSessionAccessRepository,
 ): Promise<SlashResponse> {
   const ps = sessionManager.getSession(activeSessionId);
   if (!ps) {
@@ -112,6 +115,7 @@ export async function executeSlashCommand(
     workspacePath: ps.workspacePath,
     activeSessionId,
     sessionManager,
+    publicSessionAccess,
   };
   return dispatch(ctx, { command: command as SlashCommand, args });
 }

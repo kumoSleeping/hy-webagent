@@ -185,6 +185,23 @@ export async function copyLastAssistant(
   };
 }
 
+/** Allow an unauthenticated recipient of the normal chat URL to read this session. */
+export async function enablePublicAccess(
+  ctx: SlashContext,
+  _args: Record<string, unknown>,
+): Promise<SlashResponse> {
+  const ps = getUserSession(ctx);
+  if (!ctx.publicSessionAccess) {
+    return { ok: false, message: "Public session access is unavailable" };
+  }
+  const access = ctx.publicSessionAccess.enable(ps.sessionId, ctx.userId);
+  return {
+    ok: true,
+    data: { sessionId: access.piSessionId, enabledAt: access.enabledAt },
+    message: "已开启此会话可访问：未登录访客可通过当前 URL 只读查看。",
+  };
+}
+
 // Exports default into the platform-internal .pi/exports/ dir (dot-prefixed,
 // so it never shows up in the user's own file browser) rather than the
 // workspace root — the user's visible workspace should only ever contain

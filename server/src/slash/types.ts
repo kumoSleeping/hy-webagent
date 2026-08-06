@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { PISessionManager } from "../pi/session-manager.js";
+import type { PublicSessionAccessRepository } from "../db/public-session-access-repository.js";
 
 export type SlashCommand =
   | "model.set"
@@ -22,7 +23,8 @@ export type SlashCommand =
   | "session.exportHtml"
   | "session.exportJsonl"
   | "session.importJsonl"
-  | "session.reload";
+  | "session.reload"
+  | "session.enablePublicAccess";
 
 export interface SlashRequest {
   command: SlashCommand;
@@ -41,6 +43,7 @@ export interface SlashContext {
   workspacePath: string;
   activeSessionId?: string;
   sessionManager: PISessionManager;
+  publicSessionAccess?: PublicSessionAccessRepository;
 }
 
 export interface SlashExecutePayload {

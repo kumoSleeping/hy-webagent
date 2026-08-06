@@ -3,6 +3,7 @@ import { dispatch } from "../slash/router.js";
 import { resolveWorkspacePath } from "../slash/types.js";
 import type { PISessionManager } from "../pi/session-manager.js";
 import * as sessionFiles from "../pi/session-files.js";
+import type { PublicSessionAccessRepository } from "../db/public-session-access-repository.js";
 
 function createMockAgentSession() {
   return {
@@ -167,6 +168,21 @@ describe("slash command router", () => {
     );
     expect(result.ok).toBe(true);
     expect(result.data).toEqual({ text: "last assistant text" });
+  });
+
+  it("session.enablePublicAccess grants ordinary-URL guest access for the current session", async () => {
+    const publicSessionAccess = {
+      enable: vi.fn().mockReturnValue({ piSessionId: activeSessionId, ownerUserId: userId, enabledAt: 123 }),
+    } as unknown as PublicSessionAccessRepository;
+    const result = await dispatch(
+      { userId, workspacePath, activeSessionId, sessionManager, publicSessionAccess },
+      { command: "session.enablePublicAccess", args: {} },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(publicSessionAccess.enable).toHaveBeenCalledWith(activeSessionId, userId);
+    expect(result.message).toContain("已开启此会话可访问");
+    expect(result.data).toEqual({ sessionId: activeSessionId, enabledAt: 123 });
   });
 
   it("session.exportJsonl returns file path", async () => {

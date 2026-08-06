@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { canSubmitBareSlash, shouldPickSlashFromList } from "./slashSubmit";
+import { defaultCommands } from "../stores/slashStore";
 
 describe("canSubmitBareSlash", () => {
   const find = (id: string) => {
     if (id === "model") return { kind: "panel" };
     if (id === "settings") return { kind: "panel" };
     if (id === "name") return { kind: "args" };
+    if (id === "share") return { kind: "instant" };
     if (id === "deploy") return { kind: "prompt" };
     if (id === "skill:review") return { kind: "skill" };
     return undefined;
@@ -13,6 +15,10 @@ describe("canSubmitBareSlash", () => {
 
   it("submits bare /new even when not in the command registry", () => {
     expect(canSubmitBareSlash("/new", find)).toBe(true);
+  });
+
+  it("submits the ordinary-URL sharing command", () => {
+    expect(canSubmitBareSlash("/share", find)).toBe(true);
   });
 
   it("submits toolbar slash commands", () => {
@@ -41,6 +47,17 @@ describe("canSubmitBareSlash", () => {
 
   it("forwards unknown bare slash commands to the SDK", () => {
     expect(canSubmitBareSlash("/not-in-registry", find)).toBe(true);
+  });
+});
+
+describe("default command menu", () => {
+  it("includes the current-session public access command", () => {
+    expect(defaultCommands).toContainEqual({
+      id: "share",
+      label: "开启此会话可访问",
+      description: "允许未登录访客通过当前链接只读查看",
+      kind: "instant",
+    });
   });
 });
 

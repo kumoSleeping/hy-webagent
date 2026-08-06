@@ -20,7 +20,7 @@ import { createMessageRenderHandler } from "./routes/message-render.js";
 import { createPlatformAdminRouter } from "./routes/platform-admin.js";
 import path from "node:path";
 import { findSessionFilePath, isValidSessionId } from "./pi/session-files.js";
-import { isPublicSharedSessionUrl } from "./guest-view.js";
+import { PublicSessionAccessRepository } from "./db/public-session-access-repository.js";
 import fs from "node:fs/promises";
 import { loadPlatformSystemMd, loadPlatformBotSystemMd } from "./pi/platform-system.js";
 import logger, { createLogger } from "./logger.js";
@@ -118,6 +118,7 @@ const tokenTracker = new TokenTracker();
 const usageRecorder = new UsageRecorder();
 const botRepository = new BotRepository(config.databasePath);
 const sessionShares = new SessionShareRepository(config.databasePath);
+const publicSessionAccess = new PublicSessionAccessRepository(config.databasePath);
 const messageRenderer = new BrowserMessageRenderer(`http://127.0.0.1:${config.port}`);
 
 // --- Auth Routes ---
@@ -361,6 +362,7 @@ app.get("/api/slash/commands", authMiddleware(authSystem), (req: any, res) => {
         { id: "name", label: "name", description: "Rename the session", kind: "args" },
         { id: "session", label: "session", description: "Session information", kind: "panel" },
         { id: "copy", label: "copy", description: "Copy the last message", kind: "instant" },
+        { id: "share", label: "开启此会话可访问", description: "允许未登录访客通过当前链接只读查看", kind: "instant" },
       ],
       dynamic: [...prompts, ...skills, ...extCommands],
     });
@@ -551,11 +553,9 @@ function isPubliclyViewableSession(piSessionId: string): boolean {
 /**
  * Authorize an unauthenticated read-only view.
  *
- * A full `/chat/:sessionId` URL is intentionally shareable. Bot publication
- * and legacy share tokens still provide a known owner, and so avoid a disk
- * scan when an inactive conversation needs to be read. Direct links may not
- * have that metadata; they remain read-only and are accepted only for exact
- * UUID session ids.
+ * A normal `/chat/:sessionId` URL is accepted only after its owner runs the
+ * "开启此会话可访问" command. Bot publication and legacy share tokens remain
+ * compatible alternatives. Every accepted guest connection is view-only.
  */
 function authorizeGuestView(
   piSessionId: string,
@@ -582,13 +582,13 @@ function authorizeGuestView(
     }
   }
 
-  // The ordinary conversation URL is the share link. If it identifies a live
-  // session, retain its owner so historical fallback remains workspace-scoped.
-  if (isPublicSharedSessionUrl(piSessionId)) {
-    return {
-      allowed: true,
-      ownerUserId: sessionManager.getSession(piSessionId)?.userId,
-    };
+  try {
+    const access = publicSessionAccess.resolve(piSessionId);
+    if (access) {
+      return { allowed: true, ownerUserId: access.ownerUserId };
+    }
+  } catch (err) {
+    log.warn(`public session access lookup failed: ${(err as Error).message}`, { piSessionId });
   }
 
   return { allowed: false };
@@ -703,9 +703,9 @@ function handleUpgrade(
       }
       return;
     }
-    // Guest links are intentionally public, but must contain a complete UUID.
-    // `authorizeGuestView` rejects partial ids before any disk lookup; guest
-    // sockets are also marked view-only and cannot send write-capable messages.
+    // Direct guest links require an owner-issued public-access record. The
+    // authorization helper rejects partial IDs before any disk lookup; guest
+    // sockets are always view-only and cannot send write-capable messages.
     const guestAuth = authorizeGuestView(piSessionId, url.searchParams.get("share"));
     if (!guestAuth.allowed) {
       log.warn("ws upgrade rejected: session is not publicly viewable", { piSessionId });
@@ -765,7 +765,7 @@ wss.on("connection", (ws, req) => {
   const piSessionId = (req as any).piSessionId;
   const isViewOnly = (ws as any).isViewOnly === true;
   if (url.pathname === "/ws/chat") {
-    handleChatWs(ws, sessionManager, tokenTracker, usageRecorder, authSystem, isolator, userId, piSessionId, isViewOnly, botRepository, (req as any).guestOwnerUserId);
+    handleChatWs(ws, sessionManager, tokenTracker, usageRecorder, authSystem, isolator, userId, piSessionId, isViewOnly, botRepository, (req as any).guestOwnerUserId, publicSessionAccess);
   }
 });
 
@@ -787,6 +787,7 @@ installLifecycle({
     { name: "pi-sessions-dispose", run: () => sessionManager.disposeAll() },
     { name: "bot-repository-close", run: () => botRepository.close() },
     { name: "session-shares-close", run: () => sessionShares.close() },
+    { name: "public-session-access-close", run: () => publicSessionAccess.close() },
   ],
 });
 

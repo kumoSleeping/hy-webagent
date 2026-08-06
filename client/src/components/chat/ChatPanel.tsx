@@ -342,6 +342,9 @@ export function ChatPanel({
         return { command: "session.name", args: { name: argText } };
       case "copy":
         return { command: "session.copy", args: {} };
+      case "share":
+      case "开启此会话可访问":
+        return { command: "session.enablePublicAccess", args: {} };
       case "import":
         if (!argText) return null;
         return { command: "session.importJsonl", args: { sourcePath: argText } };

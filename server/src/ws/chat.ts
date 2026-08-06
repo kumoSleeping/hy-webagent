@@ -19,6 +19,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { config } from "../config.js";
 import type { BotRepository } from "../bot/repository.js";
+import type { PublicSessionAccessRepository } from "../db/public-session-access-repository.js";
 import { parseServerToolActivity } from "../pi/server-tool-history.js";
 import { validateChatImages } from "./chat-images.js";
 
@@ -134,6 +135,7 @@ export function handleChatWs(
   botRepository?: BotRepository,
   /** Owner of the session a guest was authorized to view, when known. */
   guestOwnerUserId?: string,
+  publicSessionAccess?: PublicSessionAccessRepository,
 ) {
   let activeAssistantMessageId: string | undefined;
   let syntheticAssistantSequence = 0;
@@ -904,7 +906,8 @@ export function handleChatWs(
               slashSessionId,
               sessionManager,
               userId,
-              authSystem
+              authSystem,
+              publicSessionAccess,
             );
             send({ type: "slash:result", payload: result });
             sendFooterSnapshot();
