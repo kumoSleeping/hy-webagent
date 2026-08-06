@@ -135,6 +135,26 @@ app.use("/api/bot", createBotRouter(authSystem, botRepository, isolator, session
 app.use("/api/public/bots", createPublicBotRouter(botRepository, sessionManager));
 app.use("/api/groups", createSavedGroupRouter(authSystem, botRepository, isolator));
 
+/**
+ * Lets an unauthenticated direct-link visitor decide whether to enter guest
+ * mode before opening a WebSocket. A closed session deliberately looks absent
+ * here, so the client stays on its login screen instead of retrying a rejected
+ * guest connection.
+ */
+app.get("/api/public/sessions/:id/access", (req, res) => {
+  const piSessionId = String(req.params.id);
+  if (!isValidSessionId(piSessionId)) {
+    res.status(404).json({ accessible: false });
+    return;
+  }
+  const access = authorizeGuestView(piSessionId, null);
+  if (!access.allowed) {
+    res.status(404).json({ accessible: false });
+    return;
+  }
+  res.json({ accessible: true });
+});
+
 // --- Workspace Init (lightweight, no session creation) ---
 app.post("/api/workspace/init", authMiddleware(authSystem), async (req: any, res) => {
   try {

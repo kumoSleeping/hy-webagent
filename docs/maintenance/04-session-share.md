@@ -18,6 +18,9 @@ WebSocket 一律标记为 `view=1`，服务端会拒绝 prompt、steer、follow-
 Slash 命令和扩展 UI 回应等所有写入消息。开启后 Command 会改为
 `Disable public access`；再次执行即可关闭普通 URL 的访客访问。
 
+所有新会话默认关闭此访问权限。未登录访客打开未开启会话的普通 URL 时，客户端
+会直接保留在登录页，而不会建立或重试访客 WebSocket 连接。
+
 这是一项有意的公开分享策略：**任何获得完整 URL 的人都能阅读该会话**。不要
 把包含敏感内容的会话 URL 发送给不应查看的人。
 

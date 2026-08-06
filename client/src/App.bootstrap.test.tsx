@@ -74,6 +74,12 @@ function mockFetch() {
         headers: { "Content-Type": "application/json" },
       });
     }
+    if (url.endsWith(`/api/public/sessions/${SESSION}/access`) && method === "GET") {
+      return new Response(JSON.stringify({ accessible: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ error: `unmocked ${method} ${url}` }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
@@ -144,6 +150,32 @@ describe("App bootstrap", () => {
       expect(useAuthStore.getState().userId).toBe("__guest__");
       expect(useAuthStore.getState().isPreviewMode).toBe(true);
       expect(useSessionStore.getState().activePiSessionId).toBe(SESSION);
+    });
+  });
+
+  it("keeps an unenabled /chat/:sessionId URL on the login screen", async () => {
+    document.cookie = "pi-api-key=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    document.cookie = "pi-session-id=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    useAuthStore.setState({ isLoading: false });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith(`/api/public/sessions/${SESSION}/access`)) {
+        return new Response(JSON.stringify({ accessible: false }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ error: "unmocked" }), { status: 500 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(`/api/public/sessions/${SESSION}/access`);
+      expect(useAuthStore.getState().userId).toBeNull();
+      expect(useAuthStore.getState().isLoggedIn).toBe(false);
+      expect(useSessionStore.getState().activePiSessionId).toBeNull();
     });
   });
 });

@@ -20,6 +20,20 @@ const GroupPreviewApp = lazy(() =>
   import("./components/bot/GroupPreviewApp").then((module) => ({ default: module.GroupPreviewApp }))
 );
 
+/** A direct chat URL only enters guest mode after the server confirms access. */
+async function isPublicDirectSession(piSessionId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/public/sessions/${encodeURIComponent(piSessionId)}/access`);
+    if (!response.ok) return false;
+    const payload = await response.json() as { accessible?: unknown };
+    return payload.accessible === true;
+  } catch {
+    // Fail closed: an unavailable access check must never turn a private URL
+    // into a guest connection attempt.
+    return false;
+  }
+}
+
 export default function App() {
   const groupMatch = window.location.pathname.match(/^\/bot_([^/]+)\/channel_([^/]+)\/?$/);
   const directGroupRoute = groupMatch ? null : parseGroupPath(window.location.pathname);
@@ -62,14 +76,20 @@ export default function App() {
         useSessionStore.getState().setActiveSession(directSharedSessionId, { syncUrl: false });
       };
 
-      // A browser with no saved credentials can immediately view the shared
-      // page. A returning owner gets one normal auto-login attempt first.
+      // A browser with no saved credentials enters guest mode only for a
+      // session whose owner explicitly enabled public access. Otherwise leave
+      // the normal login screen in place without opening a guest WebSocket.
       if (!hasStoredAuth()) {
-        enterReadOnlyGuestMode();
-      } else {
-        void useAuthStore.getState().tryAutoLogin().then((loggedIn) => {
-          if (!loggedIn) enterReadOnlyGuestMode();
+        void isPublicDirectSession(directSharedSessionId).then((accessible) => {
+          if (accessible) enterReadOnlyGuestMode();
         });
+      } else {
+        void (async () => {
+          const loggedIn = await useAuthStore.getState().tryAutoLogin();
+          if (!loggedIn && await isPublicDirectSession(directSharedSessionId)) {
+            enterReadOnlyGuestMode();
+          }
+        })();
       }
       return;
     }
