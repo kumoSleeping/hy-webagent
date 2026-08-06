@@ -44,7 +44,7 @@ export const defaultCommands: SlashCommand[] = [
   { id: "name", label: "name", description: "Rename the session", kind: "args" },
   { id: "session", label: "session", description: "Session information", kind: "panel" },
   { id: "copy", label: "copy", description: "Copy the last message", kind: "instant" },
-  { id: "share", label: "开启此会话可访问", description: "允许未登录访客通过当前链接只读查看", kind: "instant" },
+  { id: "public-access", label: "Enable public access", description: "Allow anyone with this URL to view it read-only", kind: "instant" },
 ];
 
 function filterCommands(commands: SlashCommand[], query: string): SlashCommand[] {

@@ -34,4 +34,13 @@ describe("PublicSessionAccessRepository", () => {
     repo.enable(SESSION, "alice");
     expect(() => repo.enable(SESSION, "mallory")).toThrow("belongs to another user");
   });
+
+  it("removes ordinary-URL access only for its owner", () => {
+    repo.enable(SESSION, "alice");
+
+    expect(repo.disable(SESSION, "mallory")).toBe(false);
+    expect(repo.resolve(SESSION)).not.toBeNull();
+    expect(repo.disable(SESSION, "alice")).toBe(true);
+    expect(repo.resolve(SESSION)).toBeNull();
+  });
 });

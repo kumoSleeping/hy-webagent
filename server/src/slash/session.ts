@@ -198,7 +198,37 @@ export async function enablePublicAccess(
   return {
     ok: true,
     data: { sessionId: access.piSessionId, enabledAt: access.enabledAt },
-    message: "已开启此会话可访问：未登录访客可通过当前 URL 只读查看。",
+    message: "Public access enabled — anyone with this URL can view it read-only.",
+  };
+}
+
+/** Toggle ordinary-URL guest access for the active session. */
+export async function togglePublicAccess(
+  ctx: SlashContext,
+  _args: Record<string, unknown>,
+): Promise<SlashResponse> {
+  const ps = getUserSession(ctx);
+  if (!ctx.publicSessionAccess) {
+    return { ok: false, message: "Public session access is unavailable" };
+  }
+
+  const current = ctx.publicSessionAccess.resolve(ps.sessionId);
+  if (current) {
+    if (!ctx.publicSessionAccess.disable(ps.sessionId, ctx.userId)) {
+      return { ok: false, message: "Public access belongs to another user" };
+    }
+    return {
+      ok: true,
+      data: { sessionId: ps.sessionId, enabled: false },
+      message: "Public access disabled — this URL now requires login.",
+    };
+  }
+
+  const access = ctx.publicSessionAccess.enable(ps.sessionId, ctx.userId);
+  return {
+    ok: true,
+    data: { sessionId: access.piSessionId, enabled: true, enabledAt: access.enabledAt },
+    message: "Public access enabled — anyone with this URL can view it read-only.",
   };
 }
 

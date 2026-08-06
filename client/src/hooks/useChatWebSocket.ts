@@ -297,6 +297,14 @@ function dispatchWsMessage(
           })
           .catch(() => {});
       }
+      if (msg.payload?.command === "session.togglePublicAccess" && msg.payload?.ok) {
+        apiGet<{ system: SlashCommand[]; dynamic: SlashCommand[] }>("/api/slash/commands")
+          .then((data) => {
+            if (data.system?.length) useSlashStore.getState().setCommands(data.system);
+            useSlashStore.getState().setDynamicCommands(data.dynamic || []);
+          })
+          .catch(() => {});
+      }
       break;
     }
     case "slash:error": {

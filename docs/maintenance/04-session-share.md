@@ -1,6 +1,6 @@
 # 04 — 会话分享令牌（Session Share Token）
 
-> 当前行为：登录用户必须在 Command 中执行「开启此会话可访问」，普通会话的
+> 当前行为：登录用户必须在 Command 中执行 `Enable public access`，普通会话的
 > 完整页面 URL（`/chat/<piSessionId>`）才会成为公开的只读链接。未登录访客
 > 打开已开启的链接时会进入预览模式，无法发送消息或执行写入操作。
 > 本文档同时保留早期显式令牌接口的说明，供旧的 `/preview/:id?share=…`
@@ -10,12 +10,13 @@
 
 ## 普通页面 URL 分享
 
-在当前会话的 Command 中执行「开启此会话可访问」后，把地址栏中的
+在当前会话的 Command 中执行 `Enable public access` 后，把地址栏中的
 `/chat/<piSessionId>` 发给别人，对方无需登录即可阅读完整会话（包括后续流式
 更新）。每个开启状态由会话所有者持久化记录；没有该记录的普通会话 URL 会被
 未登录访客拒绝。服务端只接受完整 UUID，拒绝部分 ID、路径穿越和无效格式；访客
 WebSocket 一律标记为 `view=1`，服务端会拒绝 prompt、steer、follow-up、终止、
-Slash 命令和扩展 UI 回应等所有写入消息。
+Slash 命令和扩展 UI 回应等所有写入消息。开启后 Command 会改为
+`Disable public access`；再次执行即可关闭普通 URL 的访客访问。
 
 这是一项有意的公开分享策略：**任何获得完整 URL 的人都能阅读该会话**。不要
 把包含敏感内容的会话 URL 发送给不应查看的人。
@@ -23,7 +24,7 @@ Slash 命令和扩展 UI 回应等所有写入消息。
 ## 旧版显式令牌
 
 令牌仍是旧版 `/preview/:id?share=…` 链接的凭证，并且可撤销和过期。
-它不再是普通 `/chat/:id` URL 的访问门槛；普通 URL 则由「开启此会话可访问」
+它不再是普通 `/chat/:id` URL 的访问门槛；普通 URL 则由 `Enable public access`
 命令创建的会话访问记录控制。除已开启的普通页面 URL 外，访客也仍可通过下列
 两种方式打开旧链接：
 
@@ -99,7 +100,7 @@ Slash 命令和扩展 UI 回应等所有写入消息。
 服务端 authorizeGuestView(piSessionId, share)
   ├─ 是已启用 bot 频道发布的会话？ → 放行，owner = bot 账号
   ├─ 令牌有效 且 share.piSessionId === piSessionId？ → 放行，owner = 签发者
-  ├─ 所有者已开启该会话的普通聊天页访问？ → 放行，只读
+  ├─ 所有者已启用该会话的普通聊天页访问？ → 放行，只读
   └─ 否则 → socket.destroy()
 ```
 

@@ -170,19 +170,36 @@ describe("slash command router", () => {
     expect(result.data).toEqual({ text: "last assistant text" });
   });
 
-  it("session.enablePublicAccess grants ordinary-URL guest access for the current session", async () => {
+  it("session.togglePublicAccess grants ordinary-URL guest access for the current session", async () => {
     const publicSessionAccess = {
+      resolve: vi.fn().mockReturnValue(null),
       enable: vi.fn().mockReturnValue({ piSessionId: activeSessionId, ownerUserId: userId, enabledAt: 123 }),
     } as unknown as PublicSessionAccessRepository;
     const result = await dispatch(
       { userId, workspacePath, activeSessionId, sessionManager, publicSessionAccess },
-      { command: "session.enablePublicAccess", args: {} },
+      { command: "session.togglePublicAccess", args: {} },
     );
 
     expect(result.ok).toBe(true);
     expect(publicSessionAccess.enable).toHaveBeenCalledWith(activeSessionId, userId);
-    expect(result.message).toContain("已开启此会话可访问");
-    expect(result.data).toEqual({ sessionId: activeSessionId, enabledAt: 123 });
+    expect(result.message).toContain("Public access enabled");
+    expect(result.data).toEqual({ sessionId: activeSessionId, enabled: true, enabledAt: 123 });
+  });
+
+  it("session.togglePublicAccess disables an existing grant", async () => {
+    const publicSessionAccess = {
+      resolve: vi.fn().mockReturnValue({ piSessionId: activeSessionId, ownerUserId: userId, enabledAt: 123 }),
+      disable: vi.fn().mockReturnValue(true),
+    } as unknown as PublicSessionAccessRepository;
+    const result = await dispatch(
+      { userId, workspacePath, activeSessionId, sessionManager, publicSessionAccess },
+      { command: "session.togglePublicAccess", args: {} },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(publicSessionAccess.disable).toHaveBeenCalledWith(activeSessionId, userId);
+    expect(result.message).toContain("Public access disabled");
+    expect(result.data).toEqual({ sessionId: activeSessionId, enabled: false });
   });
 
   it("session.exportJsonl returns file path", async () => {

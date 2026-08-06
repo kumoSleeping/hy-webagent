@@ -55,6 +55,17 @@ export class PublicSessionAccessRepository {
     return access;
   }
 
+  /** Remove an owner's ordinary-URL guest access grant. */
+  disable(piSessionId: string, ownerUserId: string): boolean {
+    const result = this.db
+      .prepare(
+        `DELETE FROM public_session_access
+         WHERE pi_session_id = ? AND owner_user_id = ?`,
+      )
+      .run(piSessionId, ownerUserId);
+    return result.changes > 0;
+  }
+
   /** Resolve the owner of a session whose ordinary URL was made public. */
   resolve(piSessionId: string): PublicSessionAccess | null {
     const row = this.db

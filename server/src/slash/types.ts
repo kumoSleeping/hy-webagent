@@ -24,7 +24,8 @@ export type SlashCommand =
   | "session.exportJsonl"
   | "session.importJsonl"
   | "session.reload"
-  | "session.enablePublicAccess";
+  | "session.enablePublicAccess"
+  | "session.togglePublicAccess";
 
 export interface SlashRequest {
   command: SlashCommand;

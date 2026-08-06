@@ -7,7 +7,7 @@ describe("canSubmitBareSlash", () => {
     if (id === "model") return { kind: "panel" };
     if (id === "settings") return { kind: "panel" };
     if (id === "name") return { kind: "args" };
-    if (id === "share") return { kind: "instant" };
+    if (id === "public-access") return { kind: "instant" };
     if (id === "deploy") return { kind: "prompt" };
     if (id === "skill:review") return { kind: "skill" };
     return undefined;
@@ -17,8 +17,8 @@ describe("canSubmitBareSlash", () => {
     expect(canSubmitBareSlash("/new", find)).toBe(true);
   });
 
-  it("submits the ordinary-URL sharing command", () => {
-    expect(canSubmitBareSlash("/share", find)).toBe(true);
+  it("submits the ordinary-URL public access command", () => {
+    expect(canSubmitBareSlash("/public-access", find)).toBe(true);
   });
 
   it("submits toolbar slash commands", () => {
@@ -51,11 +51,11 @@ describe("canSubmitBareSlash", () => {
 });
 
 describe("default command menu", () => {
-  it("includes the current-session public access command", () => {
+  it("includes the English current-session public access command", () => {
     expect(defaultCommands).toContainEqual({
-      id: "share",
-      label: "开启此会话可访问",
-      description: "允许未登录访客通过当前链接只读查看",
+      id: "public-access",
+      label: "Enable public access",
+      description: "Allow anyone with this URL to view it read-only",
       kind: "instant",
     });
   });

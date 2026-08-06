@@ -37,6 +37,7 @@ const handlers: Record<SlashCommand, SlashHandler> = {
   "session.exportJsonl": session.exportJsonl,
   "session.importJsonl": session.importJsonl,
   "session.enablePublicAccess": session.enablePublicAccess,
+  "session.togglePublicAccess": session.togglePublicAccess,
   "session.reload": async (ctx, _args) => {
     const ps = ctx.sessionManager.getSession(ctx.activeSessionId!);
     if (!ps) return { ok: false, message: "No active session" };

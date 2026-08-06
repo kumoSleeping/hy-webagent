@@ -348,6 +348,8 @@ app.get("/api/slash/commands", authMiddleware(authSystem), (req: any, res) => {
       source: c.sourceInfo?.source || "extension",
     }));
 
+    const publicAccessEnabled = Boolean(publicSessionAccess.resolve(session.sessionId));
+
     res.json({
       system: [
         { id: "model", label: "model", description: "Pick a model", kind: "panel" },
@@ -362,7 +364,9 @@ app.get("/api/slash/commands", authMiddleware(authSystem), (req: any, res) => {
         { id: "name", label: "name", description: "Rename the session", kind: "args" },
         { id: "session", label: "session", description: "Session information", kind: "panel" },
         { id: "copy", label: "copy", description: "Copy the last message", kind: "instant" },
-        { id: "share", label: "开启此会话可访问", description: "允许未登录访客通过当前链接只读查看", kind: "instant" },
+        publicAccessEnabled
+          ? { id: "public-access", label: "Disable public access", description: "Require login to view this session URL", kind: "instant" }
+          : { id: "public-access", label: "Enable public access", description: "Allow anyone with this URL to view it read-only", kind: "instant" },
       ],
       dynamic: [...prompts, ...skills, ...extCommands],
     });
@@ -554,7 +558,7 @@ function isPubliclyViewableSession(piSessionId: string): boolean {
  * Authorize an unauthenticated read-only view.
  *
  * A normal `/chat/:sessionId` URL is accepted only after its owner runs the
- * "开启此会话可访问" command. Bot publication and legacy share tokens remain
+ * "Enable public access" command. Bot publication and legacy share tokens remain
  * compatible alternatives. Every accepted guest connection is view-only.
  */
 function authorizeGuestView(
