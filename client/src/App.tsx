@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useAuthStore } from "./stores/authStore";
+import { hasStoredAuth, useAuthStore } from "./stores/authStore";
 import { useSessionStore } from "./stores/sessionStore";
 import { parseSessionIdFromPath, parseGroupPath, isNewChatPath } from "./lib/chatRoutes";
 import { LoginView } from "./components/login/LoginView";
@@ -33,6 +33,10 @@ export default function App() {
   const searchParams = new URLSearchParams(window.location.search);
   const isGuestView = searchParams.get("view") === "1";
   const guestPiSessionId = searchParams.get("piSessionId") ?? undefined;
+  // `/chat/:id` is the normal URL copied from the address bar. Treat it as a
+  // public read-only link only after attempting to restore an existing login,
+  // so an owner opening their own URL keeps the full authenticated workspace.
+  const directSharedSessionId = parseSessionIdFromPath(window.location.pathname);
 
   useEffect(() => {
     if (groupMatch || directGroupRoute || isMessageRenderPath) {
@@ -50,6 +54,23 @@ export default function App() {
     if (isGuestView && guestPiSessionId) {
       useAuthStore.getState().setGuestMode(guestPiSessionId);
       useSessionStore.getState().setActiveSession(guestPiSessionId, { syncUrl: false });
+      return;
+    }
+    if (directSharedSessionId) {
+      const enterReadOnlyGuestMode = () => {
+        useAuthStore.getState().setGuestMode(directSharedSessionId, true);
+        useSessionStore.getState().setActiveSession(directSharedSessionId, { syncUrl: false });
+      };
+
+      // A browser with no saved credentials can immediately view the shared
+      // page. A returning owner gets one normal auto-login attempt first.
+      if (!hasStoredAuth()) {
+        enterReadOnlyGuestMode();
+      } else {
+        void useAuthStore.getState().tryAutoLogin().then((loggedIn) => {
+          if (!loggedIn) enterReadOnlyGuestMode();
+        });
+      }
       return;
     }
     void useAuthStore.getState().tryAutoLogin();

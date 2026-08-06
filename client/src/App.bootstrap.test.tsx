@@ -62,6 +62,18 @@ function mockFetch() {
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
+    if (url.endsWith("/api/models") && method === "GET") {
+      return new Response(JSON.stringify({ models: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (url.endsWith("/api/slash/commands") && method === "GET") {
+      return new Response(JSON.stringify({ system: [], dynamic: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return new Response(JSON.stringify({ error: `unmocked ${method} ${url}` }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
@@ -119,5 +131,19 @@ describe("App bootstrap", () => {
       },
       { timeout: 8000 }
     );
+  });
+
+  it("opens a shared /chat/:sessionId URL as a read-only guest without saved credentials", async () => {
+    document.cookie = "pi-api-key=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    document.cookie = "pi-session-id=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    useAuthStore.setState({ isLoading: false });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(useAuthStore.getState().userId).toBe("__guest__");
+      expect(useAuthStore.getState().isPreviewMode).toBe(true);
+      expect(useSessionStore.getState().activePiSessionId).toBe(SESSION);
+    });
   });
 });

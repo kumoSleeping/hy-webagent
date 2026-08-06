@@ -20,6 +20,7 @@ import { createMessageRenderHandler } from "./routes/message-render.js";
 import { createPlatformAdminRouter } from "./routes/platform-admin.js";
 import path from "node:path";
 import { findSessionFilePath, isValidSessionId } from "./pi/session-files.js";
+import { isPublicSharedSessionUrl } from "./guest-view.js";
 import fs from "node:fs/promises";
 import { loadPlatformSystemMd, loadPlatformBotSystemMd } from "./pi/platform-system.js";
 import logger, { createLogger } from "./logger.js";
@@ -548,15 +549,13 @@ function isPubliclyViewableSession(piSessionId: string): boolean {
 }
 
 /**
- * Authorize an unauthenticated guest view.
+ * Authorize an unauthenticated read-only view.
  *
- * Two — and only two — grounds count, because a guest presents no credentials:
- *   1. the session was published through an enabled bot channel, or
- *   2. the caller holds an unrevoked, unexpired share token issued by the owner
- *      *for this exact session*.
- *
- * Returns the owning userId when known, so history can be read from that one
- * workspace instead of scanning every workspace on disk for a matching id.
+ * A full `/chat/:sessionId` URL is intentionally shareable. Bot publication
+ * and legacy share tokens still provide a known owner, and so avoid a disk
+ * scan when an inactive conversation needs to be read. Direct links may not
+ * have that metadata; they remain read-only and are accepted only for exact
+ * UUID session ids.
  */
 function authorizeGuestView(
   piSessionId: string,
@@ -581,6 +580,15 @@ function authorizeGuestView(
     } catch (err) {
       log.warn(`share token lookup failed: ${(err as Error).message}`, { piSessionId });
     }
+  }
+
+  // The ordinary conversation URL is the share link. If it identifies a live
+  // session, retain its owner so historical fallback remains workspace-scoped.
+  if (isPublicSharedSessionUrl(piSessionId)) {
+    return {
+      allowed: true,
+      ownerUserId: sessionManager.getSession(piSessionId)?.userId,
+    };
   }
 
   return { allowed: false };
@@ -695,11 +703,9 @@ function handleUpgrade(
       }
       return;
     }
-    // Guest view is unauthenticated, so it must resolve only sessions that were
-    // deliberately published — via a bot channel or an owner-issued share token.
-    // Without this, any piSessionId — including a partial one — reached a
-    // cross-workspace disk scan and streamed another user's full transcript,
-    // tool calls included.
+    // Guest links are intentionally public, but must contain a complete UUID.
+    // `authorizeGuestView` rejects partial ids before any disk lookup; guest
+    // sockets are also marked view-only and cannot send write-capable messages.
     const guestAuth = authorizeGuestView(piSessionId, url.searchParams.get("share"));
     if (!guestAuth.allowed) {
       log.warn("ws upgrade rejected: session is not publicly viewable", { piSessionId });

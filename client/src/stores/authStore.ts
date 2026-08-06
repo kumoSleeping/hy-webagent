@@ -42,6 +42,11 @@ function getSessionCookie(): string | null {
   return getCookie(SESSION_COOKIE_NAME);
 }
 
+/** Whether this browser has credentials worth restoring before guest fallback. */
+export function hasStoredAuth(): boolean {
+  return typeof document !== "undefined" && Boolean(getApiKeyCookie() || getSessionCookie());
+}
+
 function clearAuthCookies() {
   clearCookie(COOKIE_NAME);
   clearCookie(SESSION_COOKIE_NAME);
@@ -81,7 +86,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-const _hasCookie = typeof document !== "undefined" && !!(getApiKeyCookie() || getSessionCookie());
+const _hasCookie = typeof document !== "undefined" && hasStoredAuth();
 
 let autoLoginPromise: Promise<boolean> | null = null;
 
